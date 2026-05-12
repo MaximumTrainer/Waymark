@@ -1,0 +1,29 @@
+@OpenOnboarding.Api_HostAddress = http://localhost:5072
+
+POST {{OpenOnboarding.Api_HostAddress}}/api/workflow/sessions/start
+Content-Type: application/json
+Accept: application/json
+
+{
+  "flowId": "11111111-1111-1111-1111-111111111111"
+}
+
+###
+
+@SessionId = 22222222-2222-2222-2222-222222222222
+@NodeId = 33333333-3333-3333-3333-333333333333
+
+POST {{OpenOnboarding.Api_HostAddress}}/api/workflow/sessions/{{SessionId}}/steps/{{NodeId}}/submit
+Content-Type: application/json
+Accept: application/json
+
+{
+  "payload": {
+    "Country": "USA"
+  }
+}
+
+###
+
+GET {{OpenOnboarding.Api_HostAddress}}/api/workflow/sessions/{{SessionId}}/next
+Accept: application/json

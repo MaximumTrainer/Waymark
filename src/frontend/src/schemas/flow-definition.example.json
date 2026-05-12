@@ -1,0 +1,60 @@
+{
+  "id": "11111111-1111-1111-1111-111111111111",
+  "name": "Compliance Onboarding",
+  "description": "Branch by country and collect required tax identity",
+  "version": 1,
+  "nodes": [
+    {
+      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "key": "country-form",
+      "type": "Form",
+      "title": "Tell us about your business",
+      "jsonContent": "{\"fields\":[{\"name\":\"CompanyName\",\"type\":\"text\",\"required\":true},{\"name\":\"Country\",\"type\":\"select\",\"required\":true}]}",
+      "complianceRuleJson": "{\"requiredFields\":[\"CompanyName\",\"Country\"]}",
+      "isStartNode": true
+    },
+    {
+      "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "key": "us-ssn-form",
+      "type": "Form",
+      "title": "US Tax Verification",
+      "jsonContent": "{\"fields\":[{\"name\":\"Ssn\",\"type\":\"text\",\"required\":true}]}",
+      "complianceRuleJson": "{\"requiredFields\":[\"Ssn\"]}",
+      "isStartNode": false
+    },
+    {
+      "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "key": "passport-upload",
+      "type": "DocumentUpload",
+      "title": "Passport upload",
+      "jsonContent": "{\"acceptedFileTypes\":[\"application/pdf\",\"image/jpeg\",\"image/png\"]}",
+      "complianceRuleJson": null,
+      "isStartNode": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "sourceNodeId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "targetNodeId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "conditionField": "Country",
+      "conditionOperator": "Equals",
+      "conditionValue": "USA",
+      "priority": 0
+    },
+    {
+      "id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "sourceNodeId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "targetNodeId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "conditionField": "Country",
+      "conditionOperator": "NotEquals",
+      "conditionValue": "USA",
+      "priority": 1
+    }
+  ]
+}
