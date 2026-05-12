@@ -3,11 +3,10 @@
 # create-issues.sh
 #
 # Creates all functional-gap GitHub issues for MaximumTrainer/open-onboarding.
-# Requires the GitHub CLI (gh) to be authenticated with `issues: write` scope.
+# Safe to run multiple times – existing issues and labels are skipped.
 #
-# Usage:
-#   gh auth login          # authenticate once
-#   bash scripts/create-issues.sh
+# Locally:  gh auth login && bash scripts/create-issues.sh
+# CI:       triggered automatically via .github/workflows/create-issues.yml
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -23,6 +22,17 @@ ensure_label() {
     || gh label create "$name" --repo "$REPO" --color "$color" --description "$description"
 }
 
+# ---------------------------------------------------------------------------
+# Helper – skip creation when an open or closed issue with the same title
+# already exists (prevents duplicates on repeated workflow runs)
+# ---------------------------------------------------------------------------
+issue_exists() {
+  local title="$1"
+  gh issue list --repo "$REPO" --state all --json title \
+    --jq '.[].title' 2>/dev/null \
+    | grep -qF "$title"
+}
+
 echo "==> Ensuring labels exist…"
 ensure_label "enhancement"   "a2eeef" "New feature or request"
 ensure_label "frontend"      "0075ca" "React / TypeScript / UI work"
@@ -33,7 +43,8 @@ ensure_label "security"      "d73a4a" "Security-related issue"
 # ---------------------------------------------------------------------------
 # Issue 1 – Schema-driven form rendering
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Schema-driven form rendering in StepRenderer" \
+  || gh issue create --repo "$REPO" \
   --title "Schema-driven form rendering in StepRenderer" \
   --label "enhancement,frontend" \
   --body "## Background
@@ -73,7 +84,8 @@ This means end-users see a blank card for every form step, making the whole onbo
 # ---------------------------------------------------------------------------
 # Issue 2 – Dynamic JourneyBuilder visualisation
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Connect JourneyBuilder to live flow/session data" \
+  || gh issue create --repo "$REPO" \
   --title "Connect JourneyBuilder to live flow/session data" \
   --label "enhancement,frontend" \
   --body "## Background
@@ -110,7 +122,8 @@ The component needs to source its nodes and edges from the active \`SessionStepR
 # ---------------------------------------------------------------------------
 # Issue 3 – Flow CRUD REST API
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Flow CRUD REST API (create, read, update, delete flows)" \
+  || gh issue create --repo "$REPO" \
   --title "Flow CRUD REST API (create, read, update, delete flows)" \
   --label "enhancement,backend" \
   --body "## Background
@@ -150,7 +163,8 @@ Currently there is no API surface for managing flow definitions. Flows must be i
 # ---------------------------------------------------------------------------
 # Issue 4 – Customer Profile CRUD API
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Customer Profile CRUD API endpoints" \
+  || gh issue create --repo "$REPO" \
   --title "Customer Profile CRUD API endpoints" \
   --label "enhancement,backend" \
   --body "## Background
@@ -186,7 +200,8 @@ gh issue create --repo "$REPO" \
 # ---------------------------------------------------------------------------
 # Issue 5 – Real file upload handling for DocumentUpload nodes
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Implement real file upload handling for DocumentUpload nodes" \
+  || gh issue create --repo "$REPO" \
   --title "Implement real file upload handling for DocumentUpload nodes" \
   --label "enhancement,backend,frontend" \
   --body "## Background
@@ -228,7 +243,8 @@ gh issue create --repo "$REPO" \
 # ---------------------------------------------------------------------------
 # Issue 6 – Authentication and Authorization
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Add authentication and authorization (JWT / API key)" \
+  || gh issue create --repo "$REPO" \
   --title "Add authentication and authorization (JWT / API key)" \
   --label "enhancement,backend,security" \
   --body "## Background
@@ -268,7 +284,8 @@ All API endpoints are currently unauthenticated. Any caller can start sessions, 
 # ---------------------------------------------------------------------------
 # Issue 7 – Extended condition operators
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Add extended condition operators for workflow branching (Contains, StartsWith, GreaterThan, Regex, etc.)" \
+  || gh issue create --repo "$REPO" \
   --title "Add extended condition operators for workflow branching (Contains, StartsWith, GreaterThan, Regex, etc.)" \
   --label "enhancement,backend" \
   --body "## Background
@@ -302,7 +319,8 @@ The \`ConditionOperator\` enum only supports \`Equals\`, \`NotEquals\`, and \`Ex
 # ---------------------------------------------------------------------------
 # Issue 8 – Submission retrieval & analytics endpoints
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Submission retrieval and session analytics endpoints" \
+  || gh issue create --repo "$REPO" \
   --title "Submission retrieval and session analytics endpoints" \
   --label "enhancement,backend" \
   --body "## Background
@@ -336,7 +354,8 @@ Once sessions are completed, there is no API to retrieve the collected data. Ope
 # ---------------------------------------------------------------------------
 # Issue 9 – Session abandonment endpoint
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Add explicit session abandonment endpoint" \
+  || gh issue create --repo "$REPO" \
   --title "Add explicit session abandonment endpoint" \
   --label "enhancement,backend" \
   --body "## Background
@@ -368,7 +387,8 @@ gh issue create --repo "$REPO" \
 # ---------------------------------------------------------------------------
 # Issue 10 – EF Core migrations and seed data
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Add EF Core database migrations and example seed data" \
+  || gh issue create --repo "$REPO" \
   --title "Add EF Core database migrations and example seed data" \
   --label "enhancement,backend" \
   --body "## Background
@@ -400,7 +420,8 @@ There are no EF Core migrations in the repository. To run the application, a dev
 # ---------------------------------------------------------------------------
 # Issue 11 – OpenAPI / Swagger UI documentation
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Configure OpenAPI / Swagger UI documentation" \
+  || gh issue create --repo "$REPO" \
   --title "Configure OpenAPI / Swagger UI documentation" \
   --label "enhancement,backend,documentation" \
   --body "## Background
@@ -432,7 +453,8 @@ gh issue create --repo "$REPO" \
 # ---------------------------------------------------------------------------
 # Issue 12 – Real-time notifications via SSE / SignalR
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Implement real-time session progress notifications (SSE or SignalR)" \
+  || gh issue create --repo "$REPO" \
   --title "Implement real-time session progress notifications (SSE or SignalR)" \
   --label "enhancement,backend,frontend" \
   --body "## Background
@@ -474,7 +496,8 @@ WiseFlow.ai's platform provides real-time notifications to keep all stakeholders
 # ---------------------------------------------------------------------------
 # Issue 13 – Redirect node dynamic URL parameter interpolation
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Redirect node: interpolate session and submission data into redirect URL" \
+  || gh issue create --repo "$REPO" \
   --title "Redirect node: interpolate session and submission data into redirect URL" \
   --label "enhancement,backend,frontend" \
   --body "## Background
@@ -507,7 +530,8 @@ The \`Redirect\` node type is rendered by \`StepRenderer\` as a plain anchor tag
 # ---------------------------------------------------------------------------
 # Issue 14 – Logic node execution engine
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Logic node server-side execution engine" \
+  || gh issue create --repo "$REPO" \
   --title "Logic node server-side execution engine" \
   --label "enhancement,backend" \
   --body "## Background
@@ -541,7 +565,8 @@ gh issue create --repo "$REPO" \
 # ---------------------------------------------------------------------------
 # Issue 15 – Expanded compliance rule validators
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Expand compliance rule JSON schema beyond requiredFields" \
+  || gh issue create --repo "$REPO" \
   --title "Expand compliance rule JSON schema beyond requiredFields" \
   --label "enhancement,backend" \
   --body "## Background
@@ -576,7 +601,8 @@ gh issue create --repo "$REPO" \
 # ---------------------------------------------------------------------------
 # Issue 16 – Role-based access control
 # ---------------------------------------------------------------------------
-gh issue create --repo "$REPO" \
+issue_exists "Implement role-based access control (RBAC) — Operator vs. Applicant" \
+  || gh issue create --repo "$REPO" \
   --title "Implement role-based access control (RBAC) — Operator vs. Applicant" \
   --label "enhancement,backend,security" \
   --body "## Background
