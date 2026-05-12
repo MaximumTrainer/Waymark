@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="OpenOnboarding.Api/OpenOnboarding.Api.csproj" />
+  <Project Path="OpenOnboarding.Application.Tests/OpenOnboarding.Application.Tests.csproj" />
+  <Project Path="OpenOnboarding.Application/OpenOnboarding.Application.csproj" />
+  <Project Path="OpenOnboarding.Domain/OpenOnboarding.Domain.csproj" />
+  <Project Path="OpenOnboarding.Infrastructure/OpenOnboarding.Infrastructure.csproj" />
+</Solution>

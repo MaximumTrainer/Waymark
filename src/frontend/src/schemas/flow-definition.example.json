@@ -1,0 +1,69 @@
+{
+  "id": "onboarding-v1",
+  "name": "Compliance Onboarding",
+  "startNodeId": "country-form",
+  "nodes": [
+    {
+      "id": "country-form",
+      "type": "Form",
+      "title": "Tell us about your business",
+      "fields": [
+        { "name": "CompanyName", "type": "text", "required": true },
+        { "name": "Country", "type": "select", "required": true }
+      ],
+      "complianceRules": {
+        "requiredFields": ["CompanyName", "Country"]
+      }
+    },
+    {
+      "id": "us-ssn-form",
+      "type": "Form",
+      "title": "US Tax Verification",
+      "fields": [
+        { "name": "Ssn", "type": "text", "required": true }
+      ],
+      "complianceRules": {
+        "requiredFields": ["Ssn"]
+      }
+    },
+    {
+      "id": "passport-upload",
+      "type": "DocumentUpload",
+      "title": "Passport upload",
+      "acceptedFileTypes": ["application/pdf", "image/jpeg", "image/png"]
+    },
+    {
+      "id": "review",
+      "type": "Information",
+      "title": "Review and submit"
+    }
+  ],
+  "connections": [
+    {
+      "sourceNodeId": "country-form",
+      "targetNodeId": "us-ssn-form",
+      "condition": {
+        "field": "Country",
+        "operator": "Equals",
+        "value": "USA"
+      }
+    },
+    {
+      "sourceNodeId": "country-form",
+      "targetNodeId": "passport-upload",
+      "condition": {
+        "field": "Country",
+        "operator": "NotEquals",
+        "value": "USA"
+      }
+    },
+    {
+      "sourceNodeId": "us-ssn-form",
+      "targetNodeId": "review"
+    },
+    {
+      "sourceNodeId": "passport-upload",
+      "targetNodeId": "review"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+@OpenOnboarding.Api_HostAddress = http://localhost:5072
+
+GET {{OpenOnboarding.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
