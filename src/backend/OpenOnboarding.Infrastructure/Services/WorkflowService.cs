@@ -126,7 +126,13 @@ public sealed class WorkflowService(OnboardingDbContext dbContext, IValidator<St
 
     private Node? ResolveNextNode(Session session, Guid nodeId, IReadOnlyDictionary<string, object?> payload)
     {
-        var candidates = session.Flow.Connections.Where(x => x.SourceNodeId == nodeId).ToList();
+        var candidates = session.Flow.Connections
+            .Where(x => x.SourceNodeId == nodeId)
+            .OrderBy(x => x.Priority)
+            .ThenBy(x => string.IsNullOrWhiteSpace(x.ConditionField))
+            .ThenBy(x => x.Id)
+            .ToList();
+
         foreach (var candidate in candidates)
         {
             if (EvaluateCondition(candidate, payload, session.CustomerProfile))
@@ -174,23 +180,35 @@ public sealed class WorkflowService(OnboardingDbContext dbContext, IValidator<St
             return;
         }
 
-        using var document = JsonDocument.Parse(node.ComplianceRuleJson);
-        if (!document.RootElement.TryGetProperty("requiredFields", out var requiredFields) || requiredFields.ValueKind != JsonValueKind.Array)
+        JsonDocument document;
+        try
         {
-            return;
+            document = JsonDocument.Parse(node.ComplianceRuleJson);
+        }
+        catch (JsonException)
+        {
+            throw new ValidationException($"Compliance rule configuration is invalid for node '{node.Key}'.");
         }
 
-        foreach (var element in requiredFields.EnumerateArray())
+        using (document)
         {
-            var fieldName = element.GetString();
-            if (string.IsNullOrWhiteSpace(fieldName))
+            if (!document.RootElement.TryGetProperty("requiredFields", out var requiredFields) || requiredFields.ValueKind != JsonValueKind.Array)
             {
-                continue;
+                return;
             }
 
-            if (!payload.TryGetValue(fieldName, out var value) || value is null || string.IsNullOrWhiteSpace(value.ToString()))
+            foreach (var element in requiredFields.EnumerateArray())
             {
-                throw new ValidationException($"Compliance rule failed: '{fieldName}' is required.");
+                var fieldName = element.GetString();
+                if (string.IsNullOrWhiteSpace(fieldName))
+                {
+                    continue;
+                }
+
+                if (!payload.TryGetValue(fieldName, out var value) || value is null || string.IsNullOrWhiteSpace(value.ToString()))
+                {
+                    throw new ValidationException($"Compliance rule failed: '{fieldName}' is required.");
+                }
             }
         }
     }

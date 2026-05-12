@@ -15,7 +15,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("OnboardingDb")
-            ?? "Host=localhost;Port=5432;Database=open_onboarding;Username=postgres;Password=postgres";
+            ?? throw new InvalidOperationException("Connection string 'OnboardingDb' must be configured.");
 
         services.AddDbContext<OnboardingDbContext>(options => options.UseNpgsql(connectionString));
 

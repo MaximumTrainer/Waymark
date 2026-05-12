@@ -1,69 +1,60 @@
 {
-  "id": "onboarding-v1",
+  "id": "11111111-1111-1111-1111-111111111111",
   "name": "Compliance Onboarding",
-  "startNodeId": "country-form",
+  "description": "Branch by country and collect required tax identity",
+  "version": 1,
   "nodes": [
     {
-      "id": "country-form",
+      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "key": "country-form",
       "type": "Form",
       "title": "Tell us about your business",
-      "fields": [
-        { "name": "CompanyName", "type": "text", "required": true },
-        { "name": "Country", "type": "select", "required": true }
-      ],
-      "complianceRules": {
-        "requiredFields": ["CompanyName", "Country"]
-      }
+      "jsonContent": "{\"fields\":[{\"name\":\"CompanyName\",\"type\":\"text\",\"required\":true},{\"name\":\"Country\",\"type\":\"select\",\"required\":true}]}",
+      "complianceRuleJson": "{\"requiredFields\":[\"CompanyName\",\"Country\"]}",
+      "isStartNode": true
     },
     {
-      "id": "us-ssn-form",
+      "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "key": "us-ssn-form",
       "type": "Form",
       "title": "US Tax Verification",
-      "fields": [
-        { "name": "Ssn", "type": "text", "required": true }
-      ],
-      "complianceRules": {
-        "requiredFields": ["Ssn"]
-      }
+      "jsonContent": "{\"fields\":[{\"name\":\"Ssn\",\"type\":\"text\",\"required\":true}]}",
+      "complianceRuleJson": "{\"requiredFields\":[\"Ssn\"]}",
+      "isStartNode": false
     },
     {
-      "id": "passport-upload",
+      "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "key": "passport-upload",
       "type": "DocumentUpload",
       "title": "Passport upload",
-      "acceptedFileTypes": ["application/pdf", "image/jpeg", "image/png"]
-    },
-    {
-      "id": "review",
-      "type": "Information",
-      "title": "Review and submit"
+      "jsonContent": "{\"acceptedFileTypes\":[\"application/pdf\",\"image/jpeg\",\"image/png\"]}",
+      "complianceRuleJson": null,
+      "isStartNode": false
     }
   ],
   "connections": [
     {
-      "sourceNodeId": "country-form",
-      "targetNodeId": "us-ssn-form",
-      "condition": {
-        "field": "Country",
-        "operator": "Equals",
-        "value": "USA"
-      }
+      "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "sourceNodeId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "targetNodeId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "conditionField": "Country",
+      "conditionOperator": "Equals",
+      "conditionValue": "USA",
+      "priority": 0
     },
     {
-      "sourceNodeId": "country-form",
-      "targetNodeId": "passport-upload",
-      "condition": {
-        "field": "Country",
-        "operator": "NotEquals",
-        "value": "USA"
-      }
-    },
-    {
-      "sourceNodeId": "us-ssn-form",
-      "targetNodeId": "review"
-    },
-    {
-      "sourceNodeId": "passport-upload",
-      "targetNodeId": "review"
+      "id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+      "flowId": "11111111-1111-1111-1111-111111111111",
+      "sourceNodeId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "targetNodeId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "conditionField": "Country",
+      "conditionOperator": "NotEquals",
+      "conditionValue": "USA",
+      "priority": 1
     }
   ]
 }

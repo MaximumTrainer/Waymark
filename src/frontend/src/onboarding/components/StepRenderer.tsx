@@ -22,6 +22,24 @@ function parseContent(node: FlowNode | null): Record<string, unknown> {
   }
 }
 
+function getSafeRedirectUrl(value: unknown): string {
+  if (typeof value !== 'string' || value.trim().length == 0) {
+    return '#'
+  }
+
+  const trimmed = value.trim()
+  if (trimmed.startsWith('/')) {
+    return trimmed
+  }
+
+  try {
+    const parsed = new URL(trimmed)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : '#'
+  } catch {
+    return '#'
+  }
+}
+
 export function StepRenderer({ node, onSubmit }: StepRendererProps) {
   if (!node) {
     return <div className={cardClassName}>Journey complete 🎉</div>
@@ -62,7 +80,7 @@ export function StepRenderer({ node, onSubmit }: StepRendererProps) {
     Redirect: (
       <div className="space-y-3">
         <p className="text-sm text-slate-700">{node.title}</p>
-        <a className="text-sm font-semibold text-blue-600" href={String(content.url ?? '#')}>
+        <a className="text-sm font-semibold text-blue-600" href={getSafeRedirectUrl(content.url)}>
           Continue to external provider
         </a>
       </div>

@@ -14,4 +14,5 @@ public sealed class Connection
     public string? ConditionField { get; set; }
     public ConditionOperator? ConditionOperator { get; set; }
     public string? ConditionValue { get; set; }
+    public int Priority { get; set; }
 }

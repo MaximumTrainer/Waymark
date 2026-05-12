@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { SessionStepResponse, StartSessionRequest, SubmitStepRequest } from '../types/flow'
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000/api/workflow'
+const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '/api/workflow').replace(/\/$/, '')
 
 export function useOnboarding() {
   const [step, setStep] = useState<SessionStepResponse | null>(null)

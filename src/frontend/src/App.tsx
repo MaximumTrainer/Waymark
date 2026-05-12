@@ -28,16 +28,21 @@ function App() {
         <h2 className="text-lg font-semibold text-slate-900">Dynamic UI Engine (Step Renderer)</h2>
         {error ? <p className="rounded bg-rose-50 p-3 text-sm text-rose-600">{error}</p> : null}
         {isLoading ? <p className="text-sm text-slate-500">Loading session…</p> : null}
-        <StepRenderer
-          node={step?.currentNode ?? null}
-          onSubmit={async (payload) => {
-            if (!step?.sessionId || !step.currentNode) {
-              return
-            }
+        {!isLoading && !error && !step ? (
+          <p className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-600">Session has not started yet.</p>
+        ) : null}
+        {step ? (
+          <StepRenderer
+            node={step.currentNode}
+            onSubmit={async (payload) => {
+              if (!step.currentNode) {
+                return
+              }
 
-            await submitStep(step.sessionId, step.currentNode.id, { payload })
-          }}
-        />
+              await submitStep(step.sessionId, step.currentNode.id, { payload })
+            }}
+          />
+        ) : null}
       </section>
     </main>
   )

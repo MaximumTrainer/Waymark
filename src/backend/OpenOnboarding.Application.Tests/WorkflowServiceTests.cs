@@ -12,6 +12,26 @@ namespace OpenOnboarding.Application.Tests;
 public sealed class WorkflowServiceTests
 {
     [Fact]
+    public async Task SubmitStepAsync_UsesConnectionPriority_WhenMultipleConnectionsCanMatch()
+    {
+        var dbContext = BuildDbContext();
+        var flow = CreateFlow(includeUnconditionalConnection: true);
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
+
+        var response = await service.SubmitStepAsync(started.SessionId, started.CurrentNode!.Id, new SubmitStepRequest
+        {
+            Payload = new Dictionary<string, object?> { ["Country"] = "USA", ["FirstName"] = "Ada" }
+        });
+
+        Assert.False(response.IsCompleted);
+        Assert.Equal("us-ssn", response.CurrentNode!.Key);
+    }
+
+    [Fact]
     public async Task SubmitStepAsync_BranchesToUsaNode_WhenCountryEqualsUsa()
     {
         var dbContext = BuildDbContext();
@@ -56,6 +76,27 @@ public sealed class WorkflowServiceTests
         Assert.Null(completed.CurrentNode);
     }
 
+    [Fact]
+    public async Task SubmitStepAsync_ThrowsValidationException_WhenComplianceRuleJsonIsInvalid()
+    {
+        var dbContext = BuildDbContext();
+        var flow = CreateFlow();
+        flow.Nodes.First(x => x.IsStartNode).ComplianceRuleJson = "{invalid json";
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.SubmitStepAsync(
+            started.SessionId,
+            started.CurrentNode!.Id,
+            new SubmitStepRequest
+            {
+                Payload = new Dictionary<string, object?> { ["Country"] = "USA", ["FirstName"] = "Ada" }
+            }));
+    }
+
     private static WorkflowService CreateService(OnboardingDbContext dbContext)
     {
         return new WorkflowService(
@@ -73,7 +114,7 @@ public sealed class WorkflowServiceTests
         return new OnboardingDbContext(options);
     }
 
-    private static Flow CreateFlow()
+    private static Flow CreateFlow(bool includeUnconditionalConnection = false)
     {
         var flowId = Guid.NewGuid();
         var startNode = new Node
@@ -112,27 +153,52 @@ public sealed class WorkflowServiceTests
             Name = "Compliance onboarding",
             Description = "Branch by country",
             Nodes = new List<Node> { startNode, usaNode, passportNode },
-            Connections = new List<Connection>
+            Connections = BuildConnections(flowId, startNode.Id, usaNode.Id, passportNode.Id, includeUnconditionalConnection)
+        };
+    }
+
+    private static List<Connection> BuildConnections(
+        Guid flowId,
+        Guid startNodeId,
+        Guid usaNodeId,
+        Guid passportNodeId,
+        bool includeUnconditionalConnection)
+    {
+        var connections = new List<Connection>
+        {
+            new()
             {
-                new()
-                {
-                    FlowId = flowId,
-                    SourceNodeId = startNode.Id,
-                    TargetNodeId = usaNode.Id,
-                    ConditionField = "Country",
-                    ConditionOperator = ConditionOperator.Equals,
-                    ConditionValue = "USA"
-                },
-                new()
-                {
-                    FlowId = flowId,
-                    SourceNodeId = startNode.Id,
-                    TargetNodeId = passportNode.Id,
-                    ConditionField = "Country",
-                    ConditionOperator = ConditionOperator.NotEquals,
-                    ConditionValue = "USA"
-                }
+                FlowId = flowId,
+                SourceNodeId = startNodeId,
+                TargetNodeId = usaNodeId,
+                ConditionField = "Country",
+                ConditionOperator = ConditionOperator.Equals,
+                ConditionValue = "USA",
+                Priority = 0
+            },
+            new()
+            {
+                FlowId = flowId,
+                SourceNodeId = startNodeId,
+                TargetNodeId = passportNodeId,
+                ConditionField = "Country",
+                ConditionOperator = ConditionOperator.NotEquals,
+                ConditionValue = "USA",
+                Priority = 1
             }
         };
+
+        if (includeUnconditionalConnection)
+        {
+            connections.Add(new Connection
+            {
+                FlowId = flowId,
+                SourceNodeId = startNodeId,
+                TargetNodeId = passportNodeId,
+                Priority = 99
+            });
+        }
+
+        return connections;
     }
 }
