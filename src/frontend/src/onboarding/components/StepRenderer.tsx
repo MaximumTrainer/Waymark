@@ -168,9 +168,158 @@ function DynamicForm({
   )
 }
 
+// ── Document upload step ───────────────────────────────────────────────────────
+interface UploadedFileRef {
+  fileId: string
+  fileName: string
+}
+
+function DocumentUploadStep({
+  node,
+  sessionId,
+  nodeId,
+  onSubmit,
+}: {
+  node: FlowNode
+  sessionId?: string
+  nodeId?: string
+  onSubmit: (payload: Record<string, unknown>) => Promise<void>
+}) {
+  const content = (() => {
+    try {
+      return JSON.parse(node.jsonContent) as Record<string, unknown>
+    } catch {
+      return {}
+    }
+  })()
+
+  const acceptedFileTypes = Array.isArray(content.acceptedFileTypes)
+    ? (content.acceptedFileTypes as string[]).join(',')
+    : undefined
+  const maxFiles =
+    typeof content.maxFiles === 'number' ? content.maxFiles : undefined
+
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileRef[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+
+  const uploadFiles = (fileList: FileList) => {
+    if (!sessionId || !nodeId) return
+
+    const formData = new FormData()
+    for (const file of fileList) {
+      formData.append('files', file)
+    }
+
+    setIsUploading(true)
+    setUploadError(null)
+    setUploadProgress(0)
+
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `/api/workflow/sessions/${sessionId}/steps/${nodeId}/documents`)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        setUploadProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    }
+
+    xhr.onload = () => {
+      setIsUploading(false)
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const stored = JSON.parse(xhr.responseText) as Array<{ fileId: string; fileName: string }>
+        setUploadedFiles(stored.map((f) => ({ fileId: f.fileId, fileName: f.fileName })))
+        setUploadProgress(100)
+      } else {
+        let msg = `Upload failed (${xhr.status})`
+        try {
+          const problem = JSON.parse(xhr.responseText) as { title?: string }
+          if (problem.title) msg = problem.title
+        } catch { /* ignore */ }
+        setUploadError(msg)
+        setUploadProgress(null)
+      }
+    }
+
+    xhr.onerror = () => {
+      setIsUploading(false)
+      setUploadError('Network error during upload. Please retry.')
+      setUploadProgress(null)
+    }
+
+    xhr.send(formData)
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      uploadFiles(files)
+    }
+  }
+
+  const handleSubmit = async () => {
+    await onSubmit({ files: uploadedFiles })
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-slate-800">{node.title}</p>
+      <input
+        type="file"
+        accept={acceptedFileTypes}
+        multiple={maxFiles === undefined || maxFiles > 1}
+        onChange={handleFileChange}
+        disabled={isUploading}
+        className="block w-full text-sm text-slate-700 file:mr-3 file:rounded file:border file:border-slate-300 file:bg-white file:px-3 file:py-1 file:text-sm file:text-slate-700 hover:file:bg-slate-50"
+      />
+      {uploadProgress !== null && (
+        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+          <div
+            className="h-2 rounded-full bg-slate-800 transition-all"
+            style={{ width: `${uploadProgress}%` }}
+          />
+        </div>
+      )}
+      {uploadError && (
+        <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">
+          {uploadError}
+          <button
+            type="button"
+            className="ml-2 underline"
+            onClick={() => {
+              setUploadError(null)
+              setUploadProgress(null)
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {uploadedFiles.length > 0 && (
+        <ul className="space-y-1 text-sm text-slate-700">
+          {uploadedFiles.map((f) => (
+            <li key={f.fileId}>✓ {f.fileName}</li>
+          ))}
+        </ul>
+      )}
+      <button
+        type="button"
+        disabled={uploadedFiles.length === 0 || isUploading}
+        onClick={() => void handleSubmit()}
+        className="rounded bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700 active:bg-slate-800 disabled:opacity-50"
+      >
+        Continue
+      </button>
+    </div>
+  )
+}
+
 // ── Main renderer ─────────────────────────────────────────────────────────────
 type StepRendererProps = {
   node: FlowNode | null
+  sessionId?: string
+  nodeId?: string
   onSubmit: (payload: Record<string, unknown>) => Promise<void>
 }
 
@@ -214,7 +363,7 @@ function FormStep({
   return <DynamicForm node={node} schema={schema} onSubmit={onSubmit} />
 }
 
-export function StepRenderer({ node, onSubmit }: StepRendererProps) {
+export function StepRenderer({ node, sessionId, nodeId, onSubmit }: StepRendererProps) {
   if (!node) {
     return <div className={cardClassName}>Journey complete 🎉</div>
   }
@@ -237,16 +386,9 @@ export function StepRenderer({ node, onSubmit }: StepRendererProps) {
         )
       case 'DocumentUpload':
         return (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-700">{node.title}</p>
-            <button
-              type="button"
-              className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
-              onClick={() => void onSubmit({ uploaded: true })}
-            >
-              Upload document
-            </button>
-          </div>
+          <FormErrorBoundary>
+            <DocumentUploadStep node={node} sessionId={sessionId} nodeId={nodeId} onSubmit={onSubmit} />
+          </FormErrorBoundary>
         )
       case 'Redirect':
         return (

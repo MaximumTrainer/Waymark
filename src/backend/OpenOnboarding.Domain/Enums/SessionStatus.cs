@@ -4,5 +4,6 @@ public enum SessionStatus
 {
     Started,
     Completed,
-    Abandoned
+    Abandoned,
+    Error
 }

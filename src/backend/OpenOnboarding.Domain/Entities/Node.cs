@@ -14,4 +14,5 @@ public sealed class Node
     public string JsonContent { get; set; } = "{}";
     public string? ComplianceRuleJson { get; set; }
     public bool IsStartNode { get; set; }
+    public string? ExecutionErrorJson { get; set; }
 }

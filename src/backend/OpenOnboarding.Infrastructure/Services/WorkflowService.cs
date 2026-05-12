@@ -1,7 +1,9 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Interfaces;
@@ -15,9 +17,15 @@ public sealed class WorkflowService(
     OnboardingDbContext dbContext,
     IValidator<StartSessionRequest> startSessionValidator,
     IValidator<SubmitStepRequest> submitStepValidator,
-    ICustomerService customerService) : IWorkflowService
+    ICustomerService customerService,
+    IComplianceRuleEvaluator complianceRuleEvaluator,
+    ILogger<WorkflowService> logger,
+    IEnumerable<ILogicNodeExecutor> logicNodeExecutors,
+    ISessionEventEmitter eventEmitter,
+    IDocumentStorageService documentStorageService) : IWorkflowService
 {
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly IReadOnlyList<ILogicNodeExecutor> _logicNodeExecutors = logicNodeExecutors.ToList();
 
     public async Task<SessionStepResponse> StartSessionAsync(StartSessionRequest request, CancellationToken cancellationToken = default)
     {
@@ -80,29 +88,84 @@ public sealed class WorkflowService(
         }
 
         var currentNode = session.Flow.Nodes.First(x => x.Id == nodeId);
-        ValidateComplianceRules(currentNode, request.Payload);
 
-        dbContext.Submissions.Add(new Submission
+        var previousSubmissions = session.Submissions.ToList();
+        var violations = complianceRuleEvaluator.Evaluate(currentNode, request.Payload, previousSubmissions);
+        if (violations.Count > 0)
+        {
+            throw new ValidationException(string.Join("; ", violations.Select(v => v.Message)));
+        }
+
+        var submission = new Submission
         {
             SessionId = session.Id,
             NodeId = nodeId,
             DataJson = JsonSerializer.Serialize(request.Payload, _jsonOptions),
             SubmittedAt = DateTimeOffset.UtcNow
-        });
+        };
+        dbContext.Submissions.Add(submission);
+        session.Submissions.Add(submission);
 
         var nextNode = ResolveNextNode(session, nodeId, request.Payload);
+
+        const int MaxAutoAdvances = 20;
+        var autoAdvanceCount = 0;
+
+        while (nextNode?.Type == NodeType.Logic && autoAdvanceCount < MaxAutoAdvances)
+        {
+            await ExecuteLogicNodeAsync(nextNode, session, request.Payload, cancellationToken);
+
+            if (session.Status == SessionStatus.Error)
+            {
+                session.CurrentNodeId = nextNode.Id;
+                session.UpdatedAt = DateTimeOffset.UtcNow;
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return new SessionStepResponse
+                {
+                    SessionId = session.Id,
+                    IsCompleted = false,
+                    CurrentNode = BuildNodeDto(nextNode, session)
+                };
+            }
+
+            nextNode = ResolveNextNode(session, nextNode.Id, request.Payload);
+            autoAdvanceCount++;
+        }
+
+        if (autoAdvanceCount >= MaxAutoAdvances && nextNode?.Type == NodeType.Logic)
+        {
+            session.Status = SessionStatus.Error;
+            session.CurrentNodeId = nextNode.Id;
+            session.UpdatedAt = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return new SessionStepResponse
+            {
+                SessionId = session.Id,
+                IsCompleted = false,
+                CurrentNode = BuildNodeDto(nextNode, session)
+            };
+        }
+
         session.CurrentNodeId = nextNode?.Id;
         session.Status = nextNode is null ? SessionStatus.Completed : SessionStatus.Started;
         session.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return new SessionStepResponse
+        var response = new SessionStepResponse
         {
             SessionId = session.Id,
             IsCompleted = nextNode is null,
-            CurrentNode = nextNode is null ? null : NodeDto.FromEntity(nextNode)
+            CurrentNode = nextNode is null ? null : BuildNodeDto(nextNode, session)
         };
+
+        var eventType = nextNode is null ? "session-completed" : "step-advanced";
+        var eventPayload = nextNode is null
+            ? (object)new { sessionId = session.Id, completedAt = session.UpdatedAt }
+            : new { sessionId = session.Id, currentNode = BuildNodeDto(nextNode, session) };
+        await eventEmitter.EmitAsync(session.Id, eventType, eventPayload, cancellationToken);
+
+        return response;
     }
 
     public async Task<SessionStepResponse> GetNextStepAsync(Guid sessionId, CancellationToken cancellationToken = default)
@@ -122,7 +185,7 @@ public sealed class WorkflowService(
         {
             SessionId = session.Id,
             IsCompleted = false,
-            CurrentNode = NodeDto.FromEntity(node)
+            CurrentNode = BuildNodeDto(node, session)
         };
     }
 
@@ -142,6 +205,7 @@ public sealed class WorkflowService(
             session.Status = SessionStatus.Abandoned;
             session.UpdatedAt = DateTimeOffset.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);
+            await eventEmitter.EmitAsync(session.Id, "session-abandoned", new { sessionId = session.Id }, cancellationToken);
         }
 
         return new SessionStepResponse
@@ -156,12 +220,181 @@ public sealed class WorkflowService(
     {
         return await dbContext.Sessions
             .Include(x => x.CustomerProfile)
+            .Include(x => x.Submissions)
             .Include(x => x.Flow)
             .ThenInclude(x => x.Nodes)
             .Include(x => x.Flow)
             .ThenInclude(x => x.Connections)
             .FirstOrDefaultAsync(x => x.Id == sessionId, cancellationToken)
             ?? throw new InvalidOperationException($"Session '{sessionId}' was not found.");
+    }
+
+    private NodeDto BuildNodeDto(Node node, Session session)
+    {
+        var dto = NodeDto.FromEntity(node);
+
+        if (node.Type == NodeType.Redirect)
+        {
+            dto.JsonContent = InterpolateRedirectUrl(node, session);
+        }
+
+        return dto;
+    }
+
+    private string InterpolateRedirectUrl(Node node, Session session)
+    {
+        string urlTemplate;
+        bool isJson;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(node.JsonContent);
+            if (doc.RootElement.TryGetProperty("url", out var urlProp))
+            {
+                urlTemplate = urlProp.GetString() ?? string.Empty;
+                isJson = true;
+            }
+            else
+            {
+                return node.JsonContent;
+            }
+        }
+        catch (JsonException)
+        {
+            urlTemplate = node.JsonContent;
+            isJson = false;
+        }
+
+        var variables = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["sessionId"] = session.Id.ToString(),
+            ["flowId"] = session.FlowId.ToString(),
+            ["nodeKey"] = node.Key,
+            ["customerProfileId"] = session.CustomerProfileId?.ToString(),
+            ["externalCustomerId"] = session.CustomerProfile?.ExternalCustomerId
+        };
+
+        var recentSubmission = session.Submissions.OrderByDescending(x => x.SubmittedAt).FirstOrDefault();
+        if (recentSubmission is not null)
+        {
+            try
+            {
+                var data = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(recentSubmission.DataJson, _jsonOptions);
+                if (data is not null)
+                {
+                    foreach (var (key, value) in data)
+                    {
+                        variables.TryAdd(key, value.ValueKind == JsonValueKind.Null ? null : value.ToString());
+                    }
+                }
+            }
+            catch (JsonException) { }
+        }
+
+        var interpolated = Regex.Replace(urlTemplate, @"\{\{(\w+)\}\}", match =>
+        {
+            var varName = match.Groups[1].Value;
+            if (variables.TryGetValue(varName, out var varValue) && varValue is not null)
+            {
+                return Uri.EscapeDataString(varValue);
+            }
+
+            logger.LogWarning(
+                "Redirect URL interpolation: unknown placeholder '{{{VarName}}}' in node '{NodeKey}'.",
+                varName, node.Key);
+            return string.Empty;
+        });
+
+        return isJson ? ReplaceUrlInJson(node.JsonContent, interpolated) : interpolated;
+    }
+
+    private static string ReplaceUrlInJson(string originalJson, string interpolatedUrl)
+    {
+        using var origDoc = JsonDocument.Parse(originalJson);
+        using var ms = new MemoryStream();
+        using var writer = new Utf8JsonWriter(ms);
+
+        writer.WriteStartObject();
+        foreach (var prop in origDoc.RootElement.EnumerateObject())
+        {
+            if (prop.Name == "url")
+            {
+                writer.WriteString("url", interpolatedUrl);
+            }
+            else
+            {
+                prop.WriteTo(writer);
+            }
+        }
+        writer.WriteEndObject();
+        writer.Flush();
+
+        return Encoding.UTF8.GetString(ms.ToArray());
+    }
+
+    private async Task ExecuteLogicNodeAsync(
+        Node node,
+        Session session,
+        IReadOnlyDictionary<string, object?> latestPayload,
+        CancellationToken cancellationToken)
+    {
+        var actionName = ParseActionName(node.JsonContent);
+        var executor = _logicNodeExecutors.FirstOrDefault(x => x.ActionName == actionName);
+        var failOnError = ParseFailOnError(node.JsonContent);
+
+        try
+        {
+            if (executor is null)
+            {
+                throw new InvalidOperationException($"No executor found for action '{actionName}'.");
+            }
+
+            await executor.ExecuteAsync(node, session, latestPayload, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            node.ExecutionErrorJson = JsonSerializer.Serialize(new
+            {
+                message = ex.Message,
+                timestamp = DateTimeOffset.UtcNow
+            }, _jsonOptions);
+
+            if (failOnError)
+            {
+                session.Status = SessionStatus.Error;
+            }
+        }
+    }
+
+    private static string? ParseActionName(string jsonContent)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonContent);
+            if (doc.RootElement.TryGetProperty("action", out var actionProp))
+            {
+                return actionProp.GetString();
+            }
+        }
+        catch (JsonException) { }
+
+        return null;
+    }
+
+    private static bool ParseFailOnError(string jsonContent)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonContent);
+            if (doc.RootElement.TryGetProperty("failOnError", out var failOnErrorProp) &&
+                failOnErrorProp.ValueKind == JsonValueKind.True)
+            {
+                return true;
+            }
+        }
+        catch (JsonException) { }
+
+        return false;
     }
 
     private Node? ResolveNextNode(Session session, Guid nodeId, IReadOnlyDictionary<string, object?> payload)
@@ -252,43 +485,96 @@ public sealed class WorkflowService(
         return string.IsNullOrWhiteSpace(connection.ConditionField);
     }
 
-    private void ValidateComplianceRules(Node node, IReadOnlyDictionary<string, object?> payload)
+    public async Task<IReadOnlyList<StoredFileInfo>> UploadDocumentsAsync(
+        Guid sessionId,
+        Guid nodeId,
+        IReadOnlyList<DocumentUploadItem> files,
+        long maxFileSizeBytes,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(node.ComplianceRuleJson))
+        var session = await dbContext.Sessions
+            .Include(s => s.Flow)
+            .ThenInclude(f => f.Nodes)
+            .FirstOrDefaultAsync(s => s.Id == sessionId, cancellationToken)
+            ?? throw new InvalidOperationException($"Session '{sessionId}' was not found.");
+
+        var node = session.Flow.Nodes.FirstOrDefault(n => n.Id == nodeId)
+            ?? throw new NotFoundException($"Node '{nodeId}' not found in session flow.");
+
+        var nodeContent = ParseJsonContent(node.JsonContent);
+        var acceptedTypes = GetStringArrayFromContent(nodeContent, "acceptedFileTypes");
+        var maxFiles = GetIntFromContent(nodeContent, "maxFiles", int.MaxValue);
+
+        if (files.Count == 0)
+            throw new ArgumentException("No files provided.");
+
+        if (files.Count > maxFiles)
+            throw new ArgumentException($"Too many files. Maximum is {maxFiles}.");
+
+        foreach (var file in files)
         {
-            return;
+            if (file.Length == 0)
+                throw new ArgumentException($"File '{file.FileName}' is empty.");
+
+            if (file.Length > maxFileSizeBytes)
+                throw new InvalidOperationException($"FILE_TOO_LARGE:{file.FileName}");
+
+            if (acceptedTypes.Count > 0 && !acceptedTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"UNSUPPORTED_MEDIA_TYPE:{file.ContentType}");
         }
 
-        JsonDocument document;
+        var stored = new List<StoredFileInfo>();
+        foreach (var file in files)
+        {
+            var info = await documentStorageService.StoreAsync(file.Stream, file.FileName, file.ContentType, cancellationToken);
+            await documentStorageService.ScanAsync(info.FileId, cancellationToken);
+            stored.Add(info);
+        }
+
+        dbContext.Submissions.Add(new Submission
+        {
+            SessionId = sessionId,
+            NodeId = nodeId,
+            DataJson = JsonSerializer.Serialize(stored, _jsonOptions),
+            SubmittedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return stored;
+    }
+
+    public Task<(Stream Stream, StoredFileInfo Info)> GetDocumentAsync(string fileId, CancellationToken cancellationToken = default)
+    {
+        return documentStorageService.GetStreamAsync(fileId, cancellationToken);
+    }
+
+    private static Dictionary<string, JsonElement> ParseJsonContent(string json)
+    {
         try
         {
-            document = JsonDocument.Parse(node.ComplianceRuleJson);
+            return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json) ?? new();
         }
-        catch (JsonException)
+        catch
         {
-            throw new ValidationException($"Compliance rule configuration is invalid for node '{node.Key}'.");
+            return new();
         }
+    }
 
-        using (document)
-        {
-            if (!document.RootElement.TryGetProperty("requiredFields", out var requiredFields) || requiredFields.ValueKind != JsonValueKind.Array)
-            {
-                return;
-            }
+    private static List<string> GetStringArrayFromContent(Dictionary<string, JsonElement> content, string key)
+    {
+        if (!content.TryGetValue(key, out var el) || el.ValueKind != JsonValueKind.Array)
+            return new();
 
-            foreach (var element in requiredFields.EnumerateArray())
-            {
-                var fieldName = element.GetString();
-                if (string.IsNullOrWhiteSpace(fieldName))
-                {
-                    continue;
-                }
+        return el.EnumerateArray()
+            .Where(x => x.ValueKind == JsonValueKind.String)
+            .Select(x => x.GetString()!)
+            .ToList();
+    }
 
-                if (!payload.TryGetValue(fieldName, out var value) || value is null || string.IsNullOrWhiteSpace(value.ToString()))
-                {
-                    throw new ValidationException($"Compliance rule failed: '{fieldName}' is required.");
-                }
-            }
-        }
+    private static int GetIntFromContent(Dictionary<string, JsonElement> content, string key, int defaultValue)
+    {
+        if (content.TryGetValue(key, out var el) && el.TryGetInt32(out var v))
+            return v;
+        return defaultValue;
     }
 }

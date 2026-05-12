@@ -36,6 +36,19 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IValidator<CreateFlowRequest>, CreateFlowRequestValidator>();
         services.AddScoped<IValidator<UpdateFlowRequest>, UpdateFlowRequestValidator>();
 
+        services.AddScoped<IDocumentStorageService, LocalDocumentStorageService>();
+
+        services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+
+        services.AddHttpClient("Webhook");
+        services.AddScoped<IWebhookService, WebhookService>();
+
+        services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
+
+        services.AddHttpClient(nameof(HttpCallbackExecutor));
+        services.AddScoped<ILogicNodeExecutor, SetProfileFieldExecutor>();
+        services.AddScoped<ILogicNodeExecutor, HttpCallbackExecutor>();
+
         return services;
     }
 }

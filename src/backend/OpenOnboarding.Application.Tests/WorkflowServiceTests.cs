@@ -9,6 +9,7 @@ using OpenOnboarding.Application.Validators;
 using OpenOnboarding.Domain.Entities;
 using OpenOnboarding.Domain.Enums;
 using OpenOnboarding.Infrastructure.Persistence;
+using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Infrastructure.Services;
 
 namespace OpenOnboarding.Application.Tests;
@@ -406,7 +407,7 @@ public sealed class WorkflowServiceTests
             serviceType == typeof(OnboardingDbContext) ? dbContext : null;
     }
 
-    private static WorkflowService CreateService(OnboardingDbContext dbContext)
+    private static WorkflowService CreateService(OnboardingDbContext dbContext, IEnumerable<ILogicNodeExecutor>? executors = null)
     {
         var customerService = new CustomerService(
             dbContext,
@@ -417,7 +418,12 @@ public sealed class WorkflowServiceTests
             dbContext,
             new StartSessionRequestValidator(),
             new SubmitStepRequestValidator(),
-            customerService);
+            customerService,
+            new ComplianceRuleEvaluator(),
+            NullLogger<WorkflowService>.Instance,
+            executors ?? [],
+            new InMemorySessionEventEmitter(),
+            new NoOpDocumentStorageService());
     }
 
     private static OnboardingDbContext BuildDbContext()

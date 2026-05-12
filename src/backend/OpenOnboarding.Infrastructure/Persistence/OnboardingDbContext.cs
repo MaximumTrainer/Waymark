@@ -11,6 +11,8 @@ public sealed class OnboardingDbContext(DbContextOptions<OnboardingDbContext> op
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<CustomerProfile> CustomerProfiles => Set<CustomerProfile>();
+    public DbSet<Webhook> Webhooks => Set<Webhook>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,5 +35,17 @@ public sealed class OnboardingDbContext(DbContextOptions<OnboardingDbContext> op
             .HasOne(x => x.Session)
             .WithMany(x => x.Submissions)
             .HasForeignKey(x => x.SessionId);
+
+        modelBuilder.Entity<Webhook>()
+            .HasOne(x => x.Flow)
+            .WithMany()
+            .HasForeignKey(x => x.FlowId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WebhookDelivery>()
+            .HasOne(x => x.Webhook)
+            .WithMany(x => x.Deliveries)
+            .HasForeignKey(x => x.WebhookId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

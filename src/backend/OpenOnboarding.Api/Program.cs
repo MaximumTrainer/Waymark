@@ -1,10 +1,14 @@
 using FluentValidation.AspNetCore;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using OpenOnboarding.Api.Authentication;
+using OpenOnboarding.Api.Authorization;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Infrastructure.DependencyInjection;
 using OpenOnboarding.Infrastructure.Persistence;
@@ -23,7 +27,81 @@ builder.Services.AddSwaggerGen(c =>
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+    c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Name = "X-Api-Key",
+        Type = SecuritySchemeType.ApiKey
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        },
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
+            },
+            Array.Empty<string>()
+        }
+    });
 });
+
+// Authentication: policy scheme that routes to JWT or ApiKey depending on which header is present.
+var jwtAuthority = builder.Configuration["Authentication:JwtAuthority"];
+builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = "Combined";
+        options.DefaultChallengeScheme = "Combined";
+    })
+    .AddPolicyScheme("Combined", "JWT or ApiKey", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            context.Request.Headers.ContainsKey("X-Api-Key")
+                ? ApiKeyAuthenticationHandler.SchemeName
+                : JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.Authority = jwtAuthority;
+        options.Audience = builder.Configuration["Authentication:JwtAudience"];
+        options.RequireHttpsMetadata = false;
+        // When no authority is configured (e.g. development), disable JWT validation.
+        if (string.IsNullOrWhiteSpace(jwtAuthority))
+        {
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = ctx => { ctx.NoResult(); return Task.CompletedTask; }
+            };
+        }
+    })
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+        ApiKeyAuthenticationHandler.SchemeName, _ => { });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("OperatorOnly", policy => policy.RequireRole(AppRoles.Operator));
+    options.AddPolicy("ApplicantOrOperator", policy =>
+        policy.RequireRole(AppRoles.Operator, AppRoles.Applicant));
+    options.AddPolicy("OperatorOrReadOnly", policy =>
+        policy.RequireRole(AppRoles.Operator, AppRoles.ReadOnly));
+});
+builder.Services.AddScoped<IAuthorizationHandler, SessionOwnershipHandler>();
+
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddProblemDetails();
@@ -87,6 +165,7 @@ app.UseExceptionHandler(exceptionHandler =>
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendDev");
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

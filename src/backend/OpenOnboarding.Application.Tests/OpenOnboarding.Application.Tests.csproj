@@ -22,6 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenOnboarding.Api\OpenOnboarding.Api.csproj" />
     <ProjectReference Include="..\OpenOnboarding.Application\OpenOnboarding.Application.csproj" />
     <ProjectReference Include="..\OpenOnboarding.Domain\OpenOnboarding.Domain.csproj" />
     <ProjectReference Include="..\OpenOnboarding.Infrastructure\OpenOnboarding.Infrastructure.csproj" />

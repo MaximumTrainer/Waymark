@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using OpenOnboarding.Api.Authorization;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Interfaces;
 
@@ -10,6 +12,7 @@ namespace OpenOnboarding.Api.Controllers;
 [ApiController]
 [Route("api/customers")]
 [Produces("application/json")]
+[Authorize(Roles = AppRoles.Operator)]
 public sealed class CustomersController(ICustomerService customerService) : ControllerBase
 {
     /// <summary>
@@ -20,6 +23,8 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     [ProducesResponseType(typeof(CustomerProfileDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<CustomerProfileDto>> Create([FromBody] CreateCustomerRequest request, CancellationToken cancellationToken)
     {
         var result = await customerService.CreateAsync(request, cancellationToken);
@@ -32,6 +37,8 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(CustomerProfileDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<CustomerProfileDto>> GetById([FromRoute] Guid id, CancellationToken cancellationToken)
     {
         var result = await customerService.GetByIdAsync(id, cancellationToken);
@@ -45,6 +52,8 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     [ProducesResponseType(typeof(CustomerProfileDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<CustomerProfileDto>> GetByExternalId([FromQuery] string externalId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(externalId))
@@ -69,6 +78,8 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     [ProducesResponseType(typeof(CustomerProfileDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<CustomerProfileDto>> Update([FromRoute] Guid id, [FromBody] UpdateCustomerRequest request, CancellationToken cancellationToken)
     {
         var result = await customerService.UpdateAsync(id, request, cancellationToken);
@@ -82,6 +93,8 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken cancellationToken)
     {
         await customerService.DeleteAsync(id, cancellationToken);

@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using OpenOnboarding.Api.Authorization;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Contracts.Flows;
 using OpenOnboarding.Application.Interfaces;
@@ -11,6 +13,7 @@ namespace OpenOnboarding.Api.Controllers;
 [ApiController]
 [Route("api/flows")]
 [Produces("application/json")]
+[Authorize(Roles = AppRoles.Operator)]
 public sealed class FlowsController(IFlowService flowService) : ControllerBase
 {
     /// <summary>
@@ -23,6 +26,8 @@ public sealed class FlowsController(IFlowService flowService) : ControllerBase
     [Consumes("application/json")]
     [ProducesResponseType(typeof(FlowDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<FlowDto>> CreateFlow([FromBody] CreateFlowRequest request, CancellationToken cancellationToken)
     {
         var result = await flowService.CreateFlowAsync(request, cancellationToken);
@@ -37,6 +42,8 @@ public sealed class FlowsController(IFlowService flowService) : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpGet]
     [ProducesResponseType(typeof(PaginatedResult<FlowSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PaginatedResult<FlowSummaryDto>>> GetFlows(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -54,6 +61,8 @@ public sealed class FlowsController(IFlowService flowService) : ControllerBase
     [HttpGet("{flowId:guid}")]
     [ProducesResponseType(typeof(FlowDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<FlowDto>> GetFlow([FromRoute] Guid flowId, CancellationToken cancellationToken)
     {
         var result = await flowService.GetFlowAsync(flowId, cancellationToken);
@@ -71,6 +80,8 @@ public sealed class FlowsController(IFlowService flowService) : ControllerBase
     [ProducesResponseType(typeof(FlowDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<FlowDto>> UpdateFlow([FromRoute] Guid flowId, [FromBody] UpdateFlowRequest request, CancellationToken cancellationToken)
     {
         var result = await flowService.UpdateFlowAsync(flowId, request, cancellationToken);
@@ -86,6 +97,8 @@ public sealed class FlowsController(IFlowService flowService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> DeleteFlow([FromRoute] Guid flowId, CancellationToken cancellationToken)
     {
         await flowService.DeleteFlowAsync(flowId, cancellationToken);

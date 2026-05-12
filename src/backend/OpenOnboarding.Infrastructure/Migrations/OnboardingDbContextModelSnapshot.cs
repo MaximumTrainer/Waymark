@@ -113,6 +113,9 @@ namespace OpenOnboarding.Infrastructure.Migrations
                     b.Property<string>("ComplianceRuleJson")
                         .HasColumnType("text");
 
+                    b.Property<string>("ExecutionErrorJson")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("FlowId")
                         .HasColumnType("uuid");
 
@@ -266,6 +269,106 @@ namespace OpenOnboarding.Infrastructure.Migrations
             modelBuilder.Entity("OpenOnboarding.Domain.Entities.Session", b =>
                 {
                     b.Navigation("Submissions");
+                });
+
+            modelBuilder.Entity("OpenOnboarding.Domain.Entities.Webhook", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FlowId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Secret")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlowId");
+
+                    b.ToTable("Webhooks");
+                });
+
+            modelBuilder.Entity("OpenOnboarding.Domain.Entities.WebhookDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastResponseBody")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("LastStatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("WebhookId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WebhookId");
+
+                    b.ToTable("WebhookDeliveries");
+                });
+
+            modelBuilder.Entity("OpenOnboarding.Domain.Entities.Webhook", b =>
+                {
+                    b.HasOne("OpenOnboarding.Domain.Entities.Flow", "Flow")
+                        .WithMany()
+                        .HasForeignKey("FlowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Flow");
+                });
+
+            modelBuilder.Entity("OpenOnboarding.Domain.Entities.WebhookDelivery", b =>
+                {
+                    b.HasOne("OpenOnboarding.Domain.Entities.Webhook", "Webhook")
+                        .WithMany("Deliveries")
+                        .HasForeignKey("WebhookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Webhook");
+                });
+
+            modelBuilder.Entity("OpenOnboarding.Domain.Entities.Webhook", b =>
+                {
+                    b.Navigation("Deliveries");
                 });
 #pragma warning restore 612, 618
         }
