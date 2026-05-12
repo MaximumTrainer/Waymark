@@ -4,5 +4,14 @@ public enum ConditionOperator
 {
     Equals,
     NotEquals,
-    Exists
+    Exists,
+    Contains,
+    NotContains,
+    StartsWith,
+    EndsWith,
+    GreaterThan,
+    LessThan,
+    GreaterThanOrEqual,
+    LessThanOrEqual,
+    MatchesRegex
 }

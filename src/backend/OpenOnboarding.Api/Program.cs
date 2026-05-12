@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using OpenOnboarding.Infrastructure.DependencyInjection;
+using OpenOnboarding.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +50,11 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Open Onboarding API v1");
         c.RoutePrefix = "swagger";
     });
+
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<OnboardingDbContext>();
+    await db.Database.MigrateAsync();
+    await DataSeeder.SeedAsync(db);
 }
 
 app.UseExceptionHandler(exceptionHandler =>

@@ -2,6 +2,35 @@
 
 Schema-driven onboarding boilerplate for automated user journeys and compliance workflows.
 
+## Quick start
+
+```bash
+# 1. Start PostgreSQL
+docker-compose up -d
+
+# 2. Start backend (migrations + seed data applied automatically)
+dotnet run --project src/backend/OpenOnboarding.Api
+# → API available at https://localhost:7000
+# → Swagger UI at https://localhost:7000/swagger
+
+# 3. Start frontend
+cd src/frontend
+npm install
+npm run dev
+# → UI available at http://localhost:5173
+```
+
+The backend automatically applies EF Core migrations and seeds the example compliance flow
+on first startup in the Development environment.
+
+## Generating new migrations
+
+```bash
+dotnet ef migrations add <Name> \
+  --project src/backend/OpenOnboarding.Infrastructure \
+  --startup-project src/backend/OpenOnboarding.Api
+```
+
 ## Directory layout
 
 - `src/backend/OpenOnboarding.Domain`: Domain entities (`Flow`, `Node`, `Connection`, `Session`, `Submission`, `CustomerProfile`)

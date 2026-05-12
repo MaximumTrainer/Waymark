@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using OpenOnboarding.Application.Contracts;
@@ -169,8 +170,42 @@ public sealed class WorkflowService(OnboardingDbContext dbContext, IValidator<St
             ConditionOperator.Equals => string.Equals(comparableValue, connection.ConditionValue, StringComparison.OrdinalIgnoreCase),
             ConditionOperator.NotEquals => !string.Equals(comparableValue, connection.ConditionValue, StringComparison.OrdinalIgnoreCase),
             ConditionOperator.Exists => !string.IsNullOrWhiteSpace(comparableValue),
+            ConditionOperator.Contains => comparableValue?.Contains(connection.ConditionValue ?? string.Empty, StringComparison.OrdinalIgnoreCase) ?? false,
+            ConditionOperator.NotContains => !(comparableValue?.Contains(connection.ConditionValue ?? string.Empty, StringComparison.OrdinalIgnoreCase) ?? false),
+            ConditionOperator.StartsWith => comparableValue?.StartsWith(connection.ConditionValue ?? string.Empty, StringComparison.OrdinalIgnoreCase) ?? false,
+            ConditionOperator.EndsWith => comparableValue?.EndsWith(connection.ConditionValue ?? string.Empty, StringComparison.OrdinalIgnoreCase) ?? false,
+            ConditionOperator.GreaterThan => TryParseNumericComparison(comparableValue, connection.ConditionValue, out var gt) && gt > 0,
+            ConditionOperator.LessThan => TryParseNumericComparison(comparableValue, connection.ConditionValue, out var lt) && lt < 0,
+            ConditionOperator.GreaterThanOrEqual => TryParseNumericComparison(comparableValue, connection.ConditionValue, out var gte) && gte >= 0,
+            ConditionOperator.LessThanOrEqual => TryParseNumericComparison(comparableValue, connection.ConditionValue, out var lte) && lte <= 0,
+            ConditionOperator.MatchesRegex => EvaluateRegex(comparableValue, connection.ConditionValue),
             _ => false
         };
+    }
+
+    private static bool TryParseNumericComparison(string? fieldValue, string? conditionValue, out int comparisonResult)
+    {
+        comparisonResult = 0;
+        if (!decimal.TryParse(fieldValue, out var left) || !decimal.TryParse(conditionValue, out var right))
+            return false;
+
+        comparisonResult = left.CompareTo(right);
+        return true;
+    }
+
+    private static bool EvaluateRegex(string? fieldValue, string? pattern)
+    {
+        if (fieldValue is null || pattern is null)
+            return false;
+
+        try
+        {
+            return Regex.IsMatch(fieldValue, pattern, RegexOptions.None, TimeSpan.FromMilliseconds(100));
+        }
+        catch (Exception ex) when (ex is RegexMatchTimeoutException or ArgumentException)
+        {
+            return false;
+        }
     }
 
     private static bool IsFallbackConnection(Connection connection)
