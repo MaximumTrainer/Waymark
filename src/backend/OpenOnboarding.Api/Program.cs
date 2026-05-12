@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Infrastructure.DependencyInjection;
 using OpenOnboarding.Infrastructure.Persistence;
 
@@ -65,6 +66,8 @@ app.UseExceptionHandler(exceptionHandler =>
         var (statusCode, title) = exception switch
         {
             ValidationException => (StatusCodes.Status400BadRequest, "Validation failed"),
+            ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
+            ArgumentException => (StatusCodes.Status400BadRequest, "Validation failed"),
             InvalidOperationException { Message: var message } when message.Contains("not found", StringComparison.OrdinalIgnoreCase)
                 => (StatusCodes.Status404NotFound, "Resource not found"),
             InvalidOperationException => (StatusCodes.Status400BadRequest, "Invalid operation"),
