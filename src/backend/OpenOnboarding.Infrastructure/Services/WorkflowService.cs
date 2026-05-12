@@ -129,7 +129,7 @@ public sealed class WorkflowService(OnboardingDbContext dbContext, IValidator<St
         var candidates = session.Flow.Connections
             .Where(x => x.SourceNodeId == nodeId)
             .OrderBy(x => x.Priority)
-            .ThenBy(x => string.IsNullOrWhiteSpace(x.ConditionField))
+            .ThenBy(IsFallbackConnection)
             .ThenBy(x => x.Id)
             .ToList();
 
@@ -171,6 +171,11 @@ public sealed class WorkflowService(OnboardingDbContext dbContext, IValidator<St
             ConditionOperator.Exists => !string.IsNullOrWhiteSpace(comparableValue),
             _ => false
         };
+    }
+
+    private static bool IsFallbackConnection(Connection connection)
+    {
+        return string.IsNullOrWhiteSpace(connection.ConditionField);
     }
 
     private void ValidateComplianceRules(Node node, IReadOnlyDictionary<string, object?> payload)

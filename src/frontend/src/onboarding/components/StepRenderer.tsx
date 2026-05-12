@@ -23,7 +23,7 @@ function parseContent(node: FlowNode | null): Record<string, unknown> {
 }
 
 function getSafeRedirectUrl(value: unknown): string {
-  if (typeof value !== 'string' || value.trim().length == 0) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
     return '#'
   }
 
