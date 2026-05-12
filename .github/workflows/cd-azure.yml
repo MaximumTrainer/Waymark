@@ -1,0 +1,150 @@
+# ─────────────────────────────────────────────────────────────
+# cd-azure.yml — Deploy to Azure
+#
+# Triggers automatically when the CI workflow completes
+# successfully on the main branch, or manually via
+# workflow_dispatch (useful for hotfix deploys).
+#
+# Two jobs run concurrently:
+#   • deploy-backend-azure   Build Docker image → ACR → Azure Container Apps
+#   • deploy-frontend-azure  Vite build → Azure Static Web Apps
+#
+# ── Required GitHub Secrets ───────────────────────────────────
+#   AZURE_CREDENTIALS            Service-principal JSON from:
+#                                 az ad sp create-for-rbac --sdk-auth
+#
+#   ACR_LOGIN_SERVER             e.g. myregistry.azurecr.io
+#   ACR_USERNAME                 ACR admin username or SP client ID
+#   ACR_PASSWORD                 ACR admin password or SP client secret
+#
+#   AZURE_RESOURCE_GROUP         Resource group containing Container App
+#   AZURE_CONTAINER_APP_NAME     Name of the Azure Container App to update
+#
+#   AZURE_STATIC_WEB_APPS_API_TOKEN  Deployment token from the Azure portal
+#                                     (Static Web Apps → Manage deployment token)
+#
+# Acceptance criteria:
+#   ✓ Only deploys after CI passes on main (workflow_run trigger).
+#   ✓ Container image is tagged with the triggering commit SHA for
+#     full traceability.
+#   ✓ Backend and frontend are deployed as independent parallel jobs.
+#   ✓ Workflow can be re-triggered manually for hotfix deploys.
+# ─────────────────────────────────────────────────────────────
+name: CD — Azure
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+# Prevent out-of-order deploys: queue additional runs, never cancel in-progress
+concurrency:
+  group: deploy-azure-main
+  cancel-in-progress: false
+
+jobs:
+  # ── Guard: skip if triggered by a failed CI run ────────────
+  check-ci-outcome:
+    name: Check CI outcome
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.decide.outputs.should-deploy }}
+    steps:
+      - name: Decide whether to deploy
+        id: decide
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should-deploy=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]]; then
+            echo "should-deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should-deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Backend: Docker → ACR → Container Apps ─────────────────
+  deploy-backend-azure:
+    name: Deploy backend to Azure Container Apps
+    needs: check-ci-outcome
+    if: needs.check-ci-outcome.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # For workflow_run events, check out the commit that triggered CI
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set image tag from checked-out commit
+        id: tag
+        run: echo "sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER }}/open-onboarding-api:${{ steps.tag.outputs.sha }}
+            ${{ secrets.ACR_LOGIN_SERVER }}/open-onboarding-api:latest
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          containerAppName: ${{ secrets.AZURE_CONTAINER_APP_NAME }}
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ secrets.ACR_LOGIN_SERVER }}/open-onboarding-api:${{ steps.tag.outputs.sha }}
+
+  # ── Frontend: Vite build → Azure Static Web Apps ───────────
+  deploy-frontend-azure:
+    name: Deploy frontend to Azure Static Web Apps
+    needs: check-ci-outcome
+    if: needs.check-ci-outcome.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: src/frontend
+          output_location: dist

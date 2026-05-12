@@ -1,0 +1,183 @@
+# ─────────────────────────────────────────────────────────────
+# cd-aws.yml — Deploy to AWS
+#
+# Triggers automatically when the CI workflow completes
+# successfully on the main branch, or manually via
+# workflow_dispatch (useful for hotfix deploys).
+#
+# Two jobs run concurrently:
+#   • deploy-backend-aws   Build Docker image → ECR → ECS (rolling deploy)
+#   • deploy-frontend-aws  Vite build → S3 sync → CloudFront invalidation
+#
+# ── Required GitHub Secrets ───────────────────────────────────
+#   AWS_ACCESS_KEY_ID          IAM access key (use OIDC in production instead)
+#   AWS_SECRET_ACCESS_KEY      IAM secret key
+#   AWS_REGION                 e.g. us-east-1
+#
+#   ECR_REGISTRY               e.g. 123456789.dkr.ecr.us-east-1.amazonaws.com
+#   ECR_REPOSITORY             ECR repository name, e.g. open-onboarding-api
+#
+#   ECS_CLUSTER                ECS cluster name
+#   ECS_SERVICE                ECS service name to update
+#   ECS_TASK_DEFINITION_FAMILY   ECS task definition family name, e.g. open-onboarding-api.
+#                               The current revision is fetched dynamically at deploy time.
+#   ECS_CONTAINER_NAME         Container name within the task definition
+#
+#   S3_BUCKET                  S3 bucket hosting the frontend, e.g. my-app-frontend
+#   CLOUDFRONT_DISTRIBUTION_ID CloudFront distribution ID for cache invalidation
+#
+# Acceptance criteria:
+#   ✓ Only deploys after CI passes on main (workflow_run trigger).
+#   ✓ Container image is tagged with the triggering commit SHA for
+#     full traceability.
+#   ✓ ECS deploy waits for the service to stabilise before succeeding.
+#   ✓ CloudFront invalidation fires only after S3 sync completes.
+#   ✓ Backend and frontend are deployed as independent parallel jobs.
+#   ✓ Workflow can be re-triggered manually for hotfix deploys.
+# ─────────────────────────────────────────────────────────────
+name: CD — AWS
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+# Prevent out-of-order deploys: queue additional runs, never cancel in-progress
+concurrency:
+  group: deploy-aws-main
+  cancel-in-progress: false
+
+jobs:
+  # ── Guard: skip if triggered by a failed CI run ────────────
+  check-ci-outcome:
+    name: Check CI outcome
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.decide.outputs.should-deploy }}
+    steps:
+      - name: Decide whether to deploy
+        id: decide
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should-deploy=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]]; then
+            echo "should-deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should-deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Backend: Docker → ECR → ECS ────────────────────────────
+  deploy-backend-aws:
+    name: Deploy backend to AWS ECS
+    needs: check-ci-outcome
+    if: needs.check-ci-outcome.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set image tag from checked-out commit
+        id: tag
+        run: echo "sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ steps.tag.outputs.sha }}
+            ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest
+
+      - name: Download current ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "${{ secrets.ECS_TASK_DEFINITION_FAMILY }}" \
+            --query taskDefinition \
+            --output json > task-definition.json
+
+      - name: Render new ECS task definition with updated image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ secrets.ECS_CONTAINER_NAME }}
+          image: ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ steps.tag.outputs.sha }}
+
+      - name: Deploy to Amazon ECS and wait for stability
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+  # ── Frontend: Vite build → S3 → CloudFront ─────────────────
+  deploy-frontend-aws:
+    name: Deploy frontend to AWS S3 + CloudFront
+    needs: check-ci-outcome
+    if: needs.check-ci-outcome.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Sync dist/ to S3
+        run: |
+          aws s3 sync dist/ "s3://${{ secrets.S3_BUCKET }}" \
+            --delete \
+            --cache-control "max-age=31536000,immutable" \
+            --exclude "index.html"
+          # Upload index.html with no-cache so routing always gets the latest shell
+          aws s3 cp dist/index.html "s3://${{ secrets.S3_BUCKET }}/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*"

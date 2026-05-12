@@ -1,0 +1,89 @@
+# ─────────────────────────────────────────────────────────────
+# ci.yml — Continuous Integration
+#
+# Runs on every pull request targeting main, and on every push
+# to main.  Two jobs run in parallel:
+#   • backend-ci   .NET 10 restore → build → test + coverage
+#   • frontend-ci  Node 22 npm ci → lint → build
+#
+# Acceptance criteria:
+#   ✓ A failing test, compilation error, or lint error causes
+#     the workflow to fail and should block PR merge via branch
+#     protection rules.
+#   ✓ Test coverage (Cobertura XML) is uploaded as a build
+#     artifact on every run.
+#   ✓ Both jobs run concurrently.
+# ─────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend ────────────────────────────────────────────────
+  backend-ci:
+    name: Backend — build & test (.NET 10)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore NuGet packages
+        run: dotnet restore src/backend/OpenOnboarding.slnx
+
+      - name: Build (Release)
+        run: dotnet build src/backend/OpenOnboarding.slnx --no-restore -c Release
+
+      - name: Test with coverage
+        run: >
+          dotnet test src/backend/OpenOnboarding.slnx
+          --no-build
+          -c Release
+          --collect:"XPlat Code Coverage"
+          --results-directory ./coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: coverage/**/coverage.cobertura.xml
+          retention-days: 14
+
+  # ── Frontend ───────────────────────────────────────────────
+  frontend-ci:
+    name: Frontend — lint & build (Node 22)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
