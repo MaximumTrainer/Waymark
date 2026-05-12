@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Interfaces;
+using OpenOnboarding.Application.Tests.TestHelpers;
 using OpenOnboarding.Application.Validators;
 using OpenOnboarding.Domain.Entities;
 using OpenOnboarding.Domain.Enums;
@@ -381,7 +382,9 @@ public sealed class LogicNodeExecutorTests
             customerService,
             new ComplianceRuleEvaluator(),
             NullLogger<WorkflowService>.Instance,
-            executors ?? []);
+            executors ?? [],
+            new InMemorySessionEventEmitter(),
+            new NoOpDocumentStorageService());
     }
 
     private static OnboardingDbContext BuildDbContext()
