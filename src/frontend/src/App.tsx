@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { JourneyBuilder } from './builder/JourneyBuilder'
 import { StepRenderer } from './onboarding/components/StepRenderer'
 import { useOnboarding } from './onboarding/hooks/useOnboarding'
@@ -7,9 +7,16 @@ const flowId = '11111111-1111-1111-1111-111111111111'
 
 function App() {
   const { step, startSession, submitStep, isLoading, error } = useOnboarding()
+  const [visitedNodeIds, setVisitedNodeIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    void startSession({ flowId }).catch(() => undefined)
+    startSession({ flowId })
+      .then((result) => {
+        if (result.currentNode?.id) {
+          setVisitedNodeIds(new Set([result.currentNode.id]))
+        }
+      })
+      .catch(() => undefined)
   }, [startSession])
 
   return (
@@ -21,7 +28,12 @@ function App() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">Visual Journey Builder (React Flow)</h2>
-        <JourneyBuilder />
+        <JourneyBuilder
+          flowId={flowId}
+          currentNodeId={step?.currentNode?.id}
+          visitedNodeIds={visitedNodeIds}
+          isCompleted={step?.isCompleted ?? false}
+        />
       </section>
 
       <section className="space-y-3">
@@ -38,8 +50,9 @@ function App() {
               if (!step.currentNode) {
                 return
               }
-
-              await submitStep(step.sessionId, step.currentNode.id, { payload })
+              const nodeId = step.currentNode.id
+              setVisitedNodeIds((prev) => new Set([...prev, nodeId]))
+              await submitStep(step.sessionId, nodeId, { payload })
             }}
           />
         ) : null}

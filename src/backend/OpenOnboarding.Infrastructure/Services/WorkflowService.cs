@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using OpenOnboarding.Application.Contracts;
+using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Domain.Entities;
 using OpenOnboarding.Domain.Enums;
@@ -10,13 +11,25 @@ using OpenOnboarding.Infrastructure.Persistence;
 
 namespace OpenOnboarding.Infrastructure.Services;
 
-public sealed class WorkflowService(OnboardingDbContext dbContext, IValidator<StartSessionRequest> startSessionValidator, IValidator<SubmitStepRequest> submitStepValidator) : IWorkflowService
+public sealed class WorkflowService(
+    OnboardingDbContext dbContext,
+    IValidator<StartSessionRequest> startSessionValidator,
+    IValidator<SubmitStepRequest> submitStepValidator,
+    ICustomerService customerService) : IWorkflowService
 {
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<SessionStepResponse> StartSessionAsync(StartSessionRequest request, CancellationToken cancellationToken = default)
     {
         await startSessionValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var customerProfileId = request.CustomerProfileId;
+
+        if (request.CustomerProfile is not null)
+        {
+            var profile = await customerService.UpsertByExternalIdAsync(request.CustomerProfile, cancellationToken);
+            customerProfileId = profile.Id;
+        }
 
         var flow = await dbContext.Flows
             .Include(x => x.Nodes)
@@ -29,7 +42,7 @@ public sealed class WorkflowService(OnboardingDbContext dbContext, IValidator<St
         var session = new Session
         {
             FlowId = flow.Id,
-            CustomerProfileId = request.CustomerProfileId,
+            CustomerProfileId = customerProfileId,
             CurrentNodeId = startNode.Id,
             Status = SessionStatus.Started,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -110,6 +123,32 @@ public sealed class WorkflowService(OnboardingDbContext dbContext, IValidator<St
             SessionId = session.Id,
             IsCompleted = false,
             CurrentNode = NodeDto.FromEntity(node)
+        };
+    }
+
+    public async Task<SessionStepResponse> AbandonSessionAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        var session = await dbContext.Sessions
+            .FirstOrDefaultAsync(x => x.Id == sessionId, cancellationToken)
+            ?? throw new InvalidOperationException($"Session '{sessionId}' was not found.");
+
+        if (session.Status == SessionStatus.Completed)
+        {
+            throw new ConflictException("Session is already completed");
+        }
+
+        if (session.Status != SessionStatus.Abandoned)
+        {
+            session.Status = SessionStatus.Abandoned;
+            session.UpdatedAt = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return new SessionStepResponse
+        {
+            SessionId = session.Id,
+            IsCompleted = false,
+            CurrentNode = null
         };
     }
 

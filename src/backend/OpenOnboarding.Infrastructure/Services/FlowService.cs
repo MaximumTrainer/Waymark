@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Contracts.Flows;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Interfaces;
@@ -85,7 +86,7 @@ public sealed class FlowService(
             })
             .ToListAsync(ct);
 
-        return new PaginatedResult<FlowSummaryDto> { Items = items, TotalCount = totalCount };
+        return new PaginatedResult<FlowSummaryDto> { Items = items, TotalCount = totalCount, Page = page, PageSize = pageSize };
     }
 
     public async Task<FlowDto> GetFlowAsync(Guid flowId, CancellationToken ct = default)

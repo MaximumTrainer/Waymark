@@ -67,6 +67,7 @@ app.UseExceptionHandler(exceptionHandler =>
         {
             ValidationException => (StatusCodes.Status400BadRequest, "Validation failed"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
+            NotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
             ArgumentException => (StatusCodes.Status400BadRequest, "Validation failed"),
             InvalidOperationException { Message: var message } when message.Contains("not found", StringComparison.OrdinalIgnoreCase)
                 => (StatusCodes.Status404NotFound, "Resource not found"),

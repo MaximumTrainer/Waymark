@@ -1,3 +1,4 @@
+using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Contracts.Flows;
 
 namespace OpenOnboarding.Application.Interfaces;

@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Contracts.Flows;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Validators;

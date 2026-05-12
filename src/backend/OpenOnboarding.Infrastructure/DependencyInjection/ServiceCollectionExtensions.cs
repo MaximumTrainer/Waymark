@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Contracts.Flows;
 using OpenOnboarding.Application.Interfaces;
@@ -25,7 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IValidator<StartSessionRequest>, StartSessionRequestValidator>();
         services.AddScoped<IValidator<SubmitStepRequest>, SubmitStepRequestValidator>();
 
-        services.AddHostedService<SessionTimeoutService>();
+        services.AddSingleton<IHostedService, SessionTimeoutService>();
 
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IValidator<CreateCustomerRequest>, CreateCustomerRequestValidator>();

@@ -1,6 +1,10 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
+using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Validators;
 using OpenOnboarding.Domain.Entities;
 using OpenOnboarding.Domain.Enums;
@@ -268,12 +272,152 @@ public sealed class WorkflowServiceTests
         Assert.False(result);
     }
 
+    [Fact]
+    public async Task AbandonSessionAsync_ReturnsAbandonedResponse_WhenSessionIsStarted()
+    {
+        var dbContext = BuildDbContext();
+        var flow = CreateFlow();
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
+
+        var result = await service.AbandonSessionAsync(started.SessionId);
+
+        Assert.False(result.IsCompleted);
+        Assert.Null(result.CurrentNode);
+        Assert.Equal(started.SessionId, result.SessionId);
+
+        var session = await dbContext.Sessions.FindAsync(started.SessionId);
+        Assert.Equal(SessionStatus.Abandoned, session!.Status);
+    }
+
+    [Fact]
+    public async Task AbandonSessionAsync_ThrowsConflictException_WhenSessionIsCompleted()
+    {
+        var dbContext = BuildDbContext();
+        var flow = CreateFlow();
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
+
+        var branch = await service.SubmitStepAsync(started.SessionId, started.CurrentNode!.Id, new SubmitStepRequest
+        {
+            Payload = new Dictionary<string, object?> { ["Country"] = "USA", ["FirstName"] = "Ada" }
+        });
+
+        await service.SubmitStepAsync(started.SessionId, branch.CurrentNode!.Id, new SubmitStepRequest
+        {
+            Payload = new Dictionary<string, object?> { ["Ssn"] = "123-45-6789" }
+        });
+
+        await Assert.ThrowsAsync<ConflictException>(() => service.AbandonSessionAsync(started.SessionId));
+    }
+
+    [Fact]
+    public async Task AbandonSessionAsync_IsIdempotent_WhenSessionIsAlreadyAbandoned()
+    {
+        var dbContext = BuildDbContext();
+        var flow = CreateFlow();
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
+
+        await service.AbandonSessionAsync(started.SessionId);
+        var second = await service.AbandonSessionAsync(started.SessionId);
+
+        Assert.False(second.IsCompleted);
+        Assert.Null(second.CurrentNode);
+    }
+
+    [Fact]
+    public async Task SessionTimeoutService_AbandonsStartedSessions_OlderThanTimeout()
+    {
+        var dbContext = BuildDbContext();
+        var flow = CreateFlow();
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
+
+        // Back-date the session so it appears timed out (2 minutes ago, timeout = 1 minute)
+        var session = await dbContext.Sessions.FindAsync(started.SessionId);
+        session!.UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-2);
+        await dbContext.SaveChangesAsync();
+
+        var scopeFactory = new TestServiceScopeFactory(dbContext);
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["SessionTimeoutMinutes"] = "1" })
+            .Build();
+
+        var timeoutService = new SessionTimeoutService(scopeFactory, config, NullLogger<SessionTimeoutService>.Instance);
+        await timeoutService.CheckAndAbandonAsync(1);
+
+        await dbContext.Entry(session).ReloadAsync();
+        Assert.Equal(SessionStatus.Abandoned, session.Status);
+    }
+
+    [Fact]
+    public async Task SessionTimeoutService_DoesNotAbandonSessions_WhenUpdatedAtIsWithinTimeout()
+    {
+        var dbContext = BuildDbContext();
+        var flow = CreateFlow();
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
+
+        // Session was just created — well within a 60-minute timeout window
+        var session = await dbContext.Sessions.FindAsync(started.SessionId);
+
+        var scopeFactory = new TestServiceScopeFactory(dbContext);
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["SessionTimeoutMinutes"] = "60" })
+            .Build();
+
+        var timeoutService = new SessionTimeoutService(scopeFactory, config, NullLogger<SessionTimeoutService>.Instance);
+        await timeoutService.CheckAndAbandonAsync(60);
+
+        await dbContext.Entry(session!).ReloadAsync();
+        Assert.Equal(SessionStatus.Started, session!.Status);
+    }
+
+    private sealed class TestServiceScopeFactory(OnboardingDbContext dbContext) : IServiceScopeFactory
+    {
+        public IServiceScope CreateScope() => new TestServiceScope(dbContext);
+    }
+
+    private sealed class TestServiceScope(OnboardingDbContext dbContext) : IServiceScope
+    {
+        public IServiceProvider ServiceProvider { get; } = new TestServiceProvider(dbContext);
+        public void Dispose() { }
+    }
+
+    private sealed class TestServiceProvider(OnboardingDbContext dbContext) : IServiceProvider
+    {
+        public object? GetService(Type serviceType) =>
+            serviceType == typeof(OnboardingDbContext) ? dbContext : null;
+    }
+
     private static WorkflowService CreateService(OnboardingDbContext dbContext)
     {
+        var customerService = new CustomerService(
+            dbContext,
+            new CreateCustomerRequestValidator(),
+            new UpdateCustomerRequestValidator());
+
         return new WorkflowService(
             dbContext,
             new StartSessionRequestValidator(),
-            new SubmitStepRequestValidator());
+            new SubmitStepRequestValidator(),
+            customerService);
     }
 
     private static OnboardingDbContext BuildDbContext()
