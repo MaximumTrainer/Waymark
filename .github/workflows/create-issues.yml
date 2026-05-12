@@ -1,0 +1,25 @@
+name: Create Feature Gap Issues
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/create-issues.sh'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create feature gap issues
+        run: bash scripts/create-issues.sh
