@@ -1,6 +1,6 @@
 # Waymark
 
-Waymark - Open Onboarding a schema-driven onboarding platform with:
+Waymark - A Schema-driven journey orchestration engine used for onboarding & compliance workflowss:
 - A .NET 10 backend API for flow definition, session orchestration, compliance checks, document upload, Server-Sent Event progress, and webhooks
 - A React + Vite frontend for rendering dynamic onboarding steps and visualizing flow paths
 - CI/CD workflows for validation and cloud deployment targets (Azure and AWS)
