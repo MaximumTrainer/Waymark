@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Waymark — Schema-Driven Journey Orchestration</title>
+  <link rel="stylesheet" href="website.css" />
+  <style>
+    .gradient-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    }
+    .code-block {
+      background: #0d1117;
+      border: 1px solid #30363d;
+    }
+    .feature-card:hover {
+      transform: translateY(-2px);
+      transition: transform 0.2s ease;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased">
+
+  <!-- ───────────────────────── NAV ───────────────────────── -->
+  <nav class="fixed top-0 inset-x-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-sm">
+    <div class="mx-auto max-w-7xl px-6 flex items-center justify-between h-14">
+      <a href="#" class="flex items-center gap-2 font-bold text-lg tracking-tight">
+        <svg class="w-6 h-6 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+        </svg>
+        <span class="text-white">Waymark</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm text-slate-400">
+        <a href="#features"    class="hover:text-white transition-colors">Features</a>
+        <a href="#how-it-works" class="hover:text-white transition-colors">How It Works</a>
+        <a href="#use-cases"   class="hover:text-white transition-colors">Use Cases</a>
+        <a href="#code"        class="hover:text-white transition-colors">Code</a>
+        <a href="docs.html"    class="hover:text-white transition-colors">Docs</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="docs.html" class="hidden md:inline-flex items-center gap-1.5 text-sm text-slate-300 hover:text-white transition-colors">
+          Documentation
+        </a>
+        <a href="https://github.com/MaximumTrainer/Waymark" class="inline-flex items-center gap-1.5 rounded-md bg-brand-500 hover:bg-brand-400 px-4 py-1.5 text-sm font-medium text-white transition-colors">
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ───────────────────────── HERO ───────────────────────── -->
+  <section class="gradient-hero pt-32 pb-24 px-6">
+    <div class="mx-auto max-w-4xl text-center">
+      <div class="inline-flex items-center gap-2 rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1.5 text-xs font-semibold text-brand-300 mb-8 uppercase tracking-widest">
+        Schema-First &nbsp;·&nbsp; Engine Agnostic &nbsp;·&nbsp; Dynamic Branching
+      </div>
+      <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight text-white leading-none mb-6">
+        Orchestrate complex<br/>
+        <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-violet-400">user journeys</span><br/>
+        through simple schemas.
+      </h1>
+      <p class="text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+        Waymark decouples journey logic from your frontend and backend code.
+        Define states, transitions, and conditions in structured JSON or YAML —
+        and let the engine handle the rest.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="docs.html#getting-started"
+           class="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-400 px-6 py-3 text-sm font-semibold text-white transition-colors shadow-lg shadow-brand-500/25">
+          Get Started
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
+        <a href="#how-it-works"
+           class="inline-flex items-center gap-2 rounded-lg border border-slate-700 hover:border-slate-500 px-6 py-3 text-sm font-medium text-slate-300 hover:text-white transition-colors">
+          See How It Works
+        </a>
+      </div>
+    </div>
+
+    <!-- mini schema preview -->
+    <div class="mt-16 mx-auto max-w-3xl">
+      <div class="code-block rounded-xl overflow-hidden shadow-2xl shadow-black/60">
+        <div class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800">
+          <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+          <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+          <span class="w-3 h-3 rounded-full bg-green-500/80"></span>
+          <span class="ml-3 text-xs text-slate-500 font-mono">journey.json</span>
+        </div>
+        <pre class="p-6 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code><span class="text-slate-500">{</span>
+  <span class="text-sky-400">"name"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Enterprise Onboarding"</span><span class="text-slate-500">,</span>
+  <span class="text-sky-400">"nodes"</span><span class="text-slate-500">: [</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"user-type"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"isStartNode"</span><span class="text-slate-500">:</span> <span class="text-violet-400">true</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"admin-setup"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"guest-welcome"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Information"</span> <span class="text-slate-500">}</span>
+  <span class="text-slate-500">],</span>
+  <span class="text-sky-400">"connections"</span><span class="text-slate-500">: [</span>
+    <span class="text-slate-500">{</span>
+      <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"user-type"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"admin-setup"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"conditionField"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Role"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"conditionOperator"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Equals"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"conditionValue"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Admin"</span>
+    <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span>
+      <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"user-type"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"guest-welcome"</span>
+    <span class="text-slate-500">}</span>
+  <span class="text-slate-500">]</span>
+<span class="text-slate-500">}</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── PROBLEM / SOLUTION ───────────────── -->
+  <section class="py-24 px-6 bg-slate-900">
+    <div class="mx-auto max-w-5xl">
+      <div class="grid md:grid-cols-2 gap-10 items-start">
+
+        <!-- Problem -->
+        <div class="rounded-xl border border-red-900/40 bg-red-950/20 p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/20 text-red-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </span>
+            <h2 class="text-lg font-semibold text-red-400">The Problem</h2>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-4">Hardcoded logic is a maintenance nightmare</h3>
+          <p class="text-slate-400 text-sm leading-relaxed mb-6">
+            Every new journey variation means another PR, another deployment, and another round of
+            regression testing. Conditional branches multiply. Business rules bleed into UI code.
+            Engineers become gatekeepers for what should be product decisions.
+          </p>
+          <div class="code-block rounded-lg p-4 text-xs font-mono text-slate-400 leading-relaxed">
+<span class="text-red-400">// ❌ Before Waymark</span>
+<span class="text-slate-300">if</span> (user.role === <span class="text-yellow-400">"admin"</span>) {
+  <span class="text-slate-300">showStep</span>(<span class="text-yellow-400">"admin-setup"</span>)
+} <span class="text-slate-300">else if</span> (user.country === <span class="text-yellow-400">"USA"</span>) {
+  <span class="text-slate-300">showStep</span>(<span class="text-yellow-400">"us-tax-form"</span>)
+} <span class="text-slate-300">else if</span> (plan === <span class="text-yellow-400">"enterprise"</span>
+  &amp;&amp; revenue &gt; <span class="text-violet-400">1_000_000</span>) {
+  <span class="text-slate-300">showStep</span>(<span class="text-yellow-400">"kyc-full"</span>)
+} <span class="text-slate-300">else</span> {
+  <span class="text-slate-300">showStep</span>(<span class="text-yellow-400">"guest-welcome"</span>)
+}
+          </div>
+        </div>
+
+        <!-- Solution -->
+        <div class="rounded-xl border border-green-900/40 bg-green-950/20 p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20 text-green-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <h2 class="text-lg font-semibold text-green-400">The Solution</h2>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-4">Declare journeys as data, not code</h3>
+          <p class="text-slate-400 text-sm leading-relaxed mb-6">
+            Waymark evaluates your JSON schema at runtime, resolving the next node for each session
+            based on submitted data and customer profiles. Change journeys without touching source
+            code — no build, no deploy, no rollback risk.
+          </p>
+          <div class="code-block rounded-lg p-4 text-xs font-mono text-slate-400 leading-relaxed">
+<span class="text-green-400">// ✅ With Waymark</span>
+<span class="text-slate-500">{</span>
+  <span class="text-sky-400">"conditionField"</span><span class="text-slate-300">:</span> <span class="text-yellow-400">"Role"</span><span class="text-slate-500">,</span>
+  <span class="text-sky-400">"conditionOperator"</span><span class="text-slate-300">:</span> <span class="text-yellow-400">"Equals"</span><span class="text-slate-500">,</span>
+  <span class="text-sky-400">"conditionValue"</span><span class="text-slate-300">:</span> <span class="text-yellow-400">"Admin"</span><span class="text-slate-500">,</span>
+  <span class="text-sky-400">"priority"</span><span class="text-slate-300">:</span> <span class="text-violet-400">0</span>
+<span class="text-slate-500">}</span>
+
+<span class="text-slate-600">// The engine handles the rest.</span>
+<span class="text-slate-600">// No deployments required.</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── FEATURES ───────────────────────── -->
+  <section id="features" class="py-24 px-6 bg-slate-950">
+    <div class="mx-auto max-w-5xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Everything you need to build dynamic journeys</h2>
+        <p class="text-slate-400 max-w-xl mx-auto">From simple onboarding flows to complex compliance pipelines — Waymark provides the primitives to model any journey.</p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/15 text-brand-400 mb-4">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2">Schema-First Design</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Define states, transitions, and conditions in JSON or YAML. The engine interprets your schema at runtime — no compilation required.</p>
+        </div>
+
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400 mb-4">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2">Engine Agnostic</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Integrate via REST API from any platform — React, Vue, React Native, Node.js, or any HTTP client. The engine lives on the backend.</p>
+        </div>
+
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 mb-4">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2">Dynamic Branching</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">12 condition operators (<code class="text-xs bg-slate-800 px-1 rounded">Equals</code>, <code class="text-xs bg-slate-800 px-1 rounded">GreaterThan</code>, <code class="text-xs bg-slate-800 px-1 rounded">MatchesRegex</code>, …) evaluated against submitted payload or customer profile fields.</p>
+        </div>
+
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400 mb-4">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2">Compliance Rules</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Attach server-side validation to any node via <code class="text-xs bg-slate-800 px-1 rounded">complianceRuleJson</code>. Required fields, regex patterns, numeric ranges, and cross-field comparisons.</p>
+        </div>
+
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400 mb-4">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2">Document Upload</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Built-in <code class="text-xs bg-slate-800 px-1 rounded">DocumentUpload</code> node type with file type filtering, size limits, and progress streaming via SSE.</p>
+        </div>
+
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400 mb-4">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2">Webhooks &amp; SSE</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Real-time events for <code class="text-xs bg-slate-800 px-1 rounded">step-advanced</code>, <code class="text-xs bg-slate-800 px-1 rounded">session-completed</code>, and <code class="text-xs bg-slate-800 px-1 rounded">session-abandoned</code>. Integrate downstream systems without polling.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────── HOW IT WORKS ───────────────────── -->
+  <section id="how-it-works" class="py-24 px-6 bg-slate-900">
+    <div class="mx-auto max-w-5xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">How Waymark works</h2>
+        <p class="text-slate-400 max-w-xl mx-auto">A journey is a directed graph stored as data. The engine evaluates it at runtime for each session.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-12 items-center">
+        <!-- Steps -->
+        <div class="space-y-8">
+          <div class="flex gap-4">
+            <div class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-brand-400 font-bold text-sm">1</div>
+            <div>
+              <h3 class="font-semibold text-white mb-1">Define your Flow</h3>
+              <p class="text-sm text-slate-400 leading-relaxed">POST a JSON document describing nodes (Form, DocumentUpload, Redirect, Information, Logic) and their conditional connections to <code class="text-xs bg-slate-800 px-1 rounded">POST /api/flows</code>.</p>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-brand-400 font-bold text-sm">2</div>
+            <div>
+              <h3 class="font-semibold text-white mb-1">Start a Session</h3>
+              <p class="text-sm text-slate-400 leading-relaxed">Call <code class="text-xs bg-slate-800 px-1 rounded">POST /api/workflow/sessions/start</code> with a flowId and optional customerProfileId. The engine returns the first node definition.</p>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-brand-400 font-bold text-sm">3</div>
+            <div>
+              <h3 class="font-semibold text-white mb-1">Render &amp; Submit Steps</h3>
+              <p class="text-sm text-slate-400 leading-relaxed">Your frontend renders the node using its <code class="text-xs bg-slate-800 px-1 rounded">type</code> and <code class="text-xs bg-slate-800 px-1 rounded">jsonContent</code>. On submit, the engine validates compliance rules and resolves the next node.</p>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-brand-400 font-bold text-sm">4</div>
+            <div>
+              <h3 class="font-semibold text-white mb-1">Completion &amp; Webhooks</h3>
+              <p class="text-sm text-slate-400 leading-relaxed">When no connection matches, the session is marked <code class="text-xs bg-slate-800 px-1 rounded">Completed</code>. Registered webhooks fire immediately and retry on transient failure.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Diagram -->
+        <div class="code-block rounded-xl p-6 shadow-2xl">
+          <p class="text-xs text-slate-500 font-mono mb-4">Session lifecycle</p>
+          <pre class="text-xs font-mono text-slate-400 leading-loose"><code><span class="text-green-400">StartSession</span> ──► <span class="text-sky-400">Started</span>
+                    │
+           SubmitStep (compliance pass)
+                    │
+          ┌─────────▼──────────┐
+          │  Logic auto-advance │
+          └─────────┬──────────┘
+                    │
+        ┌───────────┼────────────┐
+        │           │            │
+   <span class="text-sky-400">next node</span>    <span class="text-green-400">no next node</span>  <span class="text-red-400">failOnError</span>
+   resolved     resolved      triggered
+        │           │            │
+     <span class="text-sky-400">Started</span>    <span class="text-green-400">Completed</span>      <span class="text-red-400">Error</span>
+        │
+   AbandonSession
+        │
+    <span class="text-amber-400">Abandoned</span></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── USE CASES ───────────────────────── -->
+  <section id="use-cases" class="py-24 px-6 bg-slate-950">
+    <div class="mx-auto max-w-5xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Real-world use cases</h2>
+        <p class="text-slate-400 max-w-xl mx-auto">Any multi-step, conditional user flow maps naturally onto a Waymark schema.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="text-2xl mb-3">🏢</div>
+          <h3 class="font-semibold text-white mb-2">Enterprise Onboarding</h3>
+          <p class="text-sm text-slate-400 leading-relaxed mb-4">Admin users see a full KYC flow; guest users are directed to a lightweight welcome sequence. Compliance questionnaires adapt to business size and region.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">Form</span>
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">DocumentUpload</span>
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">Logic</span>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="text-2xl mb-3">💳</div>
+          <h3 class="font-semibold text-white mb-2">Payment Checkout</h3>
+          <p class="text-sm text-slate-400 leading-relaxed mb-4">Route customers to credit card validation or PayPal based on their selection. Cross-field compliance rules enforce amount limits per payment method.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">Branching</span>
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">Compliance</span>
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">Webhooks</span>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div class="text-2xl mb-3">🩺</div>
+          <h3 class="font-semibold text-white mb-2">Healthcare Intake</h3>
+          <p class="text-sm text-slate-400 leading-relaxed mb-4">Patient intake forms that branch by insurance type, skip irrelevant sections, and route to external EHR systems via HttpCallback Logic nodes.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">Redirect</span>
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">HttpCallback</span>
+            <span class="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-400">SSE</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── CODE EXAMPLES ───────────────────────── -->
+  <section id="code" class="py-24 px-6 bg-slate-900">
+    <div class="mx-auto max-w-5xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Code examples</h2>
+        <p class="text-slate-400 max-w-xl mx-auto">From a simple contact form to a conditional payment flow — all expressed as data.</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800 w-fit mb-8">
+        <button onclick="showTab('basic')"    id="tab-basic"    class="tab-btn active px-4 py-2 rounded-md text-sm font-medium transition-colors bg-slate-800 text-white">Basic Flow</button>
+        <button onclick="showTab('advanced')" id="tab-advanced" class="tab-btn px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-white">Advanced Logic</button>
+        <button onclick="showTab('edge')"     id="tab-edge"     class="tab-btn px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-white">Edge Cases</button>
+      </div>
+
+      <!-- Basic -->
+      <div id="panel-basic" class="code-block rounded-xl overflow-hidden">
+        <div class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800">
+          <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+          <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+          <span class="w-3 h-3 rounded-full bg-green-500/80"></span>
+          <span class="ml-3 text-xs text-slate-500 font-mono">contact-form.json — 3-step Contact Form</span>
+        </div>
+        <pre class="p-6 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code><span class="text-slate-500">{</span>
+  <span class="text-sky-400">"name"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Contact Form"</span><span class="text-slate-500">,</span>
+  <span class="text-sky-400">"nodes"</span><span class="text-slate-500">: [</span>
+    <span class="text-slate-500">{</span>
+      <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"personal-info"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Your details"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"isStartNode"</span><span class="text-slate-500">:</span> <span class="text-violet-400">true</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"jsonContent"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"fields\":[{\"name\":\"Name\",\"type\":\"text\",\"required\":true},{\"name\":\"Email\",\"type\":\"email\",\"required\":true}]}"</span>
+    <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span>
+      <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"message"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Your message"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"jsonContent"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"fields\":[{\"name\":\"Subject\",\"type\":\"text\",\"required\":true},{\"name\":\"Body\",\"type\":\"textarea\",\"required\":true}]}"</span>
+    <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span>
+      <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"confirmation"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Information"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Thank you! We'll be in touch within 24 hours."</span>
+    <span class="text-slate-500">}</span>
+  <span class="text-slate-500">],</span>
+  <span class="text-sky-400">"connections"</span><span class="text-slate-500">: [</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"personal-info"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"message"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"message"</span><span class="text-slate-500">,</span>       <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"confirmation"</span> <span class="text-slate-500">}</span>
+  <span class="text-slate-500">]</span>
+<span class="text-slate-500">}</span></code></pre>
+      </div>
+
+      <!-- Advanced -->
+      <div id="panel-advanced" class="code-block rounded-xl overflow-hidden hidden">
+        <div class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800">
+          <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+          <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+          <span class="w-3 h-3 rounded-full bg-green-500/80"></span>
+          <span class="ml-3 text-xs text-slate-500 font-mono">payment.json — Conditional Payment Flow</span>
+        </div>
+        <pre class="p-6 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code><span class="text-slate-500">{</span>
+  <span class="text-sky-400">"name"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Conditional Payment"</span><span class="text-slate-500">,</span>
+  <span class="text-sky-400">"nodes"</span><span class="text-slate-500">: [</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"payment-method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"isStartNode"</span><span class="text-slate-500">:</span> <span class="text-violet-400">true</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"jsonContent"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"fields\":[{\"name\":\"Method\",\"type\":\"select\",\"options\":[\"CreditCard\",\"PayPal\"],\"required\":true}]}"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"card-details"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"complianceRuleJson"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"requiredFields\":[\"CardNumber\",\"CVV\"],\"rules\":[{\"field\":\"CardNumber\",\"pattern\":\"^[0-9]{16}$\"}]}"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"paypal-redirect"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Redirect"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"jsonContent"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"url\":\"https://paypal.com/checkout?session={{sessionId}}\"}"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"success"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Information"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Payment accepted!"</span> <span class="text-slate-500">}</span>
+  <span class="text-slate-500">],</span>
+  <span class="text-sky-400">"connections"</span><span class="text-slate-500">: [</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"payment-method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"card-details"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"conditionField"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"conditionOperator"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Equals"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"conditionValue"</span><span class="text-slate-500">:</span> <span class="text-green-400">"CreditCard"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"priority"</span><span class="text-slate-500">:</span> <span class="text-violet-400">0</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"payment-method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"paypal-redirect"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"priority"</span><span class="text-slate-500">:</span> <span class="text-violet-400">1</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"card-details"</span><span class="text-slate-500">,</span>    <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"success"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"paypal-redirect"</span><span class="text-slate-500">,</span>  <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"success"</span> <span class="text-slate-500">}</span>
+  <span class="text-slate-500">]</span>
+<span class="text-slate-500">}</span></code></pre>
+      </div>
+
+      <!-- Edge Cases -->
+      <div id="panel-edge" class="code-block rounded-xl overflow-hidden hidden">
+        <div class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800">
+          <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+          <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+          <span class="w-3 h-3 rounded-full bg-green-500/80"></span>
+          <span class="ml-3 text-xs text-slate-500 font-mono">session-resumption.md — Back button &amp; session resumption</span>
+        </div>
+        <pre class="p-6 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code><span class="text-slate-500">## Back button</span>
+
+<span class="text-slate-400">Sessions track all visited nodes in submission history.</span>
+<span class="text-slate-400">Retrieve the ordered list with:</span>
+
+  GET /api/workflow/sessions/{sessionId}
+
+<span class="text-slate-400">The response includes:</span>
+  <span class="text-green-400">"submissions"</span><span class="text-slate-300">: [</span>
+    <span class="text-slate-300">{</span> <span class="text-green-400">"nodeId"</span><span class="text-slate-300">: "...",</span> <span class="text-green-400">"submittedAt"</span><span class="text-slate-300">: "...",</span> <span class="text-green-400">"payload"</span><span class="text-slate-300">: { ... } }</span>
+  <span class="text-slate-300">]</span>
+
+<span class="text-slate-400">Re-submit to an earlier nodeId to replay from that point.</span>
+<span class="text-slate-400">The engine re-evaluates routing from the replayed node.</span>
+
+<span class="text-slate-500">## Session resumption</span>
+
+<span class="text-slate-400">Sessions persist indefinitely. Resume any time with:</span>
+
+  GET /api/workflow/sessions/{sessionId}/next
+
+<span class="text-slate-400">Returns the current node the session is waiting on.</span>
+<span class="text-slate-400">Persist sessionId client-side (localStorage, cookie, etc.)</span>
+<span class="text-slate-400">and pass it on page reload to resume seamlessly.</span></code></pre>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ───────────────────────── NODE TYPES ───────────────────────── -->
+  <section class="py-24 px-6 bg-slate-950">
+    <div class="mx-auto max-w-5xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Node type reference</h2>
+        <p class="text-slate-400 max-w-xl mx-auto">Five built-in node types cover the full spectrum of journey interactions.</p>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-800">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-800 bg-slate-900">
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Type</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Description</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Key jsonContent fields</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800">
+            <tr class="bg-slate-900/50">
+              <td class="px-6 py-4"><code class="text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded text-xs">Form</code></td>
+              <td class="px-6 py-4 text-slate-400">Renders a dynamic form from a field list. Supports text, email, number, select, checkbox, textarea, date.</td>
+              <td class="px-6 py-4 font-mono text-xs text-slate-500"><code>fields[]</code> — name, type, required, options</td>
+            </tr>
+            <tr class="bg-slate-900/30">
+              <td class="px-6 py-4"><code class="text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded text-xs">DocumentUpload</code></td>
+              <td class="px-6 py-4 text-slate-400">Renders a file picker with type and size enforcement. Files uploaded before step submission.</td>
+              <td class="px-6 py-4 font-mono text-xs text-slate-500"><code>acceptedFileTypes</code>, <code>maxFiles</code></td>
+            </tr>
+            <tr class="bg-slate-900/50">
+              <td class="px-6 py-4"><code class="text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded text-xs">Redirect</code></td>
+              <td class="px-6 py-4 text-slate-400">Navigates to an external URL. Supports <code class="text-xs">&#123;&#123;token&#125;&#125;</code> interpolation for sessionId, flowId, customer fields.</td>
+              <td class="px-6 py-4 font-mono text-xs text-slate-500"><code>url</code> — supports tokens</td>
+            </tr>
+            <tr class="bg-slate-900/30">
+              <td class="px-6 py-4"><code class="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded text-xs">Information</code></td>
+              <td class="px-6 py-4 text-slate-400">Displays a message with no submission required. The node title carries the display text.</td>
+              <td class="px-6 py-4 font-mono text-xs text-slate-500">— (title field on node)</td>
+            </tr>
+            <tr class="bg-slate-900/50">
+              <td class="px-6 py-4"><code class="text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-xs">Logic</code></td>
+              <td class="px-6 py-4 text-slate-400">Executes a server-side action automatically. Auto-advances through up to 20 consecutive Logic nodes.</td>
+              <td class="px-6 py-4 font-mono text-xs text-slate-500"><code>action</code>, <code>field</code>, <code>value</code>, <code>failOnError</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── CTA ───────────────────────── -->
+  <section class="py-24 px-6 bg-slate-900">
+    <div class="mx-auto max-w-3xl text-center">
+      <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Ready to orchestrate your first journey?</h2>
+      <p class="text-slate-400 mb-8 text-lg">Start with the documentation — set up the engine in minutes with Docker and the .NET 10 SDK.</p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="docs.html" class="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-400 px-8 py-3 text-sm font-semibold text-white transition-colors shadow-lg shadow-brand-500/25">
+          Read the Docs
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
+        <a href="https://github.com/MaximumTrainer/Waymark" class="inline-flex items-center gap-2 rounded-lg border border-slate-700 hover:border-slate-500 px-8 py-3 text-sm font-medium text-slate-300 hover:text-white transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── FOOTER ───────────────────────── -->
+  <footer class="border-t border-slate-800 py-8 px-6 bg-slate-950">
+    <div class="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+      <div class="flex items-center gap-2 font-semibold text-slate-400">
+        <svg class="w-4 h-4 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+        Waymark
+      </div>
+      <div class="flex gap-6">
+        <a href="docs.html" class="hover:text-slate-300 transition-colors">Documentation</a>
+        <a href="https://github.com/MaximumTrainer/Waymark" class="hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+      <p>Schema-driven journey orchestration engine</p>
+    </div>
+  </footer>
+
+  <script>
+    function showTab(name) {
+      ['basic', 'advanced', 'edge'].forEach(t => {
+        const panel = document.getElementById('panel-' + t)
+        const btn   = document.getElementById('tab-'   + t)
+        if (t === name) {
+          panel.classList.remove('hidden')
+          btn.classList.add('bg-slate-800', 'text-white')
+          btn.classList.remove('text-slate-400')
+        } else {
+          panel.classList.add('hidden')
+          btn.classList.remove('bg-slate-800', 'text-white')
+          btn.classList.add('text-slate-400')
+        }
+      })
+    }
+  </script>
+</body>
+</html>

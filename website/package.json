@@ -1,0 +1,12 @@
+{
+  "name": "website",
+  "version": "1.0.0",
+  "description": "Waymark static website — landing page and documentation",
+  "scripts": {
+    "build:css": "tailwindcss -i ./tailwind-input.css -o ./website.css --minify"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

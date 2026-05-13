@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Waymark Docs — Schema-Driven Journey Orchestration</title>
+  <link rel="stylesheet" href="website.css" />
+  <style>
+    .sidebar-link.active { color: #4a6bfa; font-weight: 600; }
+    .sidebar-link.active::before { content: ''; display: block; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: #4a6bfa; border-radius: 0 2px 2px 0; }
+    .sidebar-link { position: relative; }
+    .code-block { background: #0d1117; border: 1px solid #30363d; }
+    .prose-doc h2 { font-size: 1.5rem; font-weight: 700; color: #f1f5f9; margin-top: 2.5rem; margin-bottom: 1rem; padding-top: 1rem; border-top: 1px solid #1e293b; }
+    .prose-doc h2:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+    .prose-doc h3 { font-size: 1.125rem; font-weight: 600; color: #e2e8f0; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+    .prose-doc h4 { font-size: 0.9rem; font-weight: 600; color: #cbd5e1; margin-top: 1rem; margin-bottom: 0.25rem; }
+    .prose-doc p { color: #94a3b8; line-height: 1.75; margin-bottom: 0.75rem; font-size: 0.9375rem; }
+    .prose-doc ul { list-style: disc; padding-left: 1.25rem; color: #94a3b8; font-size: 0.9375rem; margin-bottom: 0.75rem; }
+    .prose-doc ul li { margin-bottom: 0.25rem; line-height: 1.6; }
+    .prose-doc ol { list-style: decimal; padding-left: 1.25rem; color: #94a3b8; font-size: 0.9375rem; margin-bottom: 0.75rem; }
+    .prose-doc ol li { margin-bottom: 0.25rem; line-height: 1.6; }
+    .prose-doc code:not(pre code) { background: #1e293b; color: #7dd3fc; padding: 0.1em 0.4em; border-radius: 0.25rem; font-size: 0.85em; }
+    .prose-doc pre { margin: 1rem 0; }
+    .prose-doc table { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin: 1rem 0; }
+    .prose-doc table th { background: #1e293b; color: #64748b; text-align: left; padding: 0.5rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #334155; }
+    .prose-doc table td { padding: 0.625rem 1rem; color: #94a3b8; border-bottom: 1px solid #1e293b; vertical-align: top; }
+    .prose-doc table tr:last-child td { border-bottom: none; }
+    .prose-doc .callout { border-left: 3px solid #4a6bfa; background: #1e293b; padding: 0.75rem 1rem; border-radius: 0 0.375rem 0.375rem 0; margin: 1rem 0; }
+    .prose-doc .callout p { margin: 0; font-size: 0.875rem; }
+    .badge { display: inline-flex; align-items: center; padding: 0.15em 0.6em; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600; font-family: ui-monospace, monospace; }
+    .badge-get    { background: #14532d; color: #86efac; }
+    .badge-post   { background: #1e3a5f; color: #93c5fd; }
+    .badge-put    { background: #451a03; color: #fdba74; }
+    .badge-delete { background: #450a0a; color: #fca5a5; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased">
+
+  <!-- TOP NAV -->
+  <header class="fixed top-0 inset-x-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-sm">
+    <div class="flex items-center justify-between h-14 px-6">
+      <a href="index.html" class="flex items-center gap-2 font-bold text-base tracking-tight">
+        <svg class="w-5 h-5 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+        </svg>
+        <span class="text-white">Waymark</span>
+        <span class="text-slate-500 font-normal text-sm">/ Docs</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm text-slate-400">
+        <a href="#getting-started" class="hover:text-white transition-colors">Getting Started</a>
+        <a href="#schema"          class="hover:text-white transition-colors">Schema</a>
+        <a href="#api"             class="hover:text-white transition-colors">API</a>
+        <a href="#sdk"             class="hover:text-white transition-colors">SDK Integration</a>
+        <a href="#examples"        class="hover:text-white transition-colors">Examples</a>
+      </div>
+      <a href="https://github.com/MaximumTrainer/Waymark" class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 hover:border-slate-500 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <div class="flex pt-14 min-h-screen">
+
+    <!-- SIDEBAR -->
+    <aside class="hidden lg:block w-64 flex-shrink-0 fixed top-14 bottom-0 left-0 overflow-y-auto border-r border-slate-800 bg-slate-950 py-8 px-4">
+      <nav class="space-y-6 text-sm">
+
+        <div>
+          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">Introduction</p>
+          <ul class="space-y-0.5">
+            <li><a href="#overview"        class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Overview</a></li>
+            <li><a href="#getting-started" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Getting Started</a></li>
+            <li><a href="#architecture"    class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Architecture</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">Core Concepts</p>
+          <ul class="space-y-0.5">
+            <li><a href="#schema"      class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Journey Schema</a></li>
+            <li><a href="#nodes"       class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Node Types</a></li>
+            <li><a href="#connections" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Connections &amp; Routing</a></li>
+            <li><a href="#compliance"  class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Compliance Rules</a></li>
+            <li><a href="#sessions"    class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Session Lifecycle</a></li>
+            <li><a href="#context"     class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Context &amp; State</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">API Reference</p>
+          <ul class="space-y-0.5">
+            <li><a href="#api"         class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Authentication</a></li>
+            <li><a href="#api-flows"   class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Flows</a></li>
+            <li><a href="#api-sessions" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Sessions</a></li>
+            <li><a href="#api-steps"   class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Steps &amp; Documents</a></li>
+            <li><a href="#api-events"  class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Events &amp; Webhooks</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">SDK Integration</p>
+          <ul class="space-y-0.5">
+            <li><a href="#sdk"        class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">React / Next.js</a></li>
+            <li><a href="#sdk-vue"    class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Vue / Nuxt</a></li>
+            <li><a href="#sdk-node"   class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Node.js</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">Examples</p>
+          <ul class="space-y-0.5">
+            <li><a href="#examples"          class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Contact Form</a></li>
+            <li><a href="#example-payment"   class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Payment Flow</a></li>
+            <li><a href="#example-onboarding" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Enterprise Onboarding</a></li>
+          </ul>
+        </div>
+
+      </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 lg:ml-64 min-w-0">
+      <div class="max-w-3xl mx-auto px-6 py-12 prose-doc">
+
+        <!-- ─── OVERVIEW ─── -->
+        <section id="overview">
+          <h2>Overview</h2>
+          <p>
+            Waymark is a <strong class="text-white">schema-driven journey orchestration engine</strong>. Instead of encoding multi-step
+            workflow logic inside your application code, you define journeys as structured JSON documents — and Waymark's
+            runtime engine evaluates them on every step submission.
+          </p>
+          <p>
+            This means product and operations teams can modify journey branching logic, add compliance
+            checks, and create new flows without engineering deployments.
+          </p>
+          <div class="callout">
+            <p>
+              <strong class="text-white">Waymark is engine-agnostic.</strong> Any HTTP client can consume the REST API — React, Vue, React Native, Node.js, or a plain shell script.
+            </p>
+          </div>
+
+          <h3>Key concepts at a glance</h3>
+          <table>
+            <thead><tr><th>Concept</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>Flow</code></td><td>A versioned container of nodes and connections. The journey definition.</td></tr>
+              <tr><td><code>Node</code></td><td>A single step. Its <code>type</code> controls rendering; <code>jsonContent</code> provides configuration.</td></tr>
+              <tr><td><code>Connection</code></td><td>A directed edge between nodes, with optional condition evaluated against submitted data.</td></tr>
+              <tr><td><code>Session</code></td><td>A runtime instance of a flow for a specific customer.</td></tr>
+              <tr><td><code>Submission</code></td><td>The recorded payload for each completed node.</td></tr>
+              <tr><td><code>CustomerProfile</code></td><td>Optional profile that conditions can reference (country, risk tier, metadata).</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ─── GETTING STARTED ─── -->
+        <section id="getting-started">
+          <h2>Getting Started</h2>
+
+          <h3>Prerequisites</h3>
+          <ul>
+            <li>.NET SDK 10.x</li>
+            <li>Node.js 22.x (for frontend)</li>
+            <li>Docker (for local PostgreSQL)</li>
+          </ul>
+
+          <h3>1. Clone the repository</h3>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">bash</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>git clone https://github.com/MaximumTrainer/Waymark
+cd Waymark</code></pre>
+          </div>
+
+          <h3>2. Start local dependencies</h3>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">bash</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>docker compose up -d</code></pre>
+          </div>
+          <p>Local PostgreSQL defaults: host <code>localhost:5432</code>, database <code>onboarding</code>, user/password <code>postgres/postgres</code>.</p>
+
+          <h3>3. Start the backend API</h3>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">bash</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>ConnectionStrings__OnboardingDb="Host=localhost;Port=5432;Database=onboarding;Username=postgres;Password=postgres" \
+  dotnet run --project src/backend/OpenOnboarding.Api</code></pre>
+          </div>
+          <p>Swagger UI is available at <code>https://localhost:7000/swagger</code> in Development mode.</p>
+
+          <h3>4. Start the frontend</h3>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">bash</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>cd src/frontend
+cp .env.example .env.local
+# Set VITE_API_BASE_URL=http://localhost:5072
+# Set VITE_API_KEY=dev-api-key-change-in-production
+npm install
+npm run dev</code></pre>
+          </div>
+
+          <h3>5. Create your first flow</h3>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">http</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>POST /api/flows
+Content-Type: application/json
+X-Api-Key: dev-api-key-change-in-production
+
+{
+  "name": "My First Journey",
+  "nodes": [
+    {
+      "id": "node-1",
+      "key": "welcome",
+      "type": "Information",
+      "title": "Welcome! This is step one.",
+      "isStartNode": true
+    }
+  ],
+  "connections": []
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- ─── ARCHITECTURE ─── -->
+        <section id="architecture">
+          <h2>Architecture</h2>
+          <p>
+            Waymark follows a <strong class="text-white">Ports &amp; Adapters (Hexagonal)</strong> architecture. Business rules live
+            in the domain and application layers. Infrastructure adapters (database, HTTP, webhooks) depend on
+            inward-facing ports — never the other way around.
+          </p>
+          <table>
+            <thead><tr><th>Layer</th><th>Project</th><th>Responsibility</th></tr></thead>
+            <tbody>
+              <tr><td>Domain</td><td><code>OpenOnboarding.Domain</code></td><td>Entities: Flow, Node, Connection, Session, Submission, CustomerProfile, Webhook. Enums: NodeType, ConditionOperator, SessionStatus.</td></tr>
+              <tr><td>Application</td><td><code>OpenOnboarding.Application</code></td><td>Service interfaces (ports), request/response contracts, FluentValidation validators.</td></tr>
+              <tr><td>Infrastructure</td><td><code>OpenOnboarding.Infrastructure</code></td><td>WorkflowService, ComplianceRuleEvaluator, FlowService, WebhookService, EF Core DbContext, logic node executors.</td></tr>
+              <tr><td>API</td><td><code>OpenOnboarding.Api</code></td><td>ASP.NET Core controllers, JWT + API key authentication, RBAC policies, OpenAPI.</td></tr>
+            </tbody>
+          </table>
+          <p>
+            The frontend is a Vite + React application. <code>StepRenderer</code> reads <code>NodeDto.JsonContent</code> and renders
+            type-appropriate UI. <code>JourneyBuilder</code> provides a React Flow graph for visual path inspection.
+          </p>
+        </section>
+
+        <!-- ─── SCHEMA ─── -->
+        <section id="schema">
+          <h2>Journey Schema</h2>
+          <p>
+            A <strong class="text-white">flow</strong> is a JSON document describing nodes and their directed connections.
+            The engine stores flows server-side and evaluates them at runtime for each session.
+          </p>
+
+          <h3>Flow object</h3>
+          <table>
+            <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>id</code></td><td>UUID</td><td>Unique identifier (server-assigned on creation).</td></tr>
+              <tr><td><code>name</code></td><td>string</td><td>Human-readable name for this journey.</td></tr>
+              <tr><td><code>description</code></td><td>string?</td><td>Optional description.</td></tr>
+              <tr><td><code>nodes</code></td><td>Node[]</td><td>Array of journey nodes.</td></tr>
+              <tr><td><code>connections</code></td><td>Connection[]</td><td>Array of directed edges between nodes.</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Node object</h3>
+          <table>
+            <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>id</code></td><td>UUID</td><td>Unique node identifier within the flow.</td></tr>
+              <tr><td><code>key</code></td><td>string</td><td>Stable slug for referencing this node (e.g. in redirects or webhook payloads).</td></tr>
+              <tr><td><code>type</code></td><td>enum</td><td>One of: <code>Form</code>, <code>DocumentUpload</code>, <code>Redirect</code>, <code>Information</code>, <code>Logic</code>.</td></tr>
+              <tr><td><code>title</code></td><td>string?</td><td>Display heading shown by the renderer.</td></tr>
+              <tr><td><code>jsonContent</code></td><td>string?</td><td>JSON string; schema depends on node type (see Node Types below).</td></tr>
+              <tr><td><code>complianceRuleJson</code></td><td>string?</td><td>Optional server-side validation rules (see Compliance Rules).</td></tr>
+              <tr><td><code>isStartNode</code></td><td>boolean</td><td>Exactly one node must be <code>true</code>. This is the entry point.</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Connection object</h3>
+          <table>
+            <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>sourceNodeId</code></td><td>UUID</td><td>The node this edge originates from.</td></tr>
+              <tr><td><code>targetNodeId</code></td><td>UUID</td><td>The node this edge points to.</td></tr>
+              <tr><td><code>conditionField</code></td><td>string?</td><td>Name of the field to evaluate. Omit for an unconditional fallback edge.</td></tr>
+              <tr><td><code>conditionOperator</code></td><td>enum?</td><td>One of the 12 supported operators (see Connections &amp; Routing).</td></tr>
+              <tr><td><code>conditionValue</code></td><td>string?</td><td>Value to compare against.</td></tr>
+              <tr><td><code>priority</code></td><td>int</td><td>Lower = evaluated first. Fallback edges (no condition) are always sorted to the end within the same priority.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ─── NODES ─── -->
+        <section id="nodes">
+          <h2>Node Types</h2>
+
+          <h3>Form</h3>
+          <p>Renders a dynamic form from a field list. Each field maps to an HTML input in the frontend <code>StepRenderer</code>.</p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">jsonContent</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "fields": [
+    { "name": "CompanyName", "type": "text",   "required": true },
+    { "name": "Country",     "type": "select", "required": true, "options": ["USA", "GBR", "DEU"] },
+    { "name": "Revenue",     "type": "number", "required": false }
+  ]
+}</code></pre>
+          </div>
+          <p>Supported <code>type</code> values: <code>text</code>, <code>email</code>, <code>number</code>, <code>select</code>, <code>checkbox</code>, <code>textarea</code>, <code>date</code>. Unknown types fall back to <code>text</code>.</p>
+
+          <h3>DocumentUpload</h3>
+          <p>Renders a file picker. Files are uploaded via a separate endpoint before step submission.</p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">jsonContent</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "acceptedFileTypes": ["application/pdf", "image/jpeg", "image/png"],
+  "maxFiles": 3
+}</code></pre>
+          </div>
+          <p>Global file size limit is controlled by the <code>DocumentUpload:MaxFileSizeBytes</code> configuration key.</p>
+
+          <h3>Redirect</h3>
+          <p>Navigates the customer to an external URL. Supports <code>&#123;&#123;token&#125;&#125;</code> interpolation resolved server-side before delivery.</p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">jsonContent</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "url": "https://kyc-provider.example.com/verify?session={{sessionId}}&customer={{externalCustomerId}}"
+}</code></pre>
+          </div>
+          <table>
+            <thead><tr><th>Token</th><th>Resolves to</th></tr></thead>
+            <tbody>
+              <tr><td><code>&#123;&#123;sessionId&#125;&#125;</code></td><td>Current session GUID</td></tr>
+              <tr><td><code>&#123;&#123;flowId&#125;&#125;</code></td><td>Flow GUID</td></tr>
+              <tr><td><code>&#123;&#123;nodeKey&#125;&#125;</code></td><td>Node <code>key</code> string</td></tr>
+              <tr><td><code>&#123;&#123;customerProfileId&#125;&#125;</code></td><td>Internal customer profile GUID</td></tr>
+              <tr><td><code>&#123;&#123;externalCustomerId&#125;&#125;</code></td><td>Caller-supplied external customer ID</td></tr>
+              <tr><td><code>&#123;&#123;FieldName&#125;&#125;</code></td><td>Any field value from the most recent submission</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Information</h3>
+          <p>Displays a message with no submission required. The node's <code>title</code> field carries the display text. No <code>jsonContent</code> is required.</p>
+
+          <h3>Logic</h3>
+          <p>Executes a server-side action automatically, without user interaction. The engine auto-advances through up to 20 consecutive Logic nodes before returning control to the caller.</p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">jsonContent</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "action": "SetProfileField",
+  "field": "kyc_status",
+  "value": "pending",
+  "failOnError": true
+}</code></pre>
+          </div>
+          <table>
+            <thead><tr><th>Action</th><th>Description</th><th>Required fields</th></tr></thead>
+            <tbody>
+              <tr><td><code>SetProfileField</code></td><td>Writes a key-value pair into <code>CustomerProfile.MetadataJson</code>.</td><td><code>field</code>, <code>value</code></td></tr>
+              <tr><td><code>HttpCallback</code></td><td>POSTs the current step payload as JSON to an external URL and records the response.</td><td><code>url</code></td></tr>
+            </tbody>
+          </table>
+          <p>To add a custom action, implement <code>ILogicNodeExecutor</code> and register it with the DI container.</p>
+        </section>
+
+        <!-- ─── CONNECTIONS ─── -->
+        <section id="connections">
+          <h2>Connections &amp; Routing</h2>
+          <p>
+            When a step is submitted, <code>WorkflowService.ResolveNextNode</code> selects the next node by evaluating
+            outgoing connections in order:
+          </p>
+          <ol>
+            <li>Connections are sorted ascending by <code>priority</code> (lower = evaluated first).</li>
+            <li>Within the same priority, fallback connections (no <code>conditionField</code>) are sorted to the end.</li>
+            <li>The first connection whose condition evaluates to <code>true</code> wins.</li>
+            <li>If no connection matches, the session is marked <code>Completed</code>.</li>
+          </ol>
+          <p>
+            If <code>conditionField</code> is absent from the submitted payload, the engine falls back to matching
+            <code>Country</code> and <code>Email</code> fields on the associated <code>CustomerProfile</code>.
+          </p>
+          <p>All string comparisons are case-insensitive.</p>
+
+          <h3>Supported condition operators</h3>
+          <div class="flex flex-wrap gap-2 my-4">
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">Equals</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">NotEquals</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">Exists</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">Contains</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">NotContains</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">StartsWith</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">EndsWith</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">GreaterThan</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">LessThan</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">GreaterThanOrEqual</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">LessThanOrEqual</code>
+            <code class="bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">MatchesRegex</code>
+          </div>
+          <p>Numeric operators require both sides to parse as <code>decimal</code>; non-numeric values evaluate to <code>false</code>.</p>
+        </section>
+
+        <!-- ─── COMPLIANCE ─── -->
+        <section id="compliance">
+          <h2>Compliance Rules</h2>
+          <p>
+            <code>complianceRuleJson</code> is an optional string on any node. The <code>ComplianceRuleEvaluator</code> service
+            parses it at step-submission time. A non-empty violation list causes the submission to return HTTP 400.
+          </p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">complianceRuleJson shape</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "requiredFields": ["FieldA", "FieldB"],
+  "rules": [
+    { "field": "CompanyName", "minLength": 2, "maxLength": 100, "pattern": "^[A-Za-z0-9 ]+$" },
+    { "field": "Revenue",     "minimum": 0,   "maximum": 999999999 },
+    { "field": "RiskTier",    "allowedValues": ["Low", "Medium", "High"] }
+  ],
+  "crossFieldRules": [
+    { "field1": "EndDate", "operator": "GreaterThan", "field2": "StartDate" }
+  ]
+}</code></pre>
+          </div>
+          <table>
+            <thead><tr><th>Section</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>requiredFields</code></td><td>Field names that must be present and non-empty.</td></tr>
+              <tr><td><code>rules[].minLength / maxLength</code></td><td>String length constraints.</td></tr>
+              <tr><td><code>rules[].minimum / maximum</code></td><td>Numeric range (parsed as <code>decimal</code>).</td></tr>
+              <tr><td><code>rules[].pattern</code></td><td>.NET regex, 100 ms timeout.</td></tr>
+              <tr><td><code>rules[].allowedValues</code></td><td>Case-insensitive enumeration of permitted values.</td></tr>
+              <tr><td><code>crossFieldRules</code></td><td>Compares two fields. Numeric, date, or lexicographic comparison in order of precedence.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ─── SESSIONS ─── -->
+        <section id="sessions">
+          <h2>Session Lifecycle</h2>
+          <div class="code-block rounded-lg p-6 my-4">
+            <pre class="text-xs font-mono text-slate-400 leading-loose"><code><span class="text-green-400">StartSession</span> ──► <span class="text-sky-400">Started</span>
+                    │
+           SubmitStep (compliance pass)
+                    │
+          ┌─────────▼──────────┐
+          │  Logic auto-advance │  (up to 20 consecutive Logic nodes)
+          └─────────┬──────────┘
+                    │
+        ┌───────────┼────────────┐
+        │           │            │
+   <span class="text-sky-400">next node</span>    <span class="text-green-400">no next node</span>  <span class="text-red-400">failOnError</span>
+   resolved     resolved      triggered
+        │           │            │
+     <span class="text-sky-400">Started</span>    <span class="text-green-400">Completed</span>      <span class="text-red-400">Error</span>
+        │
+   AbandonSession
+        │
+    <span class="text-amber-400">Abandoned</span></code></pre>
+          </div>
+          <table>
+            <thead><tr><th>Status</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>Started</code></td><td>Active — awaiting next step submission.</td></tr>
+              <tr><td><code>Completed</code></td><td>Terminal — no outgoing connection matched from the last node.</td></tr>
+              <tr><td><code>Abandoned</code></td><td>Terminal — explicitly set via <code>DELETE /api/workflow/sessions/{id}</code> (idempotent).</td></tr>
+              <tr><td><code>Error</code></td><td>Terminal — a Logic node with <code>failOnError: true</code> threw, or 20 consecutive Logic nodes were auto-advanced.</td></tr>
+            </tbody>
+          </table>
+          <p>SSE events are emitted on <code>GET /api/workflow/sessions/{sessionId}/events</code> for <code>step-advanced</code>, <code>session-completed</code>, and <code>session-abandoned</code> transitions.</p>
+        </section>
+
+        <!-- ─── CONTEXT ─── -->
+        <section id="context">
+          <h2>Context &amp; State</h2>
+          <p>
+            Waymark maintains two forms of state across a journey session:
+          </p>
+          <h3>Submission history</h3>
+          <p>
+            Every step submission is persisted as a <code>Submission</code> record. The engine can reference
+            field values from any previous submission when evaluating cross-field compliance rules or connection conditions.
+            Retrieve the full history at any time:
+          </p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">http</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>GET /api/workflow/sessions/{sessionId}</code></pre>
+          </div>
+
+          <h3>Customer profile metadata</h3>
+          <p>
+            <code>CustomerProfile.MetadataJson</code> is a free-form JSON bag that persists across sessions for a given customer.
+            Logic nodes using <code>SetProfileField</code> can write into it. Connection conditions can read from it.
+            Update it at any time via:
+          </p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">http</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>PUT /api/customers/{customerId}</code></pre>
+          </div>
+
+          <h3>Session resumption</h3>
+          <p>
+            Sessions persist server-side indefinitely. To resume a session after a page reload or app restart,
+            persist the <code>sessionId</code> client-side (e.g. in <code>localStorage</code>) and call:
+          </p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">http</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>GET /api/workflow/sessions/{sessionId}/next</code></pre>
+          </div>
+          <p>This returns the current node the session is waiting on, allowing seamless resumption.</p>
+        </section>
+
+        <!-- ─── API ─── -->
+        <section id="api">
+          <h2>Authentication</h2>
+          <p>
+            The API supports two authentication schemes. Requests are routed via a "Combined" policy scheme:
+          </p>
+          <ul>
+            <li><strong class="text-white">API Key</strong> — Pass <code>X-Api-Key: &lt;key&gt;</code> header. Local development key: <code>dev-api-key-change-in-production</code>.</li>
+            <li><strong class="text-white">JWT Bearer</strong> — Pass a signed JWT in the <code>Authorization: Bearer &lt;token&gt;</code> header.</li>
+          </ul>
+          <p>
+            Roles: <code>Operator</code> (full access), <code>Applicant</code> (session and step submission), <code>ReadOnly</code> (read-only operator endpoints).
+          </p>
+          <div class="callout">
+            <p>Change the default API key before deploying to production. Set <code>ApiKey:Key</code> in application settings or as an environment variable.</p>
+          </div>
+        </section>
+
+        <!-- API FLOWS -->
+        <section id="api-flows">
+          <h2>Flows API</h2>
+
+          <div class="space-y-4">
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-post">POST</span>
+                <code class="text-sm text-slate-300">/api/flows</code>
+                <span class="ml-auto text-xs text-slate-500">Create a new flow</span>
+              </div>
+              <div class="px-4 py-3 text-sm text-slate-400">
+                Creates a new journey flow with all its nodes and connections in a single request. Returns the created flow with server-assigned IDs.
+              </div>
+            </div>
+
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-get">GET</span>
+                <code class="text-sm text-slate-300">/api/flows/{flowId}</code>
+                <span class="ml-auto text-xs text-slate-500">Get a flow</span>
+              </div>
+              <div class="px-4 py-3 text-sm text-slate-400">
+                Returns the full flow definition including all nodes and connections.
+              </div>
+            </div>
+
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-put">PUT</span>
+                <code class="text-sm text-slate-300">/api/flows/{flowId}</code>
+                <span class="ml-auto text-xs text-slate-500">Update a flow</span>
+              </div>
+              <div class="px-4 py-3 text-sm text-slate-400">
+                Replaces the entire flow definition. All nodes and connections are replaced atomically. Active sessions continue on their previously resolved current node.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- API SESSIONS -->
+        <section id="api-sessions">
+          <h2>Sessions API</h2>
+
+          <div class="space-y-4">
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-post">POST</span>
+                <code class="text-sm text-slate-300">/api/workflow/sessions/start</code>
+              </div>
+              <div class="px-4 py-3">
+                <p class="text-sm text-slate-400 mb-3">Starts a new session for a given flow.</p>
+                <div class="code-block rounded p-3 text-xs font-mono text-slate-300"><span class="text-slate-500">// Request body</span>
+{ "flowId": "uuid", "customerProfileId": "uuid?" }</div>
+              </div>
+            </div>
+
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-get">GET</span>
+                <code class="text-sm text-slate-300">/api/workflow/sessions/{sessionId}</code>
+              </div>
+              <div class="px-4 py-3 text-sm text-slate-400">Returns session details including status, current node, and full submission history.</div>
+            </div>
+
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-get">GET</span>
+                <code class="text-sm text-slate-300">/api/workflow/sessions/{sessionId}/next</code>
+              </div>
+              <div class="px-4 py-3 text-sm text-slate-400">Returns the current node the session is waiting on. Use for session resumption.</div>
+            </div>
+
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-delete">DELETE</span>
+                <code class="text-sm text-slate-300">/api/workflow/sessions/{sessionId}</code>
+              </div>
+              <div class="px-4 py-3 text-sm text-slate-400">Abandons the session. Idempotent — safe to call multiple times.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- API STEPS -->
+        <section id="api-steps">
+          <h2>Steps &amp; Documents</h2>
+
+          <div class="space-y-4">
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-post">POST</span>
+                <code class="text-sm text-slate-300">/api/workflow/sessions/{sessionId}/steps/{nodeId}/submit</code>
+              </div>
+              <div class="px-4 py-3">
+                <p class="text-sm text-slate-400 mb-3">Submits a step. The engine runs compliance validation and resolves the next node.</p>
+                <div class="code-block rounded p-3 text-xs font-mono text-slate-300"><span class="text-slate-500">// Request body</span>
+{ "payload": { "FieldName": "value", ... } }</div>
+                <p class="text-sm text-slate-400 mt-3">Returns HTTP 200 with next node on success, HTTP 400 with violation list if compliance fails.</p>
+              </div>
+            </div>
+
+            <div class="border border-slate-800 rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+                <span class="badge badge-post">POST</span>
+                <code class="text-sm text-slate-300">/api/workflow/sessions/{sessionId}/steps/{nodeId}/documents</code>
+              </div>
+              <div class="px-4 py-3">
+                <p class="text-sm text-slate-400 mb-3">Multipart upload for <code>DocumentUpload</code> nodes. Field name: <code>files</code>. Returns an array of <code>StoredFileInfo</code>:</p>
+                <div class="code-block rounded p-3 text-xs font-mono text-slate-300">[{ "fileId": "uuid", "fileName": "passport.pdf", "contentType": "application/pdf", "sizeBytes": 1024, "storedAt": "..." }]</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- API EVENTS -->
+        <section id="api-events">
+          <h2>Events &amp; Webhooks</h2>
+
+          <h3>Server-Sent Events (SSE)</h3>
+          <div class="border border-slate-800 rounded-lg overflow-hidden mb-4">
+            <div class="flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800">
+              <span class="badge badge-get">GET</span>
+              <code class="text-sm text-slate-300">/api/workflow/sessions/{sessionId}/events</code>
+            </div>
+            <div class="px-4 py-3 text-sm text-slate-400">
+              Opens an SSE stream. Events: <code>step-advanced</code>, <code>session-completed</code>, <code>session-abandoned</code>.
+            </div>
+          </div>
+
+          <h3>Webhook management</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 border border-slate-800 rounded-lg px-4 py-3 bg-slate-900/50 text-sm">
+              <span class="badge badge-post">POST</span>
+              <code class="text-slate-300">/api/flows/{flowId}/webhooks</code>
+              <span class="text-slate-500 text-xs ml-auto">Register a callback URL</span>
+            </div>
+            <div class="flex items-center gap-3 border border-slate-800 rounded-lg px-4 py-3 bg-slate-900/50 text-sm">
+              <span class="badge badge-get">GET</span>
+              <code class="text-slate-300">/api/flows/{flowId}/webhooks</code>
+              <span class="text-slate-500 text-xs ml-auto">List registered webhooks</span>
+            </div>
+            <div class="flex items-center gap-3 border border-slate-800 rounded-lg px-4 py-3 bg-slate-900/50 text-sm">
+              <span class="badge badge-delete">DELETE</span>
+              <code class="text-slate-300">/api/flows/{flowId}/webhooks/{webhookId}</code>
+              <span class="text-slate-500 text-xs ml-auto">Remove a webhook</span>
+            </div>
+            <div class="flex items-center gap-3 border border-slate-800 rounded-lg px-4 py-3 bg-slate-900/50 text-sm">
+              <span class="badge badge-get">GET</span>
+              <code class="text-slate-300">/api/flows/{flowId}/webhook-deliveries</code>
+              <span class="text-slate-500 text-xs ml-auto">View delivery history and retries</span>
+            </div>
+          </div>
+          <p class="mt-4">Webhook payloads include a <code>X-Webhook-Signature</code> header for HMAC verification. Failed deliveries are retried with exponential back-off.</p>
+        </section>
+
+        <!-- ─── SDK ─── -->
+        <section id="sdk">
+          <h2>React / Next.js Integration</h2>
+          <p>The repository ships a reference <code>useOnboarding</code> hook that manages session state and SSE consumption. You can copy it directly or model your own integration after it.</p>
+
+          <h3>Initialize and start a session</h3>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">React</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>import { useState } from 'react'
+
+const API = import.meta.env.VITE_API_BASE_URL
+const KEY = import.meta.env.VITE_API_KEY
+
+export function useWaymark(flowId: string) {
+  const [sessionId, setSessionId] = useState&lt;string | null&gt;(null)
+  const [currentNode, setCurrentNode] = useState&lt;NodeDto | null&gt;(null)
+  const [status, setStatus] = useState&lt;'idle' | 'active' | 'completed'&gt;('idle')
+
+  async function start() {
+    const res = await fetch(`${API}/api/workflow/sessions/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+      body: JSON.stringify({ flowId }),
+    })
+    const data = await res.json()
+    setSessionId(data.sessionId)
+    setCurrentNode(data.currentNode)
+    setStatus('active')
+  }
+
+  async function submit(nodeId: string, payload: Record&lt;string, unknown&gt;) {
+    const res = await fetch(
+      `${API}/api/workflow/sessions/${sessionId}/steps/${nodeId}/submit`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+        body: JSON.stringify({ payload }),
+      }
+    )
+    const data = await res.json()
+    if (data.nextNode) {
+      setCurrentNode(data.nextNode)
+    } else {
+      setStatus('completed')
+    }
+  }
+
+  return { start, submit, currentNode, status }
+}</code></pre>
+          </div>
+
+          <h3>Render a node dynamically</h3>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">React</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>function NodeRenderer({ node, onSubmit }) {
+  const content = node.jsonContent ? JSON.parse(node.jsonContent) : {}
+
+  switch (node.type) {
+    case 'Form':
+      return &lt;DynamicForm fields={content.fields} onSubmit={onSubmit} /&gt;
+    case 'DocumentUpload':
+      return &lt;FileUpload accept={content.acceptedFileTypes} onSubmit={onSubmit} /&gt;
+    case 'Redirect':
+      window.location.href = content.url
+      return null
+    case 'Information':
+      return &lt;p&gt;{node.title}&lt;/p&gt;
+    default:
+      return null
+  }
+}</code></pre>
+          </div>
+        </section>
+
+        <section id="sdk-vue">
+          <h2>Vue / Nuxt Integration</h2>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">Vue 3 Composable</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>// composables/useWaymark.ts
+import { ref } from 'vue'
+
+export function useWaymark(flowId: string) {
+  const sessionId  = ref&lt;string | null&gt;(null)
+  const currentNode = ref&lt;any | null&gt;(null)
+  const isComplete = ref(false)
+
+  const API = import.meta.env.VITE_API_BASE_URL
+  const KEY = import.meta.env.VITE_API_KEY
+
+  async function start() {
+    const data = await $fetch(`${API}/api/workflow/sessions/start`, {
+      method: 'POST', headers: { 'X-Api-Key': KEY },
+      body: { flowId },
+    })
+    sessionId.value   = data.sessionId
+    currentNode.value = data.currentNode
+  }
+
+  async function submit(nodeId: string, payload: Record&lt;string, unknown&gt;) {
+    const data = await $fetch(
+      `${API}/api/workflow/sessions/${sessionId.value}/steps/${nodeId}/submit`,
+      { method: 'POST', headers: { 'X-Api-Key': KEY }, body: { payload } }
+    )
+    currentNode.value = data.nextNode ?? null
+    if (!data.nextNode) isComplete.value = true
+  }
+
+  return { start, submit, currentNode, isComplete }
+}</code></pre>
+          </div>
+        </section>
+
+        <section id="sdk-node">
+          <h2>Node.js Integration</h2>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">Node.js (fetch API)</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>const BASE = process.env.WAYMARK_API_URL
+const KEY  = process.env.WAYMARK_API_KEY
+
+async function startSession(flowId) {
+  const res  = await fetch(`${BASE}/api/workflow/sessions/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+    body: JSON.stringify({ flowId }),
+  })
+  return res.json() // { sessionId, currentNode }
+}
+
+async function submitStep(sessionId, nodeId, payload) {
+  const res = await fetch(
+    `${BASE}/api/workflow/sessions/${sessionId}/steps/${nodeId}/submit`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+      body: JSON.stringify({ payload }),
+    }
+  )
+  return res.json() // { nextNode } or null when complete
+}
+
+// Usage
+const { sessionId, currentNode } = await startSession('my-flow-id')
+const result = await submitStep(sessionId, currentNode.id, { Country: 'USA' })</code></pre>
+          </div>
+        </section>
+
+        <!-- ─── EXAMPLES ─── -->
+        <section id="examples">
+          <h2>Example: 3-Step Contact Form</h2>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">contact-form.json</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "name": "Contact Form",
+  "nodes": [
+    {
+      "id": "n1", "key": "personal-info", "type": "Form",
+      "title": "Your details", "isStartNode": true,
+      "jsonContent": "{\"fields\":[{\"name\":\"Name\",\"type\":\"text\",\"required\":true},{\"name\":\"Email\",\"type\":\"email\",\"required\":true}]}",
+      "complianceRuleJson": "{\"requiredFields\":[\"Name\",\"Email\"],\"rules\":[{\"field\":\"Email\",\"pattern\":\"^[^@]+@[^@]+\\\\.[^@]+$\"}]}"
+    },
+    {
+      "id": "n2", "key": "message", "type": "Form", "title": "Your message",
+      "jsonContent": "{\"fields\":[{\"name\":\"Subject\",\"type\":\"text\",\"required\":true},{\"name\":\"Body\",\"type\":\"textarea\",\"required\":true}]}"
+    },
+    {
+      "id": "n3", "key": "confirmation", "type": "Information",
+      "title": "Thank you! We'll be in touch within 24 hours."
+    }
+  ],
+  "connections": [
+    { "sourceNodeId": "n1", "targetNodeId": "n2" },
+    { "sourceNodeId": "n2", "targetNodeId": "n3" }
+  ]
+}</code></pre>
+          </div>
+        </section>
+
+        <section id="example-payment">
+          <h2>Example: Conditional Payment Flow</h2>
+          <p>Routes to credit card validation or PayPal based on the customer's selection. Compliance rules enforce card number format.</p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">payment.json</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "name": "Conditional Payment",
+  "nodes": [
+    {
+      "id": "n1", "key": "select-method", "type": "Form",
+      "title": "How would you like to pay?", "isStartNode": true,
+      "jsonContent": "{\"fields\":[{\"name\":\"Method\",\"type\":\"select\",\"options\":[\"CreditCard\",\"PayPal\"],\"required\":true}]}"
+    },
+    {
+      "id": "n2", "key": "card-details", "type": "Form",
+      "title": "Enter card details",
+      "jsonContent": "{\"fields\":[{\"name\":\"CardNumber\",\"type\":\"text\",\"required\":true},{\"name\":\"CVV\",\"type\":\"text\",\"required\":true},{\"name\":\"Expiry\",\"type\":\"text\",\"required\":true}]}",
+      "complianceRuleJson": "{\"requiredFields\":[\"CardNumber\",\"CVV\"],\"rules\":[{\"field\":\"CardNumber\",\"pattern\":\"^[0-9]{16}$\"},{\"field\":\"CVV\",\"pattern\":\"^[0-9]{3,4}$\"}]}"
+    },
+    {
+      "id": "n3", "key": "paypal", "type": "Redirect",
+      "title": "Redirecting to PayPal…",
+      "jsonContent": "{\"url\":\"https://paypal.com/checkout?session={{sessionId}}\"}"
+    },
+    { "id": "n4", "key": "success", "type": "Information", "title": "Payment accepted!" }
+  ],
+  "connections": [
+    { "sourceNodeId": "n1", "targetNodeId": "n2", "conditionField": "Method", "conditionOperator": "Equals", "conditionValue": "CreditCard", "priority": 0 },
+    { "sourceNodeId": "n1", "targetNodeId": "n3", "priority": 1 },
+    { "sourceNodeId": "n2", "targetNodeId": "n4" },
+    { "sourceNodeId": "n3", "targetNodeId": "n4" }
+  ]
+}</code></pre>
+          </div>
+        </section>
+
+        <section id="example-onboarding">
+          <h2>Example: Enterprise Onboarding</h2>
+          <p>Admin users see a full KYC flow with document upload; guest users are directed to a lightweight information step.</p>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">enterprise-onboarding.json</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "name": "Enterprise Onboarding",
+  "nodes": [
+    {
+      "id": "n1", "key": "user-type", "type": "Form",
+      "title": "Tell us about yourself", "isStartNode": true,
+      "jsonContent": "{\"fields\":[{\"name\":\"Role\",\"type\":\"select\",\"options\":[\"Admin\",\"Guest\"],\"required\":true},{\"name\":\"Company\",\"type\":\"text\",\"required\":true}]}"
+    },
+    {
+      "id": "n2", "key": "admin-kyc", "type": "Form", "title": "Identity verification",
+      "jsonContent": "{\"fields\":[{\"name\":\"TaxId\",\"type\":\"text\",\"required\":true},{\"name\":\"Jurisdiction\",\"type\":\"select\",\"options\":[\"USA\",\"GBR\",\"DEU\"],\"required\":true}]}",
+      "complianceRuleJson": "{\"requiredFields\":[\"TaxId\",\"Jurisdiction\"]}"
+    },
+    {
+      "id": "n3", "key": "admin-docs", "type": "DocumentUpload",
+      "title": "Upload your company registration document",
+      "jsonContent": "{\"acceptedFileTypes\":[\"application/pdf\"],\"maxFiles\":1}"
+    },
+    {
+      "id": "n4", "key": "flag-for-review", "type": "Logic",
+      "jsonContent": "{\"action\":\"SetProfileField\",\"field\":\"kyc_status\",\"value\":\"pending_review\",\"failOnError\":false}"
+    },
+    { "id": "n5", "key": "guest-welcome", "type": "Information", "title": "Welcome! Your account has been created." },
+    { "id": "n6", "key": "admin-complete", "type": "Information", "title": "KYC submitted — we'll review and notify you within 2 business days." }
+  ],
+  "connections": [
+    { "sourceNodeId": "n1", "targetNodeId": "n2", "conditionField": "Role", "conditionOperator": "Equals", "conditionValue": "Admin", "priority": 0 },
+    { "sourceNodeId": "n1", "targetNodeId": "n5", "priority": 1 },
+    { "sourceNodeId": "n2", "targetNodeId": "n3" },
+    { "sourceNodeId": "n3", "targetNodeId": "n4" },
+    { "sourceNodeId": "n4", "targetNodeId": "n6" }
+  ]
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- bottom spacer -->
+        <div class="h-16"></div>
+
+      </div>
+    </main>
+
+  </div><!-- /flex -->
+
+  <script>
+    // Highlight active sidebar link on scroll
+    const sections = document.querySelectorAll('section[id]')
+    const links    = document.querySelectorAll('.sidebar-link')
+
+    function setActive() {
+      let current = ''
+      sections.forEach(s => {
+        if (window.scrollY >= s.offsetTop - 100) current = s.id
+      })
+      links.forEach(l => {
+        const href = l.getAttribute('href').replace('#', '')
+        l.classList.toggle('active', href === current)
+      })
+    }
+
+    window.addEventListener('scroll', setActive, { passive: true })
+    setActive()
+  </script>
+</body>
+</html>
