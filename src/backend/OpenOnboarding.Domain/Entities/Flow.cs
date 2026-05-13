@@ -12,4 +12,5 @@ public sealed class Flow
 
     public ICollection<Node> Nodes { get; set; } = new List<Node>();
     public ICollection<Connection> Connections { get; set; } = new List<Connection>();
+    public ICollection<FlowVersion> Versions { get; set; } = new List<FlowVersion>();
 }

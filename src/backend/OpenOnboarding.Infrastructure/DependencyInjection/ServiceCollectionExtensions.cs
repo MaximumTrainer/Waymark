@@ -41,7 +41,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
 
         services.AddHttpClient("Webhook");
-        services.AddScoped<IWebhookService, WebhookService>();
+        services.AddScoped<IWebhookHttpClient, HttpWebhookClient>();
+        services.AddScoped<IWebhookService>(sp => new WebhookService(
+            sp.GetRequiredService<OnboardingDbContext>(),
+            sp.GetRequiredService<IWebhookHttpClient>()));
 
         services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
 

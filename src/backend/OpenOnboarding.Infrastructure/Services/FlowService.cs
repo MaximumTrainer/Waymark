@@ -110,6 +110,17 @@ public sealed class FlowService(
             .FirstOrDefaultAsync(f => f.Id == flowId, ct)
             ?? throw new NotFoundException($"Flow '{flowId}' was not found.");
 
+        // Save version snapshot before modifying
+        var snapshot = System.Text.Json.JsonSerializer.Serialize(MapToDto(flow));
+        var version = new FlowVersion
+        {
+            FlowId = flowId,
+            VersionNumber = flow.Version,
+            SnapshotJson = snapshot,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.FlowVersions.Add(version);
+
         dbContext.Nodes.RemoveRange(flow.Nodes);
         dbContext.Connections.RemoveRange(flow.Connections);
 
@@ -174,6 +185,57 @@ public sealed class FlowService(
 
         dbContext.Flows.Remove(flow);
         await dbContext.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<FlowVersionSummaryDto>> GetVersionsAsync(Guid flowId, CancellationToken ct = default)
+    {
+        var exists = await dbContext.Flows.AnyAsync(f => f.Id == flowId, ct);
+        if (!exists) throw new NotFoundException($"Flow '{flowId}' was not found.");
+
+        var versions = await dbContext.FlowVersions
+            .Where(v => v.FlowId == flowId)
+            .OrderByDescending(v => v.VersionNumber)
+            .Select(v => new FlowVersionSummaryDto(v.VersionNumber, v.CreatedAt, v.CreatedBy))
+            .ToListAsync(ct);
+
+        return versions;
+    }
+
+    public async Task<FlowDto> RestoreVersionAsync(Guid flowId, int versionNumber, CancellationToken ct = default)
+    {
+        var flowVersion = await dbContext.FlowVersions
+            .FirstOrDefaultAsync(v => v.FlowId == flowId && v.VersionNumber == versionNumber, ct)
+            ?? throw new NotFoundException($"Version {versionNumber} for flow '{flowId}' not found.");
+
+        var snapshot = System.Text.Json.JsonSerializer.Deserialize<FlowDto>(flowVersion.SnapshotJson,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+
+        var request = new UpdateFlowRequest
+        {
+            Name = snapshot.Name,
+            Description = snapshot.Description,
+            Nodes = snapshot.Nodes.Select(n => new NodeWriteDto
+            {
+                Id = n.Id,
+                Key = n.Key,
+                Type = n.Type,
+                Title = n.Title,
+                JsonContent = n.JsonContent,
+                ComplianceRuleJson = n.ComplianceRuleJson,
+                IsStartNode = n.IsStartNode
+            }).ToList(),
+            Connections = snapshot.Connections.Select(c => new ConnectionWriteDto
+            {
+                SourceNodeId = c.SourceNodeId,
+                TargetNodeId = c.TargetNodeId,
+                ConditionField = c.ConditionField,
+                ConditionOperator = c.ConditionOperator,
+                ConditionValue = c.ConditionValue,
+                Priority = c.Priority
+            }).ToList()
+        };
+
+        return await UpdateFlowAsync(flowId, request, ct);
     }
 
     private static FlowDto MapToDto(Flow flow) => new()

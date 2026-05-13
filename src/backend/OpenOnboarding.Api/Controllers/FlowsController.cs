@@ -88,9 +88,7 @@ public sealed class FlowsController(IFlowService flowService) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Hard-deletes a flow. Returns 409 if the flow has active sessions.
-    /// </summary>
+    /// <summary>Hard-deletes a flow. Returns 409 if the flow has active sessions.</summary>
     /// <param name="flowId">The unique identifier of the flow.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpDelete("{flowId:guid}")]
@@ -103,5 +101,25 @@ public sealed class FlowsController(IFlowService flowService) : ControllerBase
     {
         await flowService.DeleteFlowAsync(flowId, cancellationToken);
         return NoContent();
+    }
+
+    /// <summary>Returns version history for a flow.</summary>
+    [HttpGet("{flowId:guid}/versions")]
+    [ProducesResponseType(typeof(IReadOnlyList<FlowVersionSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<FlowVersionSummaryDto>>> GetVersions([FromRoute] Guid flowId, CancellationToken cancellationToken)
+    {
+        var result = await flowService.GetVersionsAsync(flowId, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>Restores a flow to a specific historical version.</summary>
+    [HttpPost("{flowId:guid}/versions/{versionNumber:int}/restore")]
+    [ProducesResponseType(typeof(FlowDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<FlowDto>> RestoreVersion([FromRoute] Guid flowId, [FromRoute] int versionNumber, CancellationToken cancellationToken)
+    {
+        var result = await flowService.RestoreVersionAsync(flowId, versionNumber, cancellationToken);
+        return Ok(result);
     }
 }

@@ -236,6 +236,59 @@ public sealed class FlowServiceTests
         Assert.DoesNotContain(result.Nodes, n => n.Key == "old");
     }
 
+    [Fact]
+    public async Task UpdateFlow_CreatesVersionSnapshot()
+    {
+        var dbContext = BuildDbContext();
+        var flow = new Flow { Name = "Original", Version = 1 };
+        var node = new Node { Key = "start", Title = "Start", Type = NodeType.Form, IsStartNode = true, FlowId = flow.Id };
+        flow.Nodes.Add(node);
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var newNodeId = Guid.NewGuid();
+        await service.UpdateFlowAsync(flow.Id, new UpdateFlowRequest
+        {
+            Name = "Updated",
+            Nodes = [new NodeWriteDto { Id = newNodeId, Key = "new", Type = NodeType.Form, Title = "New", IsStartNode = true }],
+            Connections = []
+        });
+
+        var versions = await dbContext.FlowVersions.Where(v => v.FlowId == flow.Id).ToListAsync();
+        Assert.Single(versions);
+        Assert.Equal(1, versions[0].VersionNumber);
+        Assert.Contains("Original", versions[0].SnapshotJson);
+    }
+
+    [Fact]
+    public async Task RestoreVersion_RevertsFlowToSnapshot()
+    {
+        var dbContext = BuildDbContext();
+        var flow = new Flow { Name = "V1 Name", Version = 1 };
+        var startNode = new Node { Key = "start-v1", Title = "Start V1", Type = NodeType.Form, IsStartNode = true, FlowId = flow.Id };
+        flow.Nodes.Add(startNode);
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+
+        // Update flow to V2 (saves V1 snapshot)
+        await service.UpdateFlowAsync(flow.Id, new UpdateFlowRequest
+        {
+            Name = "V2 Name",
+            Nodes = [new NodeWriteDto { Key = "start-v2", Type = NodeType.Form, Title = "Start V2", IsStartNode = true }],
+            Connections = []
+        });
+
+        // Restore to V1
+        var restored = await service.RestoreVersionAsync(flow.Id, 1);
+
+        Assert.Equal("V1 Name", restored.Name);
+        Assert.Single(restored.Nodes);
+        Assert.Equal("start-v1", restored.Nodes[0].Key);
+    }
+
     private static FlowService CreateService(OnboardingDbContext dbContext) =>
         new(dbContext, new CreateFlowRequestValidator(), new UpdateFlowRequestValidator());
 

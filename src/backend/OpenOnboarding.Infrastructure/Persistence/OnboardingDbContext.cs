@@ -6,6 +6,7 @@ namespace OpenOnboarding.Infrastructure.Persistence;
 public sealed class OnboardingDbContext(DbContextOptions<OnboardingDbContext> options) : DbContext(options)
 {
     public DbSet<Flow> Flows => Set<Flow>();
+    public DbSet<FlowVersion> FlowVersions => Set<FlowVersion>();
     public DbSet<Node> Nodes => Set<Node>();
     public DbSet<Connection> Connections => Set<Connection>();
     public DbSet<Session> Sessions => Set<Session>();
@@ -38,6 +39,13 @@ public sealed class OnboardingDbContext(DbContextOptions<OnboardingDbContext> op
             b.Property(x => x.Description).HasMaxLength(2000);
             b.HasMany(x => x.Nodes).WithOne(x => x.Flow).HasForeignKey(x => x.FlowId);
             b.HasMany(x => x.Connections).WithOne(x => x.Flow).HasForeignKey(x => x.FlowId);
+        });
+
+        // ── FlowVersion ───────────────────────────────────────────────────
+        modelBuilder.Entity<FlowVersion>(b =>
+        {
+            b.HasOne(x => x.Flow).WithMany(x => x.Versions).HasForeignKey(x => x.FlowId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.FlowId, x.VersionNumber }).IsUnique();
         });
 
         // ── Node ──────────────────────────────────────────────────────────

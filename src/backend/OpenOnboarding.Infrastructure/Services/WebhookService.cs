@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -11,15 +10,24 @@ using OpenOnboarding.Infrastructure.Persistence;
 
 namespace OpenOnboarding.Infrastructure.Services;
 
-public sealed class WebhookService(OnboardingDbContext dbContext, IHttpClientFactory httpClientFactory) : IWebhookService
+public sealed class WebhookService(
+    OnboardingDbContext dbContext,
+    IWebhookHttpClient webhookHttpClient,
+    Func<int, CancellationToken, Task>? delayProvider = null) : IWebhookService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly Func<int, CancellationToken, Task> _delay = delayProvider ?? ((ms, ct) => Task.Delay(ms, ct));
 
     public async Task<WebhookDto> RegisterAsync(Guid flowId, string url, string secret, CancellationToken cancellationToken = default)
     {
         var flowExists = await dbContext.Flows.AnyAsync(f => f.Id == flowId, cancellationToken);
         if (!flowExists)
             throw new NotFoundException($"Flow '{flowId}' not found.");
+
+        var duplicateExists = await dbContext.Webhooks
+            .AnyAsync(w => w.FlowId == flowId && w.Url == url, cancellationToken);
+        if (duplicateExists)
+            throw new ConflictException($"A webhook with URL '{url}' is already registered for flow '{flowId}'.");
 
         var webhook = new Webhook
         {
@@ -95,41 +103,24 @@ public sealed class WebhookService(OnboardingDbContext dbContext, IHttpClientFac
         await dbContext.SaveChangesAsync();
 
         var delays = new[] { 1000, 2000, 4000 };
-        var client = httpClientFactory.CreateClient("Webhook");
+        var signature = ComputeSignature(payloadJson, webhook.Secret);
 
         for (var attempt = 0; attempt <= 2; attempt++)
         {
             if (attempt > 0)
-                await Task.Delay(delays[attempt - 1]);
+                await _delay(delays[attempt - 1], CancellationToken.None);
 
-            try
+            var result = await webhookHttpClient.SendAsync(webhook.Url, payloadJson, signature);
+            delivery.AttemptCount++;
+            delivery.LastStatusCode = result.StatusCode == 0 ? null : result.StatusCode;
+            delivery.LastResponseBody = result.Body;
+
+            if (result.IsSuccess)
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, webhook.Url)
-                {
-                    Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
-                };
-
-                var signature = ComputeSignature(payloadJson, webhook.Secret);
-                request.Headers.Add("X-Webhook-Signature", $"sha256={signature}");
-
-                var response = await client.SendAsync(request);
-                delivery.AttemptCount++;
-                delivery.LastStatusCode = (int)response.StatusCode;
-                delivery.LastResponseBody = await response.Content.ReadAsStringAsync();
-
-                if (response.IsSuccessStatusCode)
-                {
-                    delivery.Status = "delivered";
-                    delivery.DeliveredAt = DateTimeOffset.UtcNow;
-                    await dbContext.SaveChangesAsync();
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                delivery.AttemptCount++;
-                delivery.LastResponseBody = ex.Message;
-                delivery.LastStatusCode = null;
+                delivery.Status = "delivered";
+                delivery.DeliveredAt = DateTimeOffset.UtcNow;
+                await dbContext.SaveChangesAsync();
+                return;
             }
         }
 
