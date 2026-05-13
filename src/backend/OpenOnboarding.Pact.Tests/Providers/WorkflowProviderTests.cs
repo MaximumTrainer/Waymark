@@ -1,5 +1,5 @@
 using PactNet;
-using PactNet.Output.Xunit;
+using OpenOnboarding.Pact.Tests.Infrastructure;
 using Xunit.Abstractions;
 using OpenOnboarding.Pact.Tests.Infrastructure;
 
