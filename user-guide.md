@@ -89,7 +89,7 @@ Validation points:
 
 ## 7. Frontend configuration for journey testing
 
-In `src/frontend/.env.local`:
+In the frontend `.env.local` file:
 - `VITE_API_BASE_URL` should point to backend host (for example `http://localhost:5072`)
 - `VITE_API_KEY` should match backend API key for local operator testing
 
