@@ -27,6 +27,7 @@ export interface FlowDraft {
 }
 
 const NEW_FLOW_DEFAULT_NODE_ID = '11111111-1111-1111-1111-111111111111'
+// Format-only GUID check to match backend Guid parsing rules (not RFC version/variant enforcement).
 const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isGuid(value: string): boolean {
