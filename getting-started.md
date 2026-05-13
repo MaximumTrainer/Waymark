@@ -33,7 +33,7 @@ Use a connection string that matches the local compose database:
 
 ```bash
 ConnectionStrings__OnboardingDb="Host=localhost;Port=5432;Database=onboarding;Username=postgres;Password=postgres" \
-  dotnet run --project /home/runner/work/open-onboarding/open-onboarding/src/backend/OpenOnboarding.Api
+  dotnet run --project src/backend/OpenOnboarding.Api
 ```
 
 Verification:
@@ -43,7 +43,7 @@ Verification:
 ## 5. Start frontend
 
 ```bash
-cd /home/runner/work/open-onboarding/open-onboarding/src/frontend
+cd src/frontend
 cp .env.example .env.local
 npm install
 npm run dev
@@ -58,7 +58,7 @@ Recommended `.env.local` values:
 ### Frontend
 
 ```bash
-cd /home/runner/work/open-onboarding/open-onboarding/src/frontend
+cd src/frontend
 npm ci
 npm run lint
 npm run build
@@ -69,9 +69,9 @@ npm run test:pact
 ### Backend
 
 ```bash
-dotnet restore /home/runner/work/open-onboarding/open-onboarding/src/backend/OpenOnboarding.slnx
-dotnet build /home/runner/work/open-onboarding/open-onboarding/src/backend/OpenOnboarding.slnx --no-restore -c Release
-dotnet test /home/runner/work/open-onboarding/open-onboarding/src/backend/OpenOnboarding.slnx -c Release
+dotnet restore src/backend/OpenOnboarding.slnx
+dotnet build src/backend/OpenOnboarding.slnx --no-restore -c Release
+dotnet test src/backend/OpenOnboarding.slnx -c Release
 ```
 
 ## 7. Contribution workflow

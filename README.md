@@ -7,9 +7,9 @@ Open Onboarding is a schema-driven onboarding platform with:
 
 ## Documentation map
 
-- [`/home/runner/work/open-onboarding/open-onboarding/getting-started.md`](./getting-started.md)
-- [`/home/runner/work/open-onboarding/open-onboarding/user-guide.md`](./user-guide.md)
-- [`/home/runner/work/open-onboarding/open-onboarding/feature-gaps.md`](./feature-gaps.md)
+- [`getting-started.md`](./getting-started.md)
+- [`user-guide.md`](./user-guide.md)
+- [`feature-gaps.md`](./feature-gaps.md)
 
 ## Repository structure
 
@@ -54,9 +54,9 @@ The frontend is a Vite React app with:
 ### Backend (.NET 10)
 
 ```bash
-dotnet restore /home/runner/work/open-onboarding/open-onboarding/src/backend/OpenOnboarding.slnx
-dotnet build /home/runner/work/open-onboarding/open-onboarding/src/backend/OpenOnboarding.slnx --no-restore -c Release
-dotnet test /home/runner/work/open-onboarding/open-onboarding/src/backend/OpenOnboarding.slnx -c Release
+dotnet restore src/backend/OpenOnboarding.slnx
+dotnet build src/backend/OpenOnboarding.slnx --no-restore -c Release
+dotnet test src/backend/OpenOnboarding.slnx -c Release
 ```
 
 Notes:
@@ -66,7 +66,7 @@ Notes:
 ### Frontend (Node 22)
 
 ```bash
-cd /home/runner/work/open-onboarding/open-onboarding/src/frontend
+cd src/frontend
 npm ci
 npm run lint
 npm run build
@@ -79,7 +79,6 @@ npm run test:pact
 1. Start PostgreSQL:
 
 ```bash
-cd /home/runner/work/open-onboarding/open-onboarding
 docker compose up -d
 ```
 
@@ -87,13 +86,13 @@ docker compose up -d
 
 ```bash
 ConnectionStrings__OnboardingDb="Host=localhost;Port=5432;Database=onboarding;Username=postgres;Password=postgres" \
-  dotnet run --project /home/runner/work/open-onboarding/open-onboarding/src/backend/OpenOnboarding.Api
+  dotnet run --project src/backend/OpenOnboarding.Api
 ```
 
 3. Run frontend:
 
 ```bash
-cd /home/runner/work/open-onboarding/open-onboarding/src/frontend
+cd src/frontend
 npm install
 npm run dev
 ```
