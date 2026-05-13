@@ -43,14 +43,14 @@ public static class DataSeeder
     private static Flow CreateSmallBusinessFlow()
     {
         var startNodeId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        var onlineDocVerificationNodeId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var highValueKycNodeId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         var completionNodeId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
         return new Flow
         {
             Id = SmallBusinessFlowId,
             Name = "Small business onboarding",
-            Description = "Simple onboarding flow with core details and mocked online document verification",
+            Description = "Onboarding flow with conditional KYC step for high-value businesses (AnnualRevenue >= £1M).",
             Version = 1,
             Nodes =
             [
@@ -61,18 +61,19 @@ public static class DataSeeder
                     Key = "small-business-details",
                     Type = NodeType.Form,
                     Title = "Small business details",
-                    JsonContent = """{"fields":[{"name":"BusinessName","type":"text","required":true},{"name":"BusinessAddress","type":"textarea","required":true},{"name":"AnnualRevenue","type":"number","required":true},{"name":"BusinessOwner","type":"text","required":true},{"name":"SanctionsDeclarationConfirmed","type":"checkbox","required":true}]}""",
-                    ComplianceRuleJson = """{"requiredFields":["BusinessName","BusinessAddress","AnnualRevenue","BusinessOwner","SanctionsDeclarationConfirmed"]}""",
+                    JsonContent = """{"fields":[{"name":"CompanyName","type":"text","required":true},{"name":"Country","type":"text","required":true},{"name":"AnnualRevenue","type":"number","required":true}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["CompanyName","Country","AnnualRevenue"]}""",
                     IsStartNode = true
                 },
                 new Node
                 {
-                    Id = onlineDocVerificationNodeId,
+                    Id = highValueKycNodeId,
                     FlowId = SmallBusinessFlowId,
-                    Key = "small-online-document-verification",
-                    Type = NodeType.Logic,
-                    Title = "Mocked online document verification",
-                    JsonContent = """{"action":"MockVerification","provider":"OnlineDocumentVerification","resultField":"onlineDocumentVerificationStatus","approved":true}""",
+                    Key = "high-value-kyc",
+                    Type = NodeType.Form,
+                    Title = "High-value KYC questionnaire",
+                    JsonContent = """{"fields":[{"name":"SourceOfFunds","type":"text","required":true}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["SourceOfFunds"]}""",
                     IsStartNode = false
                 },
                 new Node
@@ -87,22 +88,28 @@ public static class DataSeeder
             ],
             Connections =
             [
+                // High-value path: AnnualRevenue >= 1,000,000 → KYC step (evaluated first, Priority 0)
                 new Connection
                 {
                     Id = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"),
                     FlowId = SmallBusinessFlowId,
                     SourceNodeId = startNodeId,
-                    TargetNodeId = onlineDocVerificationNodeId,
+                    TargetNodeId = highValueKycNodeId,
+                    ConditionField = "AnnualRevenue",
+                    ConditionOperator = ConditionOperator.GreaterThanOrEqual,
+                    ConditionValue = "1000000",
                     Priority = 0
                 },
+                // Default path: AnnualRevenue < 1,000,000 → completion (fallback, Priority 1)
                 new Connection
                 {
                     Id = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
                     FlowId = SmallBusinessFlowId,
-                    SourceNodeId = onlineDocVerificationNodeId,
+                    SourceNodeId = startNodeId,
                     TargetNodeId = completionNodeId,
-                    Priority = 0
+                    Priority = 1
                 }
+                // high-value-kyc has no outgoing connections: submitting SourceOfFunds completes the session
             ]
         };
     }

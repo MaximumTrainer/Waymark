@@ -36,7 +36,6 @@ public sealed class WorkflowProviderTests(ITestOutputHelper output)
         }
 
         using var fixture = new PactProviderFixture();
-        fixture.CreateClient(); // Trigger server startup
 
         var (flowId, nodeId) = await fixture.SeedFlowAsync();
         await fixture.SeedSessionAsync(flowId, nodeId);
@@ -47,7 +46,7 @@ public sealed class WorkflowProviderTests(ITestOutputHelper output)
         };
 
         new PactVerifier("open-onboarding-api", config)
-            .WithHttpEndpoint(fixture.Server.BaseAddress)
+            .WithHttpEndpoint(fixture.ServerUri)
             .WithFileSource(new FileInfo(pactFile))
             .Verify();
     }

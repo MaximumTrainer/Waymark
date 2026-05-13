@@ -1,21 +1,37 @@
+using System.Net;
+using System.Net.Sockets;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using OpenOnboarding.Infrastructure.Persistence;
 
 namespace OpenOnboarding.Pact.Tests.Infrastructure;
 
 /// <summary>
 /// WebApplicationFactory for Pact provider verification.
+/// Binds Kestrel to a real TCP port so PactNet's Rust FFI verifier can connect.
 /// Uses real PostgreSQL (available in CI) and configures test authentication.
 /// </summary>
 public sealed class PactProviderFixture : WebApplicationFactory<Program>
 {
+    private readonly int _port = GetFreePort();
+
+    /// <summary>Real base URI that PactNet's verifier should call.</summary>
+    public Uri ServerUri => new($"http://localhost:{_port}");
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+
+        // Bind a real Kestrel TCP listener so PactNet's Rust FFI binary can connect.
+        // UseKestrel() is called after UseTestServer() (registered internally by WebApplicationFactory),
+        // making Kestrel the active IServer and giving us a real localhost port.
+        builder.UseKestrel(opts => opts.ListenLocalhost(_port));
+
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__OnboardingDb")
             ?? "Host=localhost;Port=5432;Database=onboarding_test;Username=postgres;Password=postgres";
 
@@ -30,6 +46,32 @@ public sealed class PactProviderFixture : WebApplicationFactory<Program>
                 ["DocumentUpload:MaxFileSizeBytes"] = "10485760"
             });
         });
+    }
+
+    /// <summary>
+    /// Returns a dummy TestServer to satisfy WebApplicationFactory's internal requirement
+    /// (it calls CreateServer after building the host, then calls host.Start() itself).
+    /// The real server is Kestrel, bound above; this placeholder is never used for actual requests.
+    /// </summary>
+    protected override TestServer CreateServer(IHost host)
+    {
+        // The base WebApplicationFactory.CreateHost() calls host.Start() after CreateServer() returns,
+        // which starts Kestrel on _port. We just need to return a valid TestServer placeholder here.
+        return new TestServer(new WebHostBuilder().Configure(app =>
+            app.Run(ctx =>
+            {
+                ctx.Response.StatusCode = 418;
+                return Task.CompletedTask;
+            })));
+    }
+
+    private static int GetFreePort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
     }
 
     /// <summary>Seeds deterministic test data and returns the seeded IDs.</summary>
