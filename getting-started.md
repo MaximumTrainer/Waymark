@@ -81,3 +81,4 @@ dotnet test src/backend/OpenOnboarding.slnx -c Release
 3. Keep API/controller changes thin; place workflow logic in application/infrastructure services.
 4. Run backend + frontend validation commands before pushing.
 5. Open a PR and ensure CI passes.
+6. Do not merge behavior changes unless corresponding automated tests are included and passing.
