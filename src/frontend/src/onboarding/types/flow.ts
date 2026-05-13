@@ -31,6 +31,7 @@ export interface FlowNodeDetail {
   type: NodeType
   title: string
   jsonContent: string
+  complianceRuleJson?: string | null
   isStartNode: boolean
 }
 
