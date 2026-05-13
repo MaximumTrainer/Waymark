@@ -69,6 +69,7 @@ jobs:
           dotnet ef database update
           --project src/backend/OpenOnboarding.Infrastructure
           --startup-project src/backend/OpenOnboarding.Api
+          --configuration Release
           --no-build
 
       - name: Test with coverage
