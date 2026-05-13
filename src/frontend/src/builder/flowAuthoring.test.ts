@@ -26,20 +26,29 @@ describe('flowAuthoring validation', () => {
 
   it('rejects duplicate node ids', () => {
     const draft = createDefaultFlowDraft()
+    const duplicateId = '11111111-1111-1111-8111-111111111111'
     draft.nodes = [
-      { ...draft.nodes[0], id: 'same-id', isStartNode: true },
-      { ...draft.nodes[0], id: 'same-id', key: 'next', title: 'Next', isStartNode: false },
+      { ...draft.nodes[0], id: duplicateId, isStartNode: true },
+      { ...draft.nodes[0], id: duplicateId, key: 'next', title: 'Next', isStartNode: false },
     ]
 
     const errors = validateFlowDraft(draft)
     expect(errors).toContain('Node #2: id must be unique.')
   })
 
+  it('rejects node ids that are not GUIDs', () => {
+    const draft = createDefaultFlowDraft()
+    draft.nodes[0].id = 'not-a-guid'
+
+    const errors = validateFlowDraft(draft)
+    expect(errors).toContain('Node #1: id must be a valid GUID.')
+  })
+
   it('rejects invalid start-node count', () => {
     const draft = createDefaultFlowDraft()
     draft.nodes = [
-      { ...draft.nodes[0], id: 'node-1', isStartNode: true },
-      { ...draft.nodes[0], id: 'node-2', key: 'next', title: 'Next', isStartNode: true },
+      { ...draft.nodes[0], id: '11111111-1111-1111-8111-111111111111', isStartNode: true },
+      { ...draft.nodes[0], id: '22222222-2222-2222-8222-222222222222', key: 'next', title: 'Next', isStartNode: true },
     ]
 
     const errors = validateFlowDraft(draft)
@@ -58,6 +67,20 @@ describe('flowAuthoring validation', () => {
 
     const errors = validateFlowDraft(draft)
     expect(errors).toContain('Connection #1: sourceNodeId and targetNodeId must reference nodes in this flow.')
+  })
+
+  it('rejects non-integer connection priority', () => {
+    const draft = createDefaultFlowDraft()
+    draft.connections = [
+      {
+        sourceNodeId: draft.nodes[0].id,
+        targetNodeId: draft.nodes[0].id,
+        priority: 0.5,
+      },
+    ]
+
+    const errors = validateFlowDraft(draft)
+    expect(errors).toContain('Connection #1: priority must be a non-negative integer.')
   })
 
   it('accepts a valid draft and trims payload values', () => {
@@ -100,6 +123,14 @@ describe('flowAuthoring validation', () => {
     expect(payload.nodes[0].jsonContent).toBe('{}')
   })
 
+  it('sets whitespace-only node jsonContent to default object string in payload', () => {
+    const draft = createDefaultFlowDraft()
+    draft.nodes[0].jsonContent = '   '
+
+    const payload = buildFlowWritePayload(draft)
+    expect(payload.nodes[0].jsonContent).toBe('{}')
+  })
+
   it('maps flow definition data into draft shape', () => {
     const draft = toFlowDraft({
       id: 'flow-id',
@@ -113,6 +144,7 @@ describe('flowAuthoring validation', () => {
           type: 'Form',
           title: 'Start',
           jsonContent: '{}',
+          complianceRuleJson: '{"rule":"match"}',
           isStartNode: true,
         },
       ],
@@ -130,6 +162,7 @@ describe('flowAuthoring validation', () => {
     })
 
     expect(draft.description).toBe('')
+    expect(draft.nodes[0].complianceRuleJson).toBe('{"rule":"match"}')
     expect(draft.connections[0].conditionField).toBeNull()
   })
 
@@ -151,6 +184,15 @@ describe('flowAuthoring validation', () => {
     }
 
     expect(areDraftGraphsEqual(left, right)).toBe(true)
+  })
+
+  it('detects compliance rule differences as graph changes', () => {
+    const left = createDefaultFlowDraft()
+    const right = createDefaultFlowDraft()
+    left.nodes[0].complianceRuleJson = '{"rule":"a"}'
+    right.nodes[0].complianceRuleJson = '{"rule":"b"}'
+
+    expect(areDraftGraphsEqual(left, right)).toBe(false)
   })
 
   it('treats null and empty optional graph fields as equivalent', () => {

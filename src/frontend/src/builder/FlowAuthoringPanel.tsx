@@ -115,6 +115,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
       }
       const flow = (await response.json()) as FlowDefinition
       const draft = toFlowDraft(flow)
+      setFlowIdInput(flow.id)
       setDraft(draft)
       setCurrentVersion(flow.version)
       setStatus({ kind: 'success', message: `Loaded flow ${flow.id} (version ${flow.version}).` })

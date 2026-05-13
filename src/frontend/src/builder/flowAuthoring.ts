@@ -27,6 +27,11 @@ export interface FlowDraft {
 }
 
 const NEW_FLOW_DEFAULT_NODE_ID = '11111111-1111-1111-1111-111111111111'
+const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isGuid(value: string): boolean {
+  return GUID_REGEX.test(value)
+}
 
 export function createDefaultFlowDraft(): FlowDraft {
   return {
@@ -56,6 +61,7 @@ export function toFlowDraft(flow: FlowDefinition): FlowDraft {
       type: node.type,
       title: node.title,
       jsonContent: node.jsonContent,
+      complianceRuleJson: node.complianceRuleJson ?? null,
       isStartNode: node.isStartNode,
     })),
     connections: flow.connections.map((connection) => ({
@@ -78,7 +84,7 @@ export function buildFlowWritePayload(draft: FlowDraft): FlowDraft {
       key: node.key.trim(),
       type: node.type,
       title: node.title.trim(),
-      jsonContent: node.jsonContent || '{}',
+      jsonContent: node.jsonContent.trim() || '{}',
       isStartNode: node.isStartNode,
       complianceRuleJson: node.complianceRuleJson?.trim() || null,
     })),
@@ -108,18 +114,20 @@ export function validateFlowDraft(draft: FlowDraft): string[] {
   let startNodeCount = 0
   draft.nodes.forEach((node, index) => {
     const nodeLabel = `Node #${index + 1}`
-    if (!node.id.trim()) {
+    const nodeId = node.id.trim()
+    if (!nodeId) {
       errors.push(`${nodeLabel}: id is required.`)
-    } else if (nodeIds.has(node.id)) {
+    } else if (!isGuid(nodeId)) {
+      errors.push(`${nodeLabel}: id must be a valid GUID.`)
+    } else if (nodeIds.has(nodeId)) {
       errors.push(`${nodeLabel}: id must be unique.`)
     } else {
-      nodeIds.add(node.id)
+      nodeIds.add(nodeId)
     }
 
     if (!node.key.trim()) errors.push(`${nodeLabel}: key is required.`)
     if (!node.title.trim()) errors.push(`${nodeLabel}: title is required.`)
     if (!node.type) errors.push(`${nodeLabel}: type is required.`)
-    if (!node.jsonContent.trim()) errors.push(`${nodeLabel}: jsonContent is required.`)
     if (node.isStartNode) startNodeCount += 1
   })
 
@@ -129,17 +137,35 @@ export function validateFlowDraft(draft: FlowDraft): string[] {
 
   draft.connections.forEach((connection, index) => {
     const connectionLabel = `Connection #${index + 1}`
-    if (!connection.sourceNodeId.trim()) {
+    const sourceNodeId = connection.sourceNodeId.trim()
+    const targetNodeId = connection.targetNodeId.trim()
+
+    if (!sourceNodeId) {
       errors.push(`${connectionLabel}: sourceNodeId is required.`)
       return
     }
 
-    if (!connection.targetNodeId.trim()) {
+    if (!isGuid(sourceNodeId)) {
+      errors.push(`${connectionLabel}: sourceNodeId must be a valid GUID.`)
+      return
+    }
+
+    if (!targetNodeId) {
       errors.push(`${connectionLabel}: targetNodeId is required.`)
       return
     }
 
-    if (!nodeIds.has(connection.sourceNodeId) || !nodeIds.has(connection.targetNodeId)) {
+    if (!isGuid(targetNodeId)) {
+      errors.push(`${connectionLabel}: targetNodeId must be a valid GUID.`)
+      return
+    }
+
+    if (!Number.isInteger(connection.priority) || connection.priority < 0) {
+      errors.push(`${connectionLabel}: priority must be a non-negative integer.`)
+      return
+    }
+
+    if (!nodeIds.has(sourceNodeId) || !nodeIds.has(targetNodeId)) {
       errors.push(`${connectionLabel}: sourceNodeId and targetNodeId must reference nodes in this flow.`)
     }
   })
@@ -157,7 +183,8 @@ function normalizeDraftGraph(draft: FlowDraft) {
         key: node.key.trim(),
         type: node.type,
         title: node.title.trim(),
-        jsonContent: node.jsonContent.trim(),
+        jsonContent: node.jsonContent.trim() || '{}',
+        complianceRuleJson: node.complianceRuleJson?.trim() ?? '',
         isStartNode: node.isStartNode,
       }))
       .sort((a, b) => a.id.localeCompare(b.id)),
