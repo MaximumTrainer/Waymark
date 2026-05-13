@@ -13,10 +13,6 @@
       background: #0d1117;
       border: 1px solid #30363d;
     }
-    .feature-card:hover {
-      transform: translateY(-2px);
-      transition: transform 0.2s ease;
-    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans antialiased">
@@ -111,6 +107,137 @@
     </div>
   </section>
 
+  <!-- ───────────────── VISUAL FLOW DIAGRAM ───────────────── -->
+  <section class="py-20 px-6 bg-slate-950 overflow-hidden relative">
+    <div class="absolute inset-0 gradient-mesh opacity-30"></div>
+    <div class="mx-auto max-w-6xl relative">
+      <div class="text-center mb-12">
+        <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">Journey Orchestration in Action</h2>
+        <p class="text-slate-400 max-w-xl mx-auto">Watch how Waymark dynamically routes users through conditional paths</p>
+      </div>
+      
+      <!-- Animated Flow Visualization -->
+      <div class="relative mx-auto max-w-4xl">
+        <!-- Flow nodes -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 relative">
+          
+          <!-- Start Node -->
+          <div class="flex flex-col items-center animate-slide-up" style="animation-delay: 0.1s">
+            <div class="relative">
+              <div class="absolute inset-0 bg-brand-500/20 blur-xl rounded-full animate-pulse-slow"></div>
+              <div class="relative bg-gradient-to-br from-brand-500 to-brand-600 rounded-2xl p-6 shadow-2xl border border-brand-400/50 min-h-[140px] flex flex-col items-center justify-center">
+                <svg class="w-10 h-10 text-white mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+                </svg>
+                <h3 class="text-white font-semibold text-sm">User Type Form</h3>
+                <p class="text-brand-100 text-xs mt-1">isStartNode: true</p>
+              </div>
+            </div>
+            <div class="mt-4 text-center">
+              <span class="inline-block px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-mono">Role = ?</span>
+            </div>
+          </div>
+
+          <!-- Branch Paths -->
+          <div class="hidden md:flex flex-col justify-center items-center relative">
+            <!-- Branching arrows SVG -->
+            <svg class="w-full h-32" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Top path (Admin) -->
+              <path d="M 10 60 Q 100 20, 190 30" stroke="url(#gradient1)" stroke-width="2" stroke-dasharray="5,5" class="animate-pulse-slow"/>
+              <circle cx="190" cy="30" r="4" fill="#6366f1">
+                <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              
+              <!-- Bottom path (Guest) -->
+              <path d="M 10 60 Q 100 100, 190 90" stroke="url(#gradient2)" stroke-width="2" stroke-dasharray="5,5" class="animate-pulse-slow" style="animation-delay: 1s"/>
+              <circle cx="190" cy="90" r="4" fill="#10b981">
+                <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite" begin="1s"/>
+              </circle>
+              
+              <!-- Gradients -->
+              <defs>
+                <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.3" />
+                  <stop offset="100%" style="stop-color:#6366f1;stop-opacity:1" />
+                </linearGradient>
+                <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.3" />
+                  <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+            </svg>
+            
+            <!-- Condition labels -->
+            <div class="absolute top-2 right-8 text-xs">
+              <span class="px-2 py-1 rounded bg-violet-500/20 text-violet-300 font-mono">Role == "Admin"</span>
+            </div>
+            <div class="absolute bottom-2 right-8 text-xs">
+              <span class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 font-mono">else</span>
+            </div>
+          </div>
+
+          <!-- End Nodes -->
+          <div class="flex flex-col gap-6">
+            <!-- Admin Path -->
+            <div class="animate-slide-up" style="animation-delay: 0.3s">
+              <div class="bg-gradient-to-br from-violet-600 to-violet-700 rounded-xl p-4 shadow-xl border border-violet-400/50 min-h-[100px] flex flex-col items-center justify-center">
+                <svg class="w-8 h-8 text-white mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+                <h3 class="text-white font-semibold text-xs">Admin KYC Flow</h3>
+                <p class="text-violet-100 text-xs">Full compliance</p>
+              </div>
+            </div>
+            
+            <!-- Guest Path -->
+            <div class="animate-slide-up" style="animation-delay: 0.5s">
+              <div class="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-4 shadow-xl border border-emerald-400/50 min-h-[100px] flex flex-col items-center justify-center">
+                <svg class="w-8 h-8 text-white mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"/>
+                </svg>
+                <h3 class="text-white font-semibold text-xs">Guest Welcome</h3>
+                <p class="text-emerald-100 text-xs">Lightweight intro</p>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+
+        <!-- Mobile flow arrows -->
+        <div class="md:hidden flex flex-col items-center gap-4 my-6">
+          <svg class="w-6 h-6 text-brand-400 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+          </svg>
+          <div class="text-center space-y-2">
+            <div><span class="px-2 py-1 rounded bg-violet-500/20 text-violet-300 font-mono text-xs">if Admin</span></div>
+            <div><span class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 font-mono text-xs">else Guest</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Stats -->
+      <div class="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+        <div class="text-center">
+          <div class="text-3xl font-bold text-brand-400 mb-1">0</div>
+          <div class="text-xs text-slate-400">Code Deploys Needed</div>
+        </div>
+        <div class="text-center">
+          <div class="text-3xl font-bold text-violet-400 mb-1">∞</div>
+          <div class="text-xs text-slate-400">Journey Variants</div>
+        </div>
+        <div class="text-center">
+          <div class="text-3xl font-bold text-emerald-400 mb-1">12</div>
+          <div class="text-xs text-slate-400">Condition Operators</div>
+        </div>
+        <div class="text-center">
+          <div class="text-3xl font-bold text-amber-400 mb-1">100%</div>
+          <div class="text-xs text-slate-400">Runtime Evaluation</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ───────────────── PROBLEM / SOLUTION ───────────────── -->
   <section class="py-24 px-6 bg-slate-900">
     <div class="mx-auto max-w-5xl">
@@ -187,51 +314,51 @@
 
       <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
-        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/15 text-brand-400 mb-4">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6 hover:border-brand-500/50 hover:shadow-xl hover:shadow-brand-500/10 transition-all duration-300 group">
+          <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-500/15 text-brand-400 mb-4 group-hover:bg-brand-500/25 group-hover:scale-110 transition-all duration-300">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
           </div>
-          <h3 class="font-semibold text-white mb-2">Schema-First Design</h3>
+          <h3 class="font-semibold text-white mb-2 group-hover:text-brand-400 transition-colors">Schema-First Design</h3>
           <p class="text-sm text-slate-400 leading-relaxed">Define states, transitions, and conditions in JSON or YAML. The engine interprets your schema at runtime — no compilation required.</p>
         </div>
 
-        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400 mb-4">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6 hover:border-violet-500/50 hover:shadow-xl hover:shadow-violet-500/10 transition-all duration-300 group">
+          <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400 mb-4 group-hover:bg-violet-500/25 group-hover:scale-110 transition-all duration-300">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
           </div>
-          <h3 class="font-semibold text-white mb-2">Engine Agnostic</h3>
+          <h3 class="font-semibold text-white mb-2 group-hover:text-violet-400 transition-colors">Engine Agnostic</h3>
           <p class="text-sm text-slate-400 leading-relaxed">Integrate via REST API from any platform — React, Vue, React Native, Node.js, or any HTTP client. The engine lives on the backend.</p>
         </div>
 
-        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 mb-4">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6 hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 group">
+          <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 mb-4 group-hover:bg-emerald-500/25 group-hover:scale-110 transition-all duration-300">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
-          <h3 class="font-semibold text-white mb-2">Dynamic Branching</h3>
+          <h3 class="font-semibold text-white mb-2 group-hover:text-emerald-400 transition-colors">Dynamic Branching</h3>
           <p class="text-sm text-slate-400 leading-relaxed">12 condition operators (<code class="text-xs bg-slate-800 px-1 rounded">Equals</code>, <code class="text-xs bg-slate-800 px-1 rounded">GreaterThan</code>, <code class="text-xs bg-slate-800 px-1 rounded">MatchesRegex</code>, …) evaluated against submitted payload or customer profile fields.</p>
         </div>
 
-        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400 mb-4">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6 hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300 group">
+          <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400 mb-4 group-hover:bg-amber-500/25 group-hover:scale-110 transition-all duration-300">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           </div>
-          <h3 class="font-semibold text-white mb-2">Compliance Rules</h3>
+          <h3 class="font-semibold text-white mb-2 group-hover:text-amber-400 transition-colors">Compliance Rules</h3>
           <p class="text-sm text-slate-400 leading-relaxed">Attach server-side validation to any node via <code class="text-xs bg-slate-800 px-1 rounded">complianceRuleJson</code>. Required fields, regex patterns, numeric ranges, and cross-field comparisons.</p>
         </div>
 
-        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400 mb-4">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6 hover:border-sky-500/50 hover:shadow-xl hover:shadow-sky-500/10 transition-all duration-300 group">
+          <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400 mb-4 group-hover:bg-sky-500/25 group-hover:scale-110 transition-all duration-300">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
           </div>
-          <h3 class="font-semibold text-white mb-2">Document Upload</h3>
+          <h3 class="font-semibold text-white mb-2 group-hover:text-sky-400 transition-colors">Document Upload</h3>
           <p class="text-sm text-slate-400 leading-relaxed">Built-in <code class="text-xs bg-slate-800 px-1 rounded">DocumentUpload</code> node type with file type filtering, size limits, and progress streaming via SSE.</p>
         </div>
 
-        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400 mb-4">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        <div class="feature-card rounded-xl border border-slate-800 bg-slate-900 p-6 hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-500/10 transition-all duration-300 group">
+          <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400 mb-4 group-hover:bg-rose-500/25 group-hover:scale-110 transition-all duration-300">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
           </div>
-          <h3 class="font-semibold text-white mb-2">Webhooks &amp; SSE</h3>
+          <h3 class="font-semibold text-white mb-2 group-hover:text-rose-400 transition-colors">Webhooks &amp; SSE</h3>
           <p class="text-sm text-slate-400 leading-relaxed">Real-time events for <code class="text-xs bg-slate-800 px-1 rounded">step-advanced</code>, <code class="text-xs bg-slate-800 px-1 rounded">session-completed</code>, and <code class="text-xs bg-slate-800 px-1 rounded">session-abandoned</code>. Integrate downstream systems without polling.</p>
         </div>
 
@@ -249,32 +376,84 @@
 
       <div class="grid md:grid-cols-2 gap-12 items-center">
         <!-- Steps -->
-        <div class="space-y-8">
-          <div class="flex gap-4">
-            <div class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-brand-400 font-bold text-sm">1</div>
+        <div class="space-y-6">
+          <div class="flex gap-4 group">
+            <div class="flex-shrink-0">
+              <div class="relative">
+                <div class="absolute inset-0 bg-brand-500/20 blur-md rounded-lg group-hover:bg-brand-500/30 transition-all"></div>
+                <div class="relative flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg">
+                  <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
             <div>
-              <h3 class="font-semibold text-white mb-1">Define your Flow</h3>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold text-brand-400">STEP 1</span>
+              </div>
+              <h3 class="font-semibold text-white mb-1.5">Define your Flow</h3>
               <p class="text-sm text-slate-400 leading-relaxed">POST a JSON document describing nodes (Form, DocumentUpload, Redirect, Information, Logic) and their conditional connections to <code class="text-xs bg-slate-800 px-1 rounded">POST /api/flows</code>.</p>
             </div>
           </div>
-          <div class="flex gap-4">
-            <div class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-brand-400 font-bold text-sm">2</div>
+          
+          <div class="flex gap-4 group">
+            <div class="flex-shrink-0">
+              <div class="relative">
+                <div class="absolute inset-0 bg-violet-500/20 blur-md rounded-lg group-hover:bg-violet-500/30 transition-all"></div>
+                <div class="relative flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg">
+                  <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
             <div>
-              <h3 class="font-semibold text-white mb-1">Start a Session</h3>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold text-violet-400">STEP 2</span>
+              </div>
+              <h3 class="font-semibold text-white mb-1.5">Start a Session</h3>
               <p class="text-sm text-slate-400 leading-relaxed">Call <code class="text-xs bg-slate-800 px-1 rounded">POST /api/workflow/sessions/start</code> with a flowId and optional customerProfileId. The engine returns the first node definition.</p>
             </div>
           </div>
-          <div class="flex gap-4">
-            <div class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-brand-400 font-bold text-sm">3</div>
+          
+          <div class="flex gap-4 group">
+            <div class="flex-shrink-0">
+              <div class="relative">
+                <div class="absolute inset-0 bg-emerald-500/20 blur-md rounded-lg group-hover:bg-emerald-500/30 transition-all"></div>
+                <div class="relative flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg">
+                  <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
             <div>
-              <h3 class="font-semibold text-white mb-1">Render &amp; Submit Steps</h3>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold text-emerald-400">STEP 3</span>
+              </div>
+              <h3 class="font-semibold text-white mb-1.5">Render &amp; Submit Steps</h3>
               <p class="text-sm text-slate-400 leading-relaxed">Your frontend renders the node using its <code class="text-xs bg-slate-800 px-1 rounded">type</code> and <code class="text-xs bg-slate-800 px-1 rounded">jsonContent</code>. On submit, the engine validates compliance rules and resolves the next node.</p>
             </div>
           </div>
-          <div class="flex gap-4">
-            <div class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-brand-400 font-bold text-sm">4</div>
+          
+          <div class="flex gap-4 group">
+            <div class="flex-shrink-0">
+              <div class="relative">
+                <div class="absolute inset-0 bg-amber-500/20 blur-md rounded-lg group-hover:bg-amber-500/30 transition-all"></div>
+                <div class="relative flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg">
+                  <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
             <div>
-              <h3 class="font-semibold text-white mb-1">Completion &amp; Webhooks</h3>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold text-amber-400">STEP 4</span>
+              </div>
+              <h3 class="font-semibold text-white mb-1.5">Completion &amp; Webhooks</h3>
               <p class="text-sm text-slate-400 leading-relaxed">When no connection matches, the session is marked <code class="text-xs bg-slate-800 px-1 rounded">Completed</code>. Registered webhooks fire immediately and retry on transient failure.</p>
             </div>
           </div>
