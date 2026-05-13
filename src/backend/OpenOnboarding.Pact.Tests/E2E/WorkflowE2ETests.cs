@@ -18,6 +18,7 @@ public sealed class WorkflowE2ETests
     private static readonly Guid FlowId = new("11111111-1111-1111-1111-111111111111");
     private static readonly Guid StartNodeId = new("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan PollingInterval = TimeSpan.FromMilliseconds(100);
 
     [Fact]
     public async Task Journey_ProgressesToCompletion_AndValidatesWebhookSignature()
@@ -169,31 +170,23 @@ public sealed class WorkflowE2ETests
 
     private static async Task<IReadOnlyList<WebhookDeliveryResponse>> WaitForDeliveryAsync(HttpClient client, Guid sessionId, TimeSpan timeout)
     {
-        IReadOnlyList<WebhookDeliveryResponse> deliveries = [];
-        await WaitForConditionAsync(async () =>
-        {
-            deliveries = await ListDeliveriesAsync(client);
-            return deliveries.Any(d => d.SessionId == sessionId && d.EventType == "session-completed");
-        }, timeout, "[Integration callback] Timed out waiting for webhook delivery log entry.");
-
-        return deliveries;
-    }
-
-    private static async Task WaitForConditionAsync(Func<bool> condition, TimeSpan timeout, string timeoutMessage)
-    {
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
-            if (condition())
+            var deliveries = await ListDeliveriesAsync(client);
+            if (deliveries.Any(d => d.SessionId == sessionId && d.EventType == "session-completed"))
             {
-                return;
+                return deliveries;
             }
 
-            await Task.Delay(100);
+            await Task.Delay(PollingInterval);
         }
 
-        throw new XunitException(timeoutMessage);
+        throw new XunitException("[Integration callback] Timed out waiting for webhook delivery log entry.");
     }
+
+    private static Task WaitForConditionAsync(Func<bool> condition, TimeSpan timeout, string timeoutMessage)
+        => WaitForConditionAsync(() => Task.FromResult(condition()), timeout, timeoutMessage);
 
     private static async Task WaitForConditionAsync(Func<Task<bool>> condition, TimeSpan timeout, string timeoutMessage)
     {
@@ -205,7 +198,7 @@ public sealed class WorkflowE2ETests
                 return;
             }
 
-            await Task.Delay(100);
+            await Task.Delay(PollingInterval);
         }
 
         throw new XunitException(timeoutMessage);
