@@ -166,6 +166,12 @@ public sealed class FlowService(
         if (hasActiveSessions)
             throw new ConflictException("Cannot delete flow with active sessions.");
 
+        // Delete sessions explicitly (FK is Restrict, so EF won't cascade automatically)
+        var sessions = await dbContext.Sessions
+            .Where(s => s.FlowId == flowId)
+            .ToListAsync(ct);
+        dbContext.Sessions.RemoveRange(sessions);
+
         dbContext.Flows.Remove(flow);
         await dbContext.SaveChangesAsync(ct);
     }

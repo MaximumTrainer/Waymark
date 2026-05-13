@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,12 +9,10 @@ namespace OpenOnboarding.Pact.Tests.Infrastructure;
 
 /// <summary>
 /// WebApplicationFactory for Pact provider verification.
-/// Replaces Npgsql with InMemory database and configures test authentication.
+/// Uses real PostgreSQL (available in CI) and configures test authentication.
 /// </summary>
 public sealed class PactProviderFixture : WebApplicationFactory<Program>
 {
-    private readonly string _dbName = $"pact-{Guid.NewGuid():N}";
-
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -26,23 +23,9 @@ public sealed class PactProviderFixture : WebApplicationFactory<Program>
             {
                 ["Authentication:ApiKey"] = "test-api-key",
                 ["Authentication:JwtAuthority"] = "",
-                ["ConnectionStrings:OnboardingDb"] = "Host=test;Database=test",
                 ["SessionTimeoutMinutes"] = "1440",
                 ["DocumentUpload:MaxFileSizeBytes"] = "10485760"
             });
-        });
-
-        builder.ConfigureTestServices(services =>
-        {
-            // Remove Npgsql DbContext registration
-            var descriptors = services
-                .Where(d => d.ServiceType == typeof(DbContextOptions<OnboardingDbContext>))
-                .ToList();
-            foreach (var d in descriptors) services.Remove(d);
-
-            // Replace with InMemory DB
-            services.AddDbContext<OnboardingDbContext>(options =>
-                options.UseInMemoryDatabase(_dbName));
         });
     }
 
