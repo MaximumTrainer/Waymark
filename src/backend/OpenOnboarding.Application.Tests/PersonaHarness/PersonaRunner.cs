@@ -142,6 +142,8 @@ public sealed class PersonaRunner
             NullLogger<WorkflowService>.Instance,
             logicNodeExecutors: [],
             new InMemorySessionEventEmitter(),
+            new NoOpWebhookService(),
+            serviceScopeFactory: null,
             new NoOpDocumentStorageService());
     }
 }

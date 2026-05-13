@@ -384,6 +384,8 @@ public sealed class LogicNodeExecutorTests
             NullLogger<WorkflowService>.Instance,
             executors ?? [],
             new InMemorySessionEventEmitter(),
+            new NoOpWebhookService(),
+            null,
             new NoOpDocumentStorageService());
     }
 

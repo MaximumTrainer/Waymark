@@ -1,10 +1,13 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using OpenOnboarding.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace OpenOnboarding.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(OnboardingDbContext))]
     [Migration("20260512150000_AddNodeExecutionError")]
     public partial class AddNodeExecutionError : Migration
     {

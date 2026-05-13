@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
+import { FlowAuthoringPanel } from './builder/FlowAuthoringPanel'
 import { JourneyBuilder } from './builder/JourneyBuilder'
 import { StepRenderer } from './onboarding/components/StepRenderer'
 import { useOnboarding } from './onboarding/hooks/useOnboarding'
 
-const flowId = '11111111-1111-1111-1111-111111111111'
+const defaultFlowId = '11111111-1111-1111-1111-111111111111'
 
 function App() {
   const { step, startSession, submitStep, isLoading, error } = useOnboarding()
   const [visitedNodeIds, setVisitedNodeIds] = useState<Set<string>>(new Set())
+  const [builderFlowId, setBuilderFlowId] = useState<string | null>(defaultFlowId)
 
   useEffect(() => {
-    startSession({ flowId })
+    startSession({ flowId: defaultFlowId })
       .then((result) => {
         if (result.currentNode?.id) {
           setVisitedNodeIds(new Set([result.currentNode.id]))
@@ -26,10 +28,12 @@ function App() {
         <p className="text-sm text-slate-600">Schema-driven onboarding UI with workflow branching and compliance checks.</p>
       </header>
 
+      <FlowAuthoringPanel onFlowSelected={setBuilderFlowId} />
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">Visual Journey Builder (React Flow)</h2>
         <JourneyBuilder
-          flowId={flowId}
+          flowId={builderFlowId}
           currentNodeId={step?.currentNode?.id}
           visitedNodeIds={visitedNodeIds}
           isCompleted={step?.isCompleted ?? false}
