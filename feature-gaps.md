@@ -22,23 +22,18 @@ As an operator, I need to create and edit onboarding flows from the frontend UI 
 
 ---
 
-## Gap 2: Persona-driven test harness is not built into the app
+## ~~Gap 2: Persona-driven test harness is not built into the app~~ ✅ Resolved
 
 ### User story
 As an SDET, I need a repeatable persona test harness so multiple user profiles can be executed through the same flow and compared automatically.
 
-### Current gap
-- API supports `customerProfileId` and rich branching, but there is no bundled runner for persona matrices.
-- Validation is mostly manual via API clients and ad hoc scripts.
-
-### Acceptance criteria
-- Persona catalog can be defined declaratively (inputs + expected path/status).
-- Runner executes sessions for all personas and exports pass/fail report.
-- Failures include expected vs actual node transitions.
-
-### Validation
-- Automated test suite executes at least one passing and one failing persona scenario.
-- CI artifact includes persona execution report.
+### Resolution
+- `PersonaDefinition` / `PersonaStep` models allow declarative catalog entries (inputs + expected path/status).
+- `PersonaRunner` executes sessions for all personas using an isolated in-memory workflow service per persona.
+- `PersonaReport` aggregates pass/fail results and exports a JSON report.
+- Failures include expected vs actual node transitions in `FailureReason`.
+- `PersonaHarnessTests` contains one passing and one failing scenario that run as part of the standard `dotnet test` suite.
+- CI (`ci.yml`) uploads `persona-report/persona-report.json` as a `persona-execution-report` artifact on every run.
 
 ---
 
