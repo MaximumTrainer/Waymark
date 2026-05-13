@@ -29,11 +29,22 @@ public sealed class OnboardingDbConnectionStringValidatorTests
     [Theory]
     [InlineData("Port=5432;Database=onboarding;Username=postgres;Password=postgres")]
     [InlineData("Host=localhost;Port=5432;Username=postgres;Password=postgres")]
+    [InlineData("Host=;Port=5432;Database=onboarding;Username=postgres;Password=postgres")]
+    [InlineData("Host=localhost;Port=5432;Database=;Username=postgres;Password=postgres")]
     public void ValidateOrThrow_Throws_WhenConnectionStringMissesHostOrDatabase(string connectionString)
     {
         var ex = Assert.Throws<InvalidOperationException>(() =>
             OnboardingDbConnectionStringValidator.ValidateOrThrow(connectionString));
 
         Assert.Contains("must include Host and Database", ex.Message);
+    }
+
+    [Fact]
+    public void ValidateOrThrow_Throws_WhenConnectionStringFormatIsInvalid()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            OnboardingDbConnectionStringValidator.ValidateOrThrow("Host=localhost;Database"));
+
+        Assert.Contains("valid connection string format", ex.Message);
     }
 }
