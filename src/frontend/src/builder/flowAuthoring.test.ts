@@ -69,7 +69,7 @@ describe('flowAuthoring validation', () => {
     expect(payload.description).toBeNull()
     expect(payload.nodes[0].key).toBe('start')
     expect(payload.nodes[0].title).toBe('Start')
-    expect(payload.nodes[0].complianceRuleJson).toBe('  {"rule":"x"}  ')
+    expect(payload.nodes[0].complianceRuleJson).toBe('{"rule":"x"}')
     expect(payload.connections[0].conditionField).toBe('country')
     expect(payload.connections[0].conditionOperator).toBe('Equals')
     expect(payload.connections[0].conditionValue).toBe('US')

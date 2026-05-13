@@ -10,7 +10,7 @@ import {
 } from './flowAuthoring'
 
 const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-const apiKey = import.meta.env.VITE_API_KEY || undefined
+const apiKey = import.meta.env.VITE_API_KEY
 
 type FlowAuthoringPanelProps = {
   onFlowSelected: (flowId: string | null) => void
@@ -239,11 +239,12 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
       }
       const reloaded = (await response.json()) as FlowDefinition
       const reloadedDraft = toFlowDraft(reloaded)
+      const graphMatches = areDraftGraphsEqual(currentDraft, reloadedDraft)
       setCurrentVersion(reloaded.version)
       setDraft(reloadedDraft)
       setStatus({
-        kind: areDraftGraphsEqual(currentDraft, reloadedDraft) ? 'success' : 'error',
-        message: areDraftGraphsEqual(currentDraft, reloadedDraft)
+        kind: graphMatches ? 'success' : 'error',
+        message: graphMatches
           ? 'Reload verification passed: API graph matches the saved graph.'
           : 'Reload verification failed: API graph differs from the local graph.',
       })
@@ -375,7 +376,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
       </div>
 
       {status.message ? (
-        <p className={statusClassName} role={status.kind === 'error' ? 'alert' : 'status'}>
+        <p className={statusClassName} role={status.kind === 'error' ? 'alert' : undefined} aria-live={status.kind === 'error' ? 'assertive' : 'polite'}>
           {status.message}
         </p>
       ) : null}

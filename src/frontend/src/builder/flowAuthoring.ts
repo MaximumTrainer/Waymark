@@ -26,7 +26,7 @@ export interface FlowDraft {
   connections: FlowDraftConnection[]
 }
 
-const DEFAULT_NODE_ID = '11111111-1111-1111-1111-111111111111'
+const NEW_FLOW_DEFAULT_NODE_ID = '11111111-1111-1111-1111-111111111111'
 
 export function createDefaultFlowDraft(): FlowDraft {
   return {
@@ -34,7 +34,7 @@ export function createDefaultFlowDraft(): FlowDraft {
     description: '',
     nodes: [
       {
-        id: DEFAULT_NODE_ID,
+        id: NEW_FLOW_DEFAULT_NODE_ID,
         key: 'start',
         type: 'Form',
         title: 'Start',
@@ -80,7 +80,7 @@ export function buildFlowWritePayload(draft: FlowDraft): FlowDraft {
       title: node.title.trim(),
       jsonContent: node.jsonContent || '{}',
       isStartNode: node.isStartNode,
-      complianceRuleJson: node.complianceRuleJson ?? null,
+      complianceRuleJson: node.complianceRuleJson?.trim() || null,
     })),
     connections: draft.connections.map((connection) => ({
       sourceNodeId: connection.sourceNodeId,
