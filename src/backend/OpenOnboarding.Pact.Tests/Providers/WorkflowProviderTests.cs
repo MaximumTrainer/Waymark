@@ -1,4 +1,5 @@
 using PactNet;
+using PactNet.Verifier;
 using OpenOnboarding.Pact.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
