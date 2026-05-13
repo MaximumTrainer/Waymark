@@ -51,10 +51,6 @@ function App() {
       .catch(() => undefined)
   }, [selectedFlowId, startSession])
 
-  useEffect(() => {
-    setBuilderFlowId(selectedFlowId)
-  }, [selectedFlowId])
-
   const selectedJourney = JOURNEYS.find((j) => j.id === selectedFlowId) ?? JOURNEYS[0]
 
   return (
@@ -72,7 +68,11 @@ function App() {
         <select
           id="journey-select"
           value={selectedFlowId}
-          onChange={(event) => setSelectedFlowId(event.target.value)}
+          onChange={(event) => {
+            const nextFlowId = event.target.value
+            setSelectedFlowId(nextFlowId)
+            setBuilderFlowId(nextFlowId)
+          }}
           className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-500"
         >
           {JOURNEYS.map((journey) => (
