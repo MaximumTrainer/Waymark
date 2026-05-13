@@ -48,6 +48,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient(nameof(HttpCallbackExecutor));
         services.AddScoped<ILogicNodeExecutor, SetProfileFieldExecutor>();
         services.AddScoped<ILogicNodeExecutor, HttpCallbackExecutor>();
+        services.AddScoped<ILogicNodeExecutor, MockVerificationExecutor>();
 
         return services;
     }

@@ -5,77 +5,83 @@ using OpenOnboarding.Domain.Enums;
 namespace OpenOnboarding.Infrastructure.Persistence;
 
 /// <summary>
-/// Seeds the example compliance onboarding flow (from flow-definition.example.json) in
-/// Development environments. Skips silently if the flow already exists.
+/// Seeds example onboarding journeys in Development environments.
 /// </summary>
 public static class DataSeeder
 {
-    // These GUIDs match flow-definition.example.json so the frontend can start immediately.
-    private static readonly Guid FlowId = new("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid CountryFormNodeId = new("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-    private static readonly Guid UsSsnNodeId = new("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-    private static readonly Guid PassportUploadNodeId = new("cccccccc-cccc-cccc-cccc-cccccccccccc");
-    private static readonly Guid HighValueKycNodeId = new("ffffffff-ffff-ffff-ffff-ffffffffffff");
-    private static readonly Guid ConnectionUsaId = new("dddddddd-dddd-dddd-dddd-dddddddddddd");
-    private static readonly Guid ConnectionNonUsaId = new("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
-    private static readonly Guid ConnectionHighValueId = new("11111111-2222-3333-4444-555555555555");
+    public static readonly Guid SmallBusinessFlowId = new("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid MediumBusinessFlowId = new("22222222-2222-2222-2222-222222222222");
+    public static readonly Guid LargeBusinessFlowId = new("33333333-3333-3333-3333-333333333333");
 
     public static async Task SeedAsync(OnboardingDbContext dbContext, CancellationToken cancellationToken = default)
     {
-        if (await dbContext.Flows.AnyAsync(f => f.Id == FlowId, cancellationToken))
+        var targetFlowIds = new[] { SmallBusinessFlowId, MediumBusinessFlowId, LargeBusinessFlowId };
+
+        var existingFlowIds = await dbContext.Flows
+            .Where(f => targetFlowIds.Contains(f.Id))
+            .Select(f => f.Id)
+            .ToListAsync(cancellationToken);
+
+        if (!existingFlowIds.Contains(SmallBusinessFlowId))
         {
-            return;
+            dbContext.Flows.Add(CreateSmallBusinessFlow());
         }
 
-        var flow = new Flow
+        if (!existingFlowIds.Contains(MediumBusinessFlowId))
         {
-            Id = FlowId,
-            Name = "Compliance Onboarding",
-            Description = "Branch by country and collect required tax identity",
+            dbContext.Flows.Add(CreateMediumBusinessFlow());
+        }
+
+        if (!existingFlowIds.Contains(LargeBusinessFlowId))
+        {
+            dbContext.Flows.Add(CreateLargeBusinessFlow());
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static Flow CreateSmallBusinessFlow()
+    {
+        var startNodeId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var onlineDocVerificationNodeId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var completionNodeId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc");
+
+        return new Flow
+        {
+            Id = SmallBusinessFlowId,
+            Name = "Small business onboarding",
+            Description = "Simple onboarding flow with core details and mocked online document verification",
             Version = 1,
             Nodes =
             [
                 new Node
                 {
-                    Id = CountryFormNodeId,
-                    FlowId = FlowId,
-                    Key = "country-form",
+                    Id = startNodeId,
+                    FlowId = SmallBusinessFlowId,
+                    Key = "small-business-details",
                     Type = NodeType.Form,
-                    Title = "Tell us about your business",
-                    JsonContent = """{"fields":[{"name":"CompanyName","type":"text","required":true},{"name":"Country","type":"select","required":true},{"name":"AnnualRevenue","type":"number","required":false}]}""",
-                    ComplianceRuleJson = """{"requiredFields":["CompanyName","Country"]}""",
+                    Title = "Small business details",
+                    JsonContent = """{"fields":[{"name":"BusinessName","type":"text","required":true},{"name":"BusinessAddress","type":"textarea","required":true},{"name":"AnnualRevenue","type":"number","required":true},{"name":"BusinessOwner","type":"text","required":true},{"name":"SanctionsDeclarationConfirmed","type":"checkbox","required":true}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["BusinessName","BusinessAddress","AnnualRevenue","BusinessOwner","SanctionsDeclarationConfirmed"]}""",
                     IsStartNode = true
                 },
                 new Node
                 {
-                    Id = UsSsnNodeId,
-                    FlowId = FlowId,
-                    Key = "us-ssn-form",
-                    Type = NodeType.Form,
-                    Title = "US Tax Verification",
-                    JsonContent = """{"fields":[{"name":"Ssn","type":"text","required":true}]}""",
-                    ComplianceRuleJson = """{"requiredFields":["Ssn"]}""",
+                    Id = onlineDocVerificationNodeId,
+                    FlowId = SmallBusinessFlowId,
+                    Key = "small-online-document-verification",
+                    Type = NodeType.Logic,
+                    Title = "Mocked online document verification",
+                    JsonContent = """{"action":"MockVerification","provider":"OnlineDocumentVerification","resultField":"onlineDocumentVerificationStatus","approved":true}""",
                     IsStartNode = false
                 },
                 new Node
                 {
-                    Id = PassportUploadNodeId,
-                    FlowId = FlowId,
-                    Key = "passport-upload",
-                    Type = NodeType.DocumentUpload,
-                    Title = "Passport upload",
-                    JsonContent = """{"acceptedFileTypes":["application/pdf","image/jpeg","image/png"]}""",
-                    IsStartNode = false
-                },
-                new Node
-                {
-                    Id = HighValueKycNodeId,
-                    FlowId = FlowId,
-                    Key = "high-value-kyc",
-                    Type = NodeType.Form,
-                    Title = "Enhanced KYC — High Value Customer",
-                    JsonContent = """{"fields":[{"name":"SourceOfFunds","type":"text","required":true},{"name":"PoliticallyExposed","type":"checkbox","required":false}]}""",
-                    ComplianceRuleJson = """{"requiredFields":["SourceOfFunds"]}""",
+                    Id = completionNodeId,
+                    FlowId = SmallBusinessFlowId,
+                    Key = "small-complete",
+                    Type = NodeType.Information,
+                    Title = "Small business onboarding checks complete.",
                     IsStartNode = false
                 }
             ],
@@ -83,41 +89,232 @@ public static class DataSeeder
             [
                 new Connection
                 {
-                    Id = ConnectionHighValueId,
-                    FlowId = FlowId,
-                    SourceNodeId = CountryFormNodeId,
-                    TargetNodeId = HighValueKycNodeId,
-                    ConditionField = "AnnualRevenue",
-                    ConditionOperator = ConditionOperator.GreaterThan,
-                    ConditionValue = "1000000",
+                    Id = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+                    FlowId = SmallBusinessFlowId,
+                    SourceNodeId = startNodeId,
+                    TargetNodeId = onlineDocVerificationNodeId,
                     Priority = 0
                 },
                 new Connection
                 {
-                    Id = ConnectionUsaId,
-                    FlowId = FlowId,
-                    SourceNodeId = CountryFormNodeId,
-                    TargetNodeId = UsSsnNodeId,
-                    ConditionField = "Country",
-                    ConditionOperator = ConditionOperator.Equals,
-                    ConditionValue = "USA",
-                    Priority = 1
-                },
-                new Connection
-                {
-                    Id = ConnectionNonUsaId,
-                    FlowId = FlowId,
-                    SourceNodeId = CountryFormNodeId,
-                    TargetNodeId = PassportUploadNodeId,
-                    ConditionField = "Country",
-                    ConditionOperator = ConditionOperator.NotEquals,
-                    ConditionValue = "USA",
-                    Priority = 2
+                    Id = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+                    FlowId = SmallBusinessFlowId,
+                    SourceNodeId = onlineDocVerificationNodeId,
+                    TargetNodeId = completionNodeId,
+                    Priority = 0
                 }
             ]
         };
+    }
 
-        dbContext.Flows.Add(flow);
-        await dbContext.SaveChangesAsync(cancellationToken);
+    private static Flow CreateMediumBusinessFlow()
+    {
+        var startNodeId = new Guid("44444444-4444-4444-4444-444444444444");
+        var documentUploadNodeId = new Guid("55555555-5555-5555-5555-555555555555");
+        var experianNodeId = new Guid("66666666-6666-6666-6666-666666666666");
+        var companiesHouseNodeId = new Guid("77777777-7777-7777-7777-777777777777");
+        var completionNodeId = new Guid("88888888-8888-8888-8888-888888888888");
+
+        return new Flow
+        {
+            Id = MediumBusinessFlowId,
+            Name = "Medium business onboarding",
+            Description = "Medium complexity onboarding with multi-owner and third-party verification",
+            Version = 1,
+            Nodes =
+            [
+                new Node
+                {
+                    Id = startNodeId,
+                    FlowId = MediumBusinessFlowId,
+                    Key = "medium-business-details",
+                    Type = NodeType.Form,
+                    Title = "Medium business details",
+                    JsonContent = """{"fields":[{"name":"BusinessName","type":"text","required":true},{"name":"PrimaryAddress","type":"textarea","required":true},{"name":"AnnualRevenue","type":"number","required":true},{"name":"BusinessOwner","type":"text","required":true},{"name":"SecondaryBusinessOwner","type":"text","required":true},{"name":"NumberOfOutlets","type":"number","required":true},{"name":"BusinessStaffCount","type":"number","required":true},{"name":"BeneficialOwnersConfirmed","type":"checkbox","required":true},{"name":"TaxComplianceConfirmed","type":"checkbox","required":true}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["BusinessName","PrimaryAddress","AnnualRevenue","BusinessOwner","SecondaryBusinessOwner","NumberOfOutlets","BusinessStaffCount","BeneficialOwnersConfirmed","TaxComplianceConfirmed"]}""",
+                    IsStartNode = true
+                },
+                new Node
+                {
+                    Id = documentUploadNodeId,
+                    FlowId = MediumBusinessFlowId,
+                    Key = "medium-document-verification",
+                    Type = NodeType.DocumentUpload,
+                    Title = "Upload ownership and trading documents",
+                    JsonContent = """{"acceptedFileTypes":["application/pdf","image/jpeg","image/png"],"maxFiles":2}""",
+                    IsStartNode = false
+                },
+                new Node
+                {
+                    Id = experianNodeId,
+                    FlowId = MediumBusinessFlowId,
+                    Key = "medium-experian-check",
+                    Type = NodeType.Logic,
+                    Title = "Mocked Experian verification",
+                    JsonContent = """{"action":"MockVerification","provider":"Experian","resultField":"experianVerificationStatus","approved":true}""",
+                    IsStartNode = false
+                },
+                new Node
+                {
+                    Id = companiesHouseNodeId,
+                    FlowId = MediumBusinessFlowId,
+                    Key = "medium-companies-house-check",
+                    Type = NodeType.Logic,
+                    Title = "Mocked Companies House verification",
+                    JsonContent = """{"action":"MockVerification","provider":"CompaniesHouse","resultField":"companiesHouseVerificationStatus","approved":true}""",
+                    IsStartNode = false
+                },
+                new Node
+                {
+                    Id = completionNodeId,
+                    FlowId = MediumBusinessFlowId,
+                    Key = "medium-complete",
+                    Type = NodeType.Information,
+                    Title = "Medium business onboarding checks complete.",
+                    IsStartNode = false
+                }
+            ],
+            Connections =
+            [
+                new Connection
+                {
+                    Id = new Guid("99999999-9999-9999-9999-999999999999"),
+                    FlowId = MediumBusinessFlowId,
+                    SourceNodeId = startNodeId,
+                    TargetNodeId = documentUploadNodeId,
+                    Priority = 0
+                },
+                new Connection
+                {
+                    Id = new Guid("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                    FlowId = MediumBusinessFlowId,
+                    SourceNodeId = documentUploadNodeId,
+                    TargetNodeId = experianNodeId,
+                    Priority = 0
+                },
+                new Connection
+                {
+                    Id = new Guid("ffffffff-1111-2222-3333-444444444444"),
+                    FlowId = MediumBusinessFlowId,
+                    SourceNodeId = experianNodeId,
+                    TargetNodeId = companiesHouseNodeId,
+                    Priority = 0
+                },
+                new Connection
+                {
+                    Id = new Guid("55555555-6666-7777-8888-999999999999"),
+                    FlowId = MediumBusinessFlowId,
+                    SourceNodeId = companiesHouseNodeId,
+                    TargetNodeId = completionNodeId,
+                    Priority = 0
+                }
+            ]
+        };
+    }
+
+    private static Flow CreateLargeBusinessFlow()
+    {
+        var profileNodeId = new Guid("10101010-1010-1010-1010-101010101010");
+        var complianceNodeId = new Guid("20202020-2020-2020-2020-202020202020");
+        var experianNodeId = new Guid("30303030-3030-3030-3030-303030303030");
+        var companiesHouseNodeId = new Guid("40404040-4040-4040-4040-404040404040");
+        var completionNodeId = new Guid("50505050-5050-5050-5050-505050505050");
+
+        return new Flow
+        {
+            Id = LargeBusinessFlowId,
+            Name = "Large nationwide business onboarding",
+            Description = "High complexity onboarding with legal structure and advanced compliance checks",
+            Version = 1,
+            Nodes =
+            [
+                new Node
+                {
+                    Id = profileNodeId,
+                    FlowId = LargeBusinessFlowId,
+                    Key = "large-business-profile",
+                    Type = NodeType.Form,
+                    Title = "Large business profile",
+                    JsonContent = """{"fields":[{"name":"BusinessName","type":"text","required":true},{"name":"LegalStructure","type":"select","required":true,"options":["LimitedCompany","Partnership","PublicLimitedCompany","Other"]},{"name":"PrimaryAddress","type":"textarea","required":true},{"name":"AnnualRevenue","type":"number","required":true},{"name":"BusinessOwner","type":"text","required":true},{"name":"SecondaryBusinessOwner","type":"text","required":true},{"name":"NumberOfOutlets","type":"number","required":true},{"name":"BusinessStaffCount","type":"number","required":true}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["BusinessName","LegalStructure","PrimaryAddress","AnnualRevenue","BusinessOwner","SecondaryBusinessOwner","NumberOfOutlets","BusinessStaffCount"]}""",
+                    IsStartNode = true
+                },
+                new Node
+                {
+                    Id = complianceNodeId,
+                    FlowId = LargeBusinessFlowId,
+                    Key = "large-compliance-questionnaire",
+                    Type = NodeType.Form,
+                    Title = "Compliance questionnaire",
+                    JsonContent = """{"fields":[{"name":"RegulatoryLicensesConfirmed","type":"checkbox","required":true},{"name":"SanctionsScreeningCompleted","type":"checkbox","required":true},{"name":"BeneficialOwnershipReviewed","type":"checkbox","required":true}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["RegulatoryLicensesConfirmed","SanctionsScreeningCompleted","BeneficialOwnershipReviewed"]}""",
+                    IsStartNode = false
+                },
+                new Node
+                {
+                    Id = experianNodeId,
+                    FlowId = LargeBusinessFlowId,
+                    Key = "large-experian-check",
+                    Type = NodeType.Logic,
+                    Title = "Mocked Experian verification",
+                    JsonContent = """{"action":"MockVerification","provider":"Experian","resultField":"experianVerificationStatus","approved":true}""",
+                    IsStartNode = false
+                },
+                new Node
+                {
+                    Id = companiesHouseNodeId,
+                    FlowId = LargeBusinessFlowId,
+                    Key = "large-companies-house-check",
+                    Type = NodeType.Logic,
+                    Title = "Mocked Companies House verification",
+                    JsonContent = """{"action":"MockVerification","provider":"CompaniesHouse","resultField":"companiesHouseVerificationStatus","approved":true}""",
+                    IsStartNode = false
+                },
+                new Node
+                {
+                    Id = completionNodeId,
+                    FlowId = LargeBusinessFlowId,
+                    Key = "large-complete",
+                    Type = NodeType.Information,
+                    Title = "Large nationwide business onboarding checks complete.",
+                    IsStartNode = false
+                }
+            ],
+            Connections =
+            [
+                new Connection
+                {
+                    Id = new Guid("60606060-6060-6060-6060-606060606060"),
+                    FlowId = LargeBusinessFlowId,
+                    SourceNodeId = profileNodeId,
+                    TargetNodeId = complianceNodeId,
+                    Priority = 0
+                },
+                new Connection
+                {
+                    Id = new Guid("70707070-7070-7070-7070-707070707070"),
+                    FlowId = LargeBusinessFlowId,
+                    SourceNodeId = complianceNodeId,
+                    TargetNodeId = experianNodeId,
+                    Priority = 0
+                },
+                new Connection
+                {
+                    Id = new Guid("80808080-8080-8080-8080-808080808080"),
+                    FlowId = LargeBusinessFlowId,
+                    SourceNodeId = experianNodeId,
+                    TargetNodeId = companiesHouseNodeId,
+                    Priority = 0
+                },
+                new Connection
+                {
+                    Id = new Guid("90909090-9090-9090-9090-909090909090"),
+                    FlowId = LargeBusinessFlowId,
+                    SourceNodeId = companiesHouseNodeId,
+                    TargetNodeId = completionNodeId,
+                    Priority = 0
+                }
+            ]
+        };
     }
 }

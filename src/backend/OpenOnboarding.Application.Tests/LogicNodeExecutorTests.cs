@@ -172,6 +172,59 @@ public sealed class LogicNodeExecutorTests
             executor.ExecuteAsync(node, session, new Dictionary<string, object?>()));
     }
 
+    // ─── MockVerificationExecutor ──────────────────────────────────────
+
+    [Fact]
+    public async Task MockVerificationExecutor_AddsVerificationSubmission()
+    {
+        var session = new Session
+        {
+            Id = Guid.NewGuid(),
+            FlowId = Guid.NewGuid()
+        };
+
+        var node = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = session.FlowId,
+            Key = "mock-verification",
+            Type = NodeType.Logic,
+            JsonContent = """{"action":"MockVerification","provider":"Experian","resultField":"experianVerificationStatus","approved":true}"""
+        };
+
+        var executor = new MockVerificationExecutor();
+        await executor.ExecuteAsync(node, session, new Dictionary<string, object?> { ["BusinessName"] = "Acme Ltd" });
+
+        Assert.Single(session.Submissions);
+        var data = JsonSerializer.Deserialize<JsonElement>(session.Submissions.First().DataJson);
+        Assert.Equal("Experian", data.GetProperty("provider").GetString());
+        Assert.Equal("Approved", data.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task MockVerificationExecutor_ThrowsWhenProviderMissing()
+    {
+        var session = new Session
+        {
+            Id = Guid.NewGuid(),
+            FlowId = Guid.NewGuid()
+        };
+
+        var node = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = session.FlowId,
+            Key = "mock-verification",
+            Type = NodeType.Logic,
+            JsonContent = """{"action":"MockVerification"}"""
+        };
+
+        var executor = new MockVerificationExecutor();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            executor.ExecuteAsync(node, session, new Dictionary<string, object?>()));
+    }
+
     // ─── WorkflowService: Logic node auto-execution ───────────────────
 
     [Fact]
