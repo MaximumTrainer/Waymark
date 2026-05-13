@@ -7,7 +7,7 @@ This guide explains how to configure and test onboarding journeys for different 
 The API uses role-based access control:
 - `Operator`: manage flows, customers, sessions, and webhooks
 - `Applicant`: run onboarding sessions, submit steps, and access owned sessions
-- `ReadOnly`: operator read access policy surface where allowed
+- `ReadOnly`: read-only access to operator endpoints where permitted by policy
 
 In local development, `X-Api-Key` authentication maps requests to operator behavior.
 

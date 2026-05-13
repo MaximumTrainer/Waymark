@@ -77,7 +77,7 @@ dotnet test src/backend/OpenOnboarding.slnx -c Release
 ## 7. Contribution workflow
 
 1. Create a feature/fix branch.
-2. Add or update tests first for behavioral changes (TDD: Red → Green → Refactor).
+2. Add or update tests first for all code changes (TDD: Red → Green → Refactor).
 3. Keep API/controller changes thin; place workflow logic in application/infrastructure services.
 4. Run backend + frontend validation commands before pushing.
 5. Open a PR and ensure CI passes.
