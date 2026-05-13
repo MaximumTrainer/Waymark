@@ -425,6 +425,7 @@ public sealed class WorkflowServiceTests
             executors ?? [],
             new InMemorySessionEventEmitter(),
             new NoOpWebhookService(),
+            null,
             new NoOpDocumentStorageService());
     }
 

@@ -48,7 +48,8 @@ public sealed class WorkflowE2ETests
         Assert.True(completed.IsCompleted, "[API] Final submission did not complete the session.");
         Assert.True(completed.CurrentNode is null, "[API] Completed session still returned a current node.");
 
-        var deliveries = await ListDeliveriesAsync(client);
+        await WaitForConditionAsync(() => handler.Attempts.Count >= 1, TimeSpan.FromSeconds(12), "[Integration callback] Webhook callback was not observed in time.");
+        var deliveries = await WaitForDeliveryAsync(client, started.SessionId, TimeSpan.FromSeconds(12));
         var delivery = deliveries.FirstOrDefault(d => d.SessionId == started.SessionId && d.EventType == "session-completed");
         Assert.True(delivery is not null, "[Integration callback] Delivery log did not contain the completed-session webhook.");
         Assert.True(delivery!.Status == "delivered", "[Integration callback] Webhook was not marked as delivered.");
@@ -85,9 +86,10 @@ public sealed class WorkflowE2ETests
             new Dictionary<string, object?> { ["SourceOfFunds"] = "Business revenue" }), "API");
         Assert.True(completed.IsCompleted, "[API] Retry scenario did not complete the session.");
 
+        await WaitForConditionAsync(() => handler.Attempts.Count >= 3, TimeSpan.FromSeconds(16), "[Integration callback] Retry callbacks were not observed in time.");
         Assert.True(handler.Attempts.Count == 3, $"[Integration callback] Expected 3 callback attempts for retry flow, got {handler.Attempts.Count}.");
 
-        var deliveries = await ListDeliveriesAsync(client);
+        var deliveries = await WaitForDeliveryAsync(client, started.SessionId, TimeSpan.FromSeconds(16));
         var delivery = deliveries.FirstOrDefault(d => d.SessionId == started.SessionId && d.EventType == "session-completed");
         Assert.True(delivery is not null, "[Integration callback] Retry scenario did not persist a webhook delivery log.");
         Assert.True(delivery!.Status == "delivered", "[Integration callback] Retry scenario did not end in delivered status.");
@@ -163,6 +165,50 @@ public sealed class WorkflowE2ETests
         var response = await client.GetAsync($"/api/flows/{FlowId}/webhook-deliveries");
         EnsureStatus(response.StatusCode, HttpStatusCode.OK, "Integration callback", "Failed to fetch webhook delivery logs.");
         return (await response.Content.ReadFromJsonAsync<List<WebhookDeliveryResponse>>(JsonOptions))!;
+    }
+
+    private static async Task<IReadOnlyList<WebhookDeliveryResponse>> WaitForDeliveryAsync(HttpClient client, Guid sessionId, TimeSpan timeout)
+    {
+        IReadOnlyList<WebhookDeliveryResponse> deliveries = [];
+        await WaitForConditionAsync(async () =>
+        {
+            deliveries = await ListDeliveriesAsync(client);
+            return deliveries.Any(d => d.SessionId == sessionId && d.EventType == "session-completed");
+        }, timeout, "[Integration callback] Timed out waiting for webhook delivery log entry.");
+
+        return deliveries;
+    }
+
+    private static async Task WaitForConditionAsync(Func<bool> condition, TimeSpan timeout, string timeoutMessage)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(100);
+        }
+
+        throw new XunitException(timeoutMessage);
+    }
+
+    private static async Task WaitForConditionAsync(Func<Task<bool>> condition, TimeSpan timeout, string timeoutMessage)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await condition())
+            {
+                return;
+            }
+
+            await Task.Delay(100);
+        }
+
+        throw new XunitException(timeoutMessage);
     }
 
     private static void EnsureStatus(HttpStatusCode actual, HttpStatusCode expected, string stage, string action)

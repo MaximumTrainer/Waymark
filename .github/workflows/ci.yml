@@ -69,6 +69,7 @@ jobs:
           dotnet test src/backend/OpenOnboarding.slnx
           --no-build
           -c Release
+          --filter "FullyQualifiedName!~OpenOnboarding.Pact.Tests.E2E"
           --collect:"XPlat Code Coverage"
           --results-directory ./coverage
 
@@ -184,6 +185,7 @@ jobs:
         run: >
           dotnet test src/backend/OpenOnboarding.Pact.Tests/OpenOnboarding.Pact.Tests.csproj
           --no-build -c Release
+          --filter "FullyQualifiedName~OpenOnboarding.Pact.Tests.Providers"
       - name: Verify provider against external provider (if configured)
         if: ${{ vars.PACT_PROVIDER_URL != '' }}
         env:
@@ -191,6 +193,7 @@ jobs:
         run: >
           dotnet test src/backend/OpenOnboarding.Pact.Tests/OpenOnboarding.Pact.Tests.csproj
           --no-build -c Release
+          --filter "FullyQualifiedName~OpenOnboarding.Pact.Tests.Providers"
 
   # ── End-to-end verification ─────────────────────────────────
   e2e-verification:

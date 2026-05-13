@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Exceptions;
@@ -23,6 +24,7 @@ public sealed class WorkflowService(
     IEnumerable<ILogicNodeExecutor> logicNodeExecutors,
     ISessionEventEmitter eventEmitter,
     IWebhookService webhookService,
+    IServiceScopeFactory? serviceScopeFactory,
     IDocumentStorageService documentStorageService) : IWorkflowService
 {
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
@@ -168,10 +170,33 @@ public sealed class WorkflowService(
 
         if (nextNode is null)
         {
-            await webhookService.DeliverAsync(session.Id, session.FlowId, eventType, eventPayload, cancellationToken);
+            _ = DispatchWebhookDeliveryAsync(session.Id, session.FlowId, eventType, eventPayload);
         }
 
         return response;
+    }
+
+    private Task DispatchWebhookDeliveryAsync(Guid sessionId, Guid flowId, string eventType, object eventPayload)
+    {
+        return Task.Run(async () =>
+        {
+            try
+            {
+                if (serviceScopeFactory is null)
+                {
+                    await webhookService.DeliverAsync(sessionId, flowId, eventType, eventPayload, CancellationToken.None);
+                    return;
+                }
+
+                using var scope = serviceScopeFactory.CreateScope();
+                var scopedWebhookService = scope.ServiceProvider.GetRequiredService<IWebhookService>();
+                await scopedWebhookService.DeliverAsync(sessionId, flowId, eventType, eventPayload, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Webhook delivery failed for session {SessionId}.", sessionId);
+            }
+        });
     }
 
     public async Task<SessionStepResponse> GetNextStepAsync(Guid sessionId, CancellationToken cancellationToken = default)

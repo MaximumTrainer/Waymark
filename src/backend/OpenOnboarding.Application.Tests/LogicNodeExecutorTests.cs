@@ -385,6 +385,7 @@ public sealed class LogicNodeExecutorTests
             executors ?? [],
             new InMemorySessionEventEmitter(),
             new NoOpWebhookService(),
+            null,
             new NoOpDocumentStorageService());
     }
 

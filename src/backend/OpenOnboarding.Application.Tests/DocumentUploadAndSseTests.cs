@@ -291,6 +291,7 @@ public sealed class WorkflowServiceEmitsEventsTests
             [],
             emitter,
             new NoOpWebhookService(),
+            null,
             new NoOpDocumentStorageService());
     }
 

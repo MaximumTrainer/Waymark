@@ -201,6 +201,7 @@ public sealed class SessionAnalyticsServiceTests
             [],
             new InMemorySessionEventEmitter(),
             new NoOpWebhookService(),
+            null,
             new NoOpDocumentStorageService());
     }
 
