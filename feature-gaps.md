@@ -69,7 +69,7 @@ As a new contributor, I need aligned local defaults so first-time setup works wi
 
 ### Current gap
 - `docker-compose.yml` creates database `onboarding`.
-- API default connection string in `src/backend/OpenOnboarding.Api/appsettings.json` currently references `open_onboarding` (not `onboarding`).
+- API default connection string in `src/backend/OpenOnboarding.Api/appsettings.json` currently references `open_onboarding` (verified in-repo at the time of this documentation update; not `onboarding`).
 - Frontend API helper appends `/api/workflow`; using `VITE_API_BASE_URL` with the same suffix can produce duplicated path segments.
 
 ### Acceptance criteria
