@@ -135,12 +135,12 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Apply EF Core migrations and seed reference data on startup.
-// Runs in all environments (including Testing / CI) so the schema is always current.
+// Create schema and seed reference data on startup (all environments including CI/Testing).
+// EnsureCreatedAsync creates tables from the EF model when none exist (idempotent: no-op if tables already present).
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OnboardingDbContext>();
-    await db.Database.MigrateAsync();
+    await db.Database.EnsureCreatedAsync();
     await DataSeeder.SeedAsync(db);
 }
 
