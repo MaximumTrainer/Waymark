@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
+using OpenOnboarding.Application.Tests.TestHelpers;
 using OpenOnboarding.Application.Validators;
 using OpenOnboarding.Domain.Entities;
 using OpenOnboarding.Domain.Enums;
@@ -193,7 +195,12 @@ public sealed class SessionAnalyticsServiceTests
             db,
             new StartSessionRequestValidator(),
             new SubmitStepRequestValidator(),
-            customerService);
+            customerService,
+            new ComplianceRuleEvaluator(),
+            NullLogger<WorkflowService>.Instance,
+            [],
+            new InMemorySessionEventEmitter(),
+            new NoOpDocumentStorageService());
     }
 
     /// <summary>Single-step flow that has no outgoing connections so it completes immediately.</summary>
