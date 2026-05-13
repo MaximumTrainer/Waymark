@@ -103,7 +103,19 @@ Renders a file picker. The engine enforces `acceptedFileTypes` and `maxFiles` at
 }
 ```
 
-Files are uploaded via `POST /api/workflow/sessions/{sessionId}/steps/{nodeId}/documents` before the step submission. The upload response returns `[{ "fileId": "...", "fileName": "..." }]` for each stored file.
+Files are uploaded via `POST /api/workflow/sessions/{sessionId}/steps/{nodeId}/documents` before the step submission. The upload response returns an array of `StoredFileInfo` objects for each stored file:
+
+```json
+[
+  {
+    "fileId": "string",
+    "fileName": "string",
+    "contentType": "string",
+    "sizeBytes": 0,
+    "storedAt": "2024-01-01T00:00:00Z"
+  }
+]
+```
 
 #### Redirect
 
@@ -154,6 +166,7 @@ Available built-in actions:
 | Action | Description | Required `jsonContent` fields |
 |---|---|---|
 | `SetProfileField` | Writes a key-value pair into `CustomerProfile.MetadataJson`. | `field` (string), `value` (any JSON value) |
+| `HttpCallback` | POSTs the current step payload as JSON to an external URL and records the response body and HTTP status code as a submission. | `url` (string) |
 
 To add a new action, implement `ILogicNodeExecutor` and register it with the DI container — see [Expanding the engine](#expanding-the-engine).
 
@@ -195,7 +208,7 @@ The rule object supports three independent sections, all optional:
 | `rules[].field` | The field to validate. |
 | `rules[].minLength` / `maxLength` | String length constraints. |
 | `rules[].minimum` / `maximum` | Numeric range constraints (parsed as `decimal`). |
-| `rules[].pattern` | ECMAScript-compatible regex (evaluated with a 100 ms timeout). |
+| `rules[].pattern` | .NET regex evaluated with `System.Text.RegularExpressions` (`RegexOptions.None`, 100 ms timeout). |
 | `rules[].allowedValues` | Case-insensitive enumeration of permitted values. |
 | `crossFieldRules` | Compares two fields (from the current payload or any previous submission in the session). Supported operators: `Equals`, `NotEquals`, `GreaterThan`, `LessThan`, `GreaterThanOrEqual`, `LessThanOrEqual`. Numeric, date, and lexicographic comparisons are applied in that order of precedence. |
 
@@ -240,7 +253,7 @@ StartSession ──► Started
 ```
 
 - `Completed` — no outgoing connection matches; the session is terminal.
-- `Abandoned` — explicitly set via `POST /api/workflow/sessions/{sessionId}/abandon`.
+- `Abandoned` — explicitly set via `DELETE /api/workflow/sessions/{sessionId}` (idempotent).
 - `Error` — a Logic node with `failOnError: true` threw an exception, or 20 consecutive Logic nodes were auto-advanced without resolving to a non-Logic step.
 
 SSE events are emitted on the `GET /api/workflow/sessions/{sessionId}/events` stream for `step-advanced`, `session-completed`, and `session-abandoned` transitions.
@@ -342,7 +355,11 @@ Content-Type: multipart/form-data
 files=<binary>
 ```
 
-Submit the returned `fileId` array as the step payload in the subsequent step submission.
+The upload response (`StoredFileInfo[]`) is passed as the `files` field in the subsequent step submission payload:
+
+```json
+{ "payload": { "files": [{ "fileId": "...", "fileName": "...", "contentType": "...", "sizeBytes": 0, "storedAt": "..." }] } }
+```
 
 ### Expanding the engine
 
@@ -385,7 +402,7 @@ services.AddScoped<ILogicNodeExecutor, SendEmailExecutor>();
 
 #### Backend unit tests
 
-Tests live in `OpenOnboarding.Application.Tests/`. All tests use an in-memory SQLite database constructed per test, ensuring full isolation.
+Tests live in `OpenOnboarding.Application.Tests/`. All tests use the EF Core InMemory provider (`UseInMemoryDatabase`) with a unique database name per test, ensuring full isolation.
 
 | Test file | Coverage |
 |---|---|
@@ -393,7 +410,7 @@ Tests live in `OpenOnboarding.Application.Tests/`. All tests use an in-memory SQ
 | `ComplianceRuleEvaluatorTests.cs` | `requiredFields`, `rules` (minLength, maxLength, pattern, minimum, maximum, allowedValues), `crossFieldRules`, invalid JSON handling |
 | `FlowServiceTests.cs` | Flow creation, update, duplicate start-node validation, connection referencing |
 | `LogicNodeExecutorTests.cs` | `SetProfileField` action execution, metadata merging, missing profile error |
-| `DocumentUploadAndSseTests.cs` | File type enforcement, file size limits, SSE event emission |
+| `DocumentUploadAndSseTests.cs` | `LocalDocumentStorageService` (store, retrieve, not-found); `InMemorySessionEventEmitter` channel subscription and teardown; `WorkflowService` SSE event emission for step-advanced, session-completed, and session-abandoned |
 | `SessionAnalyticsServiceTests.cs` | Completion rate, step-level statistics |
 
 Run all backend tests:
