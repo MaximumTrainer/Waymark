@@ -32,7 +32,7 @@ Flow nodes support:
 - `Information`
 - `Logic`
 
-Connection conditions use operators from `ConditionOperator` (for example: `Equals`, `NotEquals`, `GreaterThan`, `MatchesRegex`).
+Connection conditions use operators from `ConditionOperator` (for example: `Equals`, `NotEquals`, `GreaterThan`, `Contains`).
 
 ## 3. Configure customer personas
 
