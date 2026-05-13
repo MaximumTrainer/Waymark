@@ -37,26 +37,29 @@ export function SessionList({ apiKey, onSelectSession }: SessionListProps) {
 
   useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
-    setError(null)
 
-    fetch(
-      `/api/workflow/sessions?page=${page}&pageSize=${pageSize}`,
-      { headers: buildHeaders(apiKey) },
-    )
-      .then((res) => {
+    const load = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(
+          `/api/workflow/sessions?page=${page}&pageSize=${pageSize}`,
+          { headers: buildHeaders(apiKey) },
+        )
         if (!res.ok) throw new Error(`Failed to load sessions (${res.status})`)
-        return res.json() as Promise<SessionSummary[]>
-      })
-      .then((data) => {
+        const data = (await res.json()) as SessionSummary[]
         if (!cancelled) {
           setSessions(data)
           setHasMore(data.length === pageSize)
         }
-      })
-      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Unknown error') })
-      .finally(() => { if (!cancelled) setIsLoading(false) })
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
 
+    void load()
     return () => { cancelled = true }
   }, [apiKey, page])
 

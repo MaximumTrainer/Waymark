@@ -45,18 +45,23 @@ export function WebhookDeliveries({ apiKey }: WebhookDeliveriesProps) {
 
   useEffect(() => {
     let cancelled = false
-    setIsLoadingWebhooks(true)
-    setWebhookError(null)
 
-    fetch('/api/webhooks', { headers: buildHeaders(apiKey) })
-      .then((res) => {
+    const load = async () => {
+      setIsLoadingWebhooks(true)
+      setWebhookError(null)
+      try {
+        const res = await fetch('/api/webhooks', { headers: buildHeaders(apiKey) })
         if (!res.ok) throw new Error(`Failed to load webhooks (${res.status})`)
-        return res.json() as Promise<Webhook[]>
-      })
-      .then((data) => { if (!cancelled) setWebhooks(data) })
-      .catch((err: unknown) => { if (!cancelled) setWebhookError(err instanceof Error ? err.message : 'Unknown error') })
-      .finally(() => { if (!cancelled) setIsLoadingWebhooks(false) })
+        const data = (await res.json()) as Webhook[]
+        if (!cancelled) setWebhooks(data)
+      } catch (err) {
+        if (!cancelled) setWebhookError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        if (!cancelled) setIsLoadingWebhooks(false)
+      }
+    }
 
+    void load()
     return () => { cancelled = true }
   }, [apiKey])
 
