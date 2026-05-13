@@ -1,0 +1,92 @@
+name: Feature Gaps → GitHub Issues
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-feature-gap-issues:
+    name: Create issues from feature-gaps.md
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or skip feature gap issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+
+            const filePath = 'feature-gaps.md';
+            if (!fs.existsSync(filePath)) {
+              core.setFailed(`Missing required file: ${filePath}`);
+              return;
+            }
+
+            const markdown = fs.readFileSync(filePath, 'utf8');
+            const lines = markdown.split(/\r?\n/);
+
+            const gaps = [];
+            let currentGap = null;
+
+            for (const line of lines) {
+              if (line.startsWith('## Gap ')) {
+                if (currentGap) gaps.push(currentGap);
+                currentGap = {
+                  heading: line.replace(/^##\s*/, '').trim(),
+                  contentLines: []
+                };
+                continue;
+              }
+
+              if (currentGap) {
+                currentGap.contentLines.push(line);
+              }
+            }
+
+            if (currentGap) gaps.push(currentGap);
+
+            if (gaps.length !== 4) {
+              core.setFailed(`Expected 4 gap sections in ${filePath}, found ${gaps.length}.`);
+              return;
+            }
+
+            const existingIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all',
+                per_page: 100
+              }
+            );
+
+            const existingTitles = new Set(existingIssues.map((issue) => issue.title));
+
+            for (const gap of gaps) {
+              const issueTitle = `Feature Gap: ${gap.heading}`;
+              if (existingTitles.has(issueTitle)) {
+                core.info(`Skipping existing issue: ${issueTitle}`);
+                continue;
+              }
+
+              const sectionBody = gap.contentLines.join('\n').trim();
+              const issueBody = [
+                `Source: \`${filePath}\``,
+                '',
+                sectionBody
+              ].join('\n');
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: issueBody
+              });
+
+              core.info(`Created issue: ${issueTitle}`);
+            }
