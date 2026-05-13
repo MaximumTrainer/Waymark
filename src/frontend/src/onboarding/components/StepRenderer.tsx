@@ -179,11 +179,13 @@ function DocumentUploadStep({
   sessionId,
   nodeId,
   onSubmit,
+  apiKey,
 }: {
   node: FlowNode
   sessionId?: string
   nodeId?: string
   onSubmit: (payload: Record<string, unknown>) => Promise<void>
+  apiKey?: string
 }) {
   const content = (() => {
     try {
@@ -218,6 +220,9 @@ function DocumentUploadStep({
 
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `/api/workflow/sessions/${sessionId}/steps/${nodeId}/documents`)
+    if (apiKey) {
+      xhr.setRequestHeader('X-Api-Key', apiKey)
+    }
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -321,6 +326,7 @@ type StepRendererProps = {
   sessionId?: string
   nodeId?: string
   onSubmit: (payload: Record<string, unknown>) => Promise<void>
+  apiKey?: string
 }
 
 const cardClassName = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm'
@@ -363,7 +369,7 @@ function FormStep({
   return <DynamicForm node={node} schema={schema} onSubmit={onSubmit} />
 }
 
-export function StepRenderer({ node, sessionId, nodeId, onSubmit }: StepRendererProps) {
+export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: StepRendererProps) {
   if (!node) {
     return <div className={cardClassName}>Journey complete 🎉</div>
   }
@@ -387,7 +393,7 @@ export function StepRenderer({ node, sessionId, nodeId, onSubmit }: StepRenderer
       case 'DocumentUpload':
         return (
           <FormErrorBoundary>
-            <DocumentUploadStep node={node} sessionId={sessionId} nodeId={nodeId} onSubmit={onSubmit} />
+            <DocumentUploadStep node={node} sessionId={sessionId} nodeId={nodeId} onSubmit={onSubmit} apiKey={apiKey} />
           </FormErrorBoundary>
         )
       case 'Redirect':

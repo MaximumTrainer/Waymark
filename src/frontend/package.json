@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:pact": "vitest run src/pact"
+    "test:pact": "vitest run src/pact",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
@@ -23,11 +24,12 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@pact-foundation/pact": "^13.1.4",
-    "@vitest/runner": "^2.1.0",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/runner": "^2.1.0",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
