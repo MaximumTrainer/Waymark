@@ -48,6 +48,7 @@ jobs:
 
     env:
       ConnectionStrings__OnboardingDb: "Host=localhost;Port=5432;Database=onboarding_test;Username=postgres;Password=postgres"
+      PERSONA_REPORT_DIR: ${{ github.workspace }}/persona-report
 
     steps:
       - name: Checkout
@@ -79,6 +80,14 @@ jobs:
         with:
           name: backend-coverage
           path: coverage/**/coverage.cobertura.xml
+          retention-days: 14
+
+      - name: Upload persona execution report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: persona-execution-report
+          path: ${{ env.PERSONA_REPORT_DIR }}/persona-report.json
           retention-days: 14
 
   # ── Frontend ───────────────────────────────────────────────
