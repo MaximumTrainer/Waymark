@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Exceptions;
@@ -22,6 +23,8 @@ public sealed class WorkflowService(
     ILogger<WorkflowService> logger,
     IEnumerable<ILogicNodeExecutor> logicNodeExecutors,
     ISessionEventEmitter eventEmitter,
+    IWebhookService webhookService,
+    IServiceScopeFactory? serviceScopeFactory,
     IDocumentStorageService documentStorageService) : IWorkflowService
 {
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
@@ -165,7 +168,37 @@ public sealed class WorkflowService(
             : new { sessionId = session.Id, currentNode = BuildNodeDto(nextNode, session) };
         await eventEmitter.EmitAsync(session.Id, eventType, eventPayload, cancellationToken);
 
+        if (nextNode is null)
+        {
+            var dispatchTask = DispatchWebhookDeliveryAsync(session.Id, session.FlowId, eventType, eventPayload);
+            _ = dispatchTask.ContinueWith(
+                task => logger.LogWarning(task.Exception, "Webhook dispatch task faulted for session {SessionId}.", session.Id),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+        }
+
         return response;
+    }
+
+    private async Task DispatchWebhookDeliveryAsync(Guid sessionId, Guid flowId, string eventType, object eventPayload)
+    {
+        try
+        {
+            if (serviceScopeFactory is null)
+            {
+                await webhookService.DeliverAsync(sessionId, flowId, eventType, eventPayload, CancellationToken.None);
+                return;
+            }
+
+            using var scope = serviceScopeFactory.CreateScope();
+            var scopedWebhookService = scope.ServiceProvider.GetRequiredService<IWebhookService>();
+            await scopedWebhookService.DeliverAsync(sessionId, flowId, eventType, eventPayload, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Webhook delivery failed for session {SessionId}.", sessionId);
+        }
     }
 
     public async Task<SessionStepResponse> GetNextStepAsync(Guid sessionId, CancellationToken cancellationToken = default)

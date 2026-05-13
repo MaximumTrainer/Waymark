@@ -200,6 +200,8 @@ public sealed class SessionAnalyticsServiceTests
             NullLogger<WorkflowService>.Instance,
             [],
             new InMemorySessionEventEmitter(),
+            new NoOpWebhookService(),
+            null,
             new NoOpDocumentStorageService());
     }
 

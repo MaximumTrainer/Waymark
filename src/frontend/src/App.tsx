@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FlowAuthoringPanel } from './builder/FlowAuthoringPanel'
 import { JourneyBuilder } from './builder/JourneyBuilder'
 import { StepRenderer } from './onboarding/components/StepRenderer'
 import { useOnboarding } from './onboarding/hooks/useOnboarding'
@@ -29,12 +30,14 @@ const JOURNEYS: JourneyOption[] = [
       'High-complexity flow with legal structure, advanced compliance questionnaire, outlets/staff size, and mocked Experian + Companies House checks.',
   },
 ]
+const defaultFlowId = JOURNEYS[0].id
 
 function App() {
   const { step, startSession, submitStep, isLoading, error } = useOnboarding()
   const apiKey = import.meta.env.VITE_API_KEY || undefined
   const [selectedFlowId, setSelectedFlowId] = useState<string>(JOURNEYS[0].id)
   const [visitedNodeIds, setVisitedNodeIds] = useState<Set<string>>(new Set())
+  const [builderFlowId, setBuilderFlowId] = useState<string | null>(defaultFlowId)
 
   useEffect(() => {
     startSession({ flowId: selectedFlowId })
@@ -47,6 +50,10 @@ function App() {
       })
       .catch(() => undefined)
   }, [selectedFlowId, startSession])
+
+  useEffect(() => {
+    setBuilderFlowId(selectedFlowId)
+  }, [selectedFlowId])
 
   const selectedJourney = JOURNEYS.find((j) => j.id === selectedFlowId) ?? JOURNEYS[0]
 
@@ -77,10 +84,12 @@ function App() {
         <p className="text-sm text-slate-600">{selectedJourney.description}</p>
       </section>
 
+      <FlowAuthoringPanel onFlowSelected={setBuilderFlowId} />
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">Visual Journey Builder (React Flow)</h2>
         <JourneyBuilder
-          flowId={selectedFlowId}
+          flowId={builderFlowId}
           currentNodeId={step?.currentNode?.id}
           visitedNodeIds={visitedNodeIds}
           isCompleted={step?.isCompleted ?? false}

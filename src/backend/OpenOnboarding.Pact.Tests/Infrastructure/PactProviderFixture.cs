@@ -16,11 +16,14 @@ public sealed class PactProviderFixture : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__OnboardingDb")
+            ?? "Host=localhost;Port=5432;Database=onboarding_test;Username=postgres;Password=postgres";
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["ConnectionStrings:OnboardingDb"] = connectionString,
                 ["Authentication:ApiKey"] = "test-api-key",
                 ["Authentication:JwtAuthority"] = "",
                 ["SessionTimeoutMinutes"] = "1440",
