@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace OpenOnboarding.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260512120000_InitialCreate")]
     public partial class InitialCreate : Migration
     {
         /// <inheritdoc />

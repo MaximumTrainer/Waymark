@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace OpenOnboarding.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260512160000_AddWebhooksAndDeliveries")]
     public partial class AddWebhooksAndDeliveries : Migration
     {
         /// <inheritdoc />

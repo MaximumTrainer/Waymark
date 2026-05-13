@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace OpenOnboarding.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260512150000_AddNodeExecutionError")]
     public partial class AddNodeExecutionError : Migration
     {
         /// <inheritdoc />

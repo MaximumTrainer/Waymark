@@ -28,18 +28,18 @@ public sealed class WorkflowProviderTests(ITestOutputHelper output)
             return;
         }
 
-        using var fixture = new PactProviderFixture();
-        fixture.CreateClient(); // Trigger server startup
-
-        var (flowId, nodeId) = await fixture.SeedFlowAsync();
-        await fixture.SeedSessionAsync(flowId, nodeId);
-
         var pactFile = Path.Combine(PactDir, "open-onboarding-frontend-open-onboarding-api.json");
         if (!File.Exists(pactFile))
         {
             output.WriteLine($"Pact file not found at {pactFile}. Run frontend pact tests first.");
             return;
         }
+
+        using var fixture = new PactProviderFixture();
+        fixture.CreateClient(); // Trigger server startup
+
+        var (flowId, nodeId) = await fixture.SeedFlowAsync();
+        await fixture.SeedSessionAsync(flowId, nodeId);
 
         var config = new PactVerifierConfig
         {
