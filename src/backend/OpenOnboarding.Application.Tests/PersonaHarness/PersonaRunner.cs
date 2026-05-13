@@ -43,31 +43,33 @@ public sealed class PersonaRunner
     private async Task<PersonaRunResult> RunPersonaAsync(PersonaDefinition persona,
         CancellationToken cancellationToken)
     {
-        var db = BuildDbContext();
-        var flow = _buildFlow();
-        db.Flows.Add(flow);
-        await db.SaveChangesAsync(cancellationToken);
-
-        var service = CreateWorkflowService(db);
         var actualPath = new List<string>();
         string? failureReason = null;
+        var isCompleted = false;
 
-        var step = await service.StartSessionAsync(new StartSessionRequest
+        try
         {
-            FlowId = flow.Id,
-            CustomerProfile = persona.CustomerProfile
-        }, cancellationToken);
+            var db = BuildDbContext();
+            var flow = _buildFlow();
+            db.Flows.Add(flow);
+            await db.SaveChangesAsync(cancellationToken);
 
-        if (step.CurrentNode is not null)
-            actualPath.Add(step.CurrentNode.Key);
+            var service = CreateWorkflowService(db);
 
-        foreach (var personaStep in persona.Steps)
-        {
-            if (step.IsCompleted || step.CurrentNode is null)
-                break;
-
-            try
+            var step = await service.StartSessionAsync(new StartSessionRequest
             {
+                FlowId = flow.Id,
+                CustomerProfile = persona.CustomerProfile
+            }, cancellationToken);
+
+            if (step.CurrentNode is not null)
+                actualPath.Add(step.CurrentNode.Key);
+
+            foreach (var personaStep in persona.Steps)
+            {
+                if (step.IsCompleted || step.CurrentNode is null)
+                    break;
+
                 step = await service.SubmitStepAsync(
                     step.SessionId,
                     step.CurrentNode.Id,
@@ -77,15 +79,16 @@ public sealed class PersonaRunner
                 if (step.CurrentNode is not null)
                     actualPath.Add(step.CurrentNode.Key);
             }
-            catch (Exception ex)
-            {
-                failureReason = $"Exception during step execution: {ex.Message}";
-                break;
-            }
+
+            isCompleted = step.IsCompleted;
+        }
+        catch (Exception ex)
+        {
+            failureReason = $"Exception during persona execution: {ex.Message}";
         }
 
         var pathMatches = actualPath.SequenceEqual(persona.ExpectedNodePath);
-        var completionMatches = step.IsCompleted == persona.ExpectedCompletion;
+        var completionMatches = isCompleted == persona.ExpectedCompletion;
         var passed = pathMatches && completionMatches && failureReason is null;
 
         if (failureReason is null && !passed)
@@ -97,7 +100,7 @@ public sealed class PersonaRunner
                     $" but got [{string.Join(" → ", actualPath)}]");
             if (!completionMatches)
                 reasons.Add(
-                    $"Completion mismatch: expected {persona.ExpectedCompletion} but got {step.IsCompleted}");
+                    $"Completion mismatch: expected {persona.ExpectedCompletion} but got {isCompleted}");
             failureReason = string.Join("; ", reasons);
         }
 
@@ -107,7 +110,7 @@ public sealed class PersonaRunner
             Passed = passed,
             ActualNodePath = actualPath,
             ExpectedNodePath = [.. persona.ExpectedNodePath],
-            ActualCompletion = step.IsCompleted,
+            ActualCompletion = isCompleted,
             ExpectedCompletion = persona.ExpectedCompletion,
             FailureReason = failureReason
         };

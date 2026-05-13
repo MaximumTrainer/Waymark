@@ -83,7 +83,7 @@ jobs:
         if: always()
         with:
           name: persona-execution-report
-          path: persona-report/persona-report.json
+          path: ${{ env.PERSONA_REPORT_DIR }}/persona-report.json
           retention-days: 14
 
   # ── Frontend ───────────────────────────────────────────────

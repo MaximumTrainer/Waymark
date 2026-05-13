@@ -19,7 +19,9 @@ public sealed class PersonaReport
     /// <summary>Number of personas whose execution diverged from expectations.</summary>
     public int FailCount => Results.Count(r => !r.Passed);
 
+    private static readonly JsonSerializerOptions JsonOptions =
+        new(JsonSerializerDefaults.Web) { WriteIndented = true };
+
     /// <summary>Returns the report serialised as indented JSON.</summary>
-    public string ToJson() =>
-        JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 }
