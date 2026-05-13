@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
@@ -18,6 +19,9 @@ using OpenOnboarding.Infrastructure.Persistence;
 var builder = WebApplication.CreateBuilder(args);
 OnboardingDbConnectionStringValidator.ValidateOrThrow(
     builder.Configuration.GetConnectionString("OnboardingDb"));
+JwtAuthorityValidator.ValidateOrThrow(
+    builder.Configuration["Authentication:JwtAuthority"],
+    builder.Environment.EnvironmentName);
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -123,6 +127,68 @@ builder.Services.AddCors(options =>
     });
 });
 
+var environment = builder.Environment.EnvironmentName;
+var rateLimitingEnabled = !string.Equals(environment, "Testing", StringComparison.OrdinalIgnoreCase);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = 429,
+            Title = "Too Many Requests",
+            Detail = "Rate limit exceeded. Please retry after 60 seconds."
+        }, cancellationToken);
+    };
+
+    if (rateLimitingEnabled)
+    {
+        var sessionStartLimit = builder.Configuration.GetValue<int>("RateLimiting:SessionStartPerMinute", 100);
+        var webhookRegLimit = builder.Configuration.GetValue<int>("RateLimiting:WebhookRegistrationPerMinute", 20);
+        var generalLimit = builder.Configuration.GetValue<int>("RateLimiting:GeneralPerMinute", 300);
+
+        options.AddSlidingWindowLimiter("session-start", opt =>
+        {
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.SegmentsPerWindow = 4;
+            opt.PermitLimit = sessionStartLimit;
+            opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+            opt.QueueLimit = 0;
+        });
+
+        options.AddSlidingWindowLimiter("webhook-registration", opt =>
+        {
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.SegmentsPerWindow = 4;
+            opt.PermitLimit = webhookRegLimit;
+            opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+            opt.QueueLimit = 0;
+        });
+
+        options.AddSlidingWindowLimiter("general", opt =>
+        {
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.SegmentsPerWindow = 4;
+            opt.PermitLimit = generalLimit;
+            opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+            opt.QueueLimit = 0;
+        });
+    }
+    else
+    {
+        // Testing: add NoLimiter policies so attributes don't error
+        options.AddPolicy("session-start", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("webhook-registration", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("general", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
+    }
+});
+
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<OnboardingDbContext>("database");
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -135,12 +201,14 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Create schema and seed reference data on startup (all environments including CI/Testing).
-// EnsureCreatedAsync creates tables from the EF model when none exist (idempotent: no-op if tables already present).
+// Apply migrations (or create schema when using InMemory for tests) and seed reference data on startup.
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OnboardingDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    if (db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true)
+        await db.Database.EnsureCreatedAsync();
+    else
+        await db.Database.MigrateAsync();
     await DataSeeder.SeedAsync(db);
 }
 
@@ -149,6 +217,19 @@ app.UseExceptionHandler(exceptionHandler =>
     exceptionHandler.Run(async context =>
     {
         var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        if (exception is ComplianceViolationException cve)
+        {
+            context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                status = 422,
+                title = "Compliance violations",
+                violations = cve.Violations.Select(v => new { fieldName = v.Field, message = v.Message, ruleId = v.RuleId })
+            });
+            return;
+        }
+
         var (statusCode, title) = exception switch
         {
             ValidationException => (StatusCodes.Status400BadRequest, "Validation failed"),
@@ -173,8 +254,53 @@ app.UseExceptionHandler(exceptionHandler =>
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendDev");
+app.UseMiddleware<OpenOnboarding.Api.Middleware.CorrelationIdMiddleware>();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Name == "database",
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            components = report.Entries.ToDictionary(
+                e => e.Key,
+                e => e.Value.Status.ToString())
+        });
+        await context.Response.WriteAsync(result);
+    }
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync("{\"status\":\"Healthy\"}");
+    }
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            components = report.Entries.ToDictionary(
+                e => e.Key,
+                e => e.Value.Status.ToString())
+        });
+        await context.Response.WriteAsync(result);
+    }
+}).AllowAnonymous();
+
 app.MapControllers();
 
 app.Run();

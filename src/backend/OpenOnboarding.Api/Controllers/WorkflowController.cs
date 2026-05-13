@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using OpenOnboarding.Api.Authorization;
 using OpenOnboarding.Application.Contracts;
@@ -26,6 +27,7 @@ public sealed class WorkflowController(
     /// Starts a new onboarding session for the given workflow flow.
     /// </summary>
     [HttpPost("sessions/start")]
+    [EnableRateLimiting("session-start")]
     [Authorize(Policy = "ApplicantOrOperator")]
     [Consumes("application/json")]
     [ProducesResponseType(typeof(SessionStepResponse), StatusCodes.Status200OK)]

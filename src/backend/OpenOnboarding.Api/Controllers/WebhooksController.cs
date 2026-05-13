@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Configuration;
+using OpenOnboarding.Api.Validation;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Interfaces;
 
@@ -12,12 +15,13 @@ namespace OpenOnboarding.Api.Controllers;
 [Route("api/flows/{flowId:guid}")]
 [Produces("application/json")]
 [Authorize(Policy = "OperatorOnly")]
-public sealed class WebhooksController(IWebhookService webhookService) : ControllerBase
+public sealed class WebhooksController(IWebhookService webhookService, IConfiguration configuration) : ControllerBase
 {
     /// <summary>
     /// Registers a webhook URL for session-completed events on a flow.
     /// </summary>
     [HttpPost("webhooks")]
+    [EnableRateLimiting("webhook-registration")]
     [Consumes("application/json")]
     [ProducesResponseType(typeof(WebhookDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -27,6 +31,17 @@ public sealed class WebhooksController(IWebhookService webhookService) : Control
         [FromBody] WebhookRegistrationRequest request,
         CancellationToken cancellationToken)
     {
+        var allowPrivate = configuration.GetValue<bool>("Webhooks:AllowPrivateNetworks");
+        if (!WebhookUrlValidator.IsValidPublicUrl(request.Url, allowPrivate))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = 400,
+                Title = "Invalid webhook URL",
+                Detail = "Webhook URL must be a publicly reachable HTTP or HTTPS endpoint."
+            });
+        }
+
         var result = await webhookService.RegisterAsync(flowId, request.Url, request.Secret, cancellationToken);
         return CreatedAtAction(nameof(ListWebhooks), new { flowId }, result);
     }
