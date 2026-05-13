@@ -3,29 +3,46 @@ import {
   areDraftGraphsEqual,
   buildFlowWritePayload,
   createDefaultFlowDraft,
+  toFlowDraft,
   validateFlowDraft,
 } from './flowAuthoring'
 
 describe('flowAuthoring validation', () => {
-  it('rejects missing flow name and missing nodes', () => {
+  it('rejects missing flow name', () => {
     const draft = createDefaultFlowDraft()
     draft.name = '   '
-    draft.nodes = []
 
     const errors = validateFlowDraft(draft)
     expect(errors).toContain('Flow name is required.')
+  })
+
+  it('rejects missing nodes', () => {
+    const draft = createDefaultFlowDraft()
+    draft.nodes = []
+
+    const errors = validateFlowDraft(draft)
     expect(errors).toContain('At least one node is required.')
   })
 
-  it('rejects duplicate node ids and invalid start-node count', () => {
+  it('rejects duplicate node ids', () => {
     const draft = createDefaultFlowDraft()
     draft.nodes = [
       { ...draft.nodes[0], id: 'same-id', isStartNode: true },
-      { ...draft.nodes[0], id: 'same-id', key: 'next', title: 'Next', isStartNode: true },
+      { ...draft.nodes[0], id: 'same-id', key: 'next', title: 'Next', isStartNode: false },
     ]
 
     const errors = validateFlowDraft(draft)
     expect(errors).toContain('Node #2: id must be unique.')
+  })
+
+  it('rejects invalid start-node count', () => {
+    const draft = createDefaultFlowDraft()
+    draft.nodes = [
+      { ...draft.nodes[0], id: 'node-1', isStartNode: true },
+      { ...draft.nodes[0], id: 'node-2', key: 'next', title: 'Next', isStartNode: true },
+    ]
+
+    const errors = validateFlowDraft(draft)
     expect(errors).toContain('Exactly one start node is required.')
   })
 
@@ -73,6 +90,47 @@ describe('flowAuthoring validation', () => {
     expect(payload.connections[0].conditionField).toBe('country')
     expect(payload.connections[0].conditionOperator).toBe('Equals')
     expect(payload.connections[0].conditionValue).toBe('US')
+  })
+
+  it('sets empty node jsonContent to default object string in payload', () => {
+    const draft = createDefaultFlowDraft()
+    draft.nodes[0].jsonContent = ''
+
+    const payload = buildFlowWritePayload(draft)
+    expect(payload.nodes[0].jsonContent).toBe('{}')
+  })
+
+  it('maps flow definition data into draft shape', () => {
+    const draft = toFlowDraft({
+      id: 'flow-id',
+      name: 'Flow',
+      description: null,
+      version: 2,
+      nodes: [
+        {
+          id: 'node-a',
+          key: 'start',
+          type: 'Form',
+          title: 'Start',
+          jsonContent: '{}',
+          isStartNode: true,
+        },
+      ],
+      connections: [
+        {
+          id: 'edge-1',
+          sourceNodeId: 'node-a',
+          targetNodeId: 'node-a',
+          conditionField: null,
+          conditionOperator: null,
+          conditionValue: null,
+          priority: 0,
+        },
+      ],
+    })
+
+    expect(draft.description).toBe('')
+    expect(draft.connections[0].conditionField).toBeNull()
   })
 
   it('treats re-ordered nodes and connections as identical graph', () => {
