@@ -1,0 +1,427 @@
+{
+  "consumer": {
+    "name": "open-onboarding-frontend"
+  },
+  "interactions": [
+    {
+      "description": "a request to get the next step",
+      "providerStates": [
+        {
+          "name": "session 770e8400-e29b-41d4-a716-446655440002 exists"
+        }
+      ],
+      "request": {
+        "headers": {
+          "X-Api-Key": "test-api-key"
+        },
+        "method": "GET",
+        "path": "/api/workflow/sessions/770e8400-e29b-41d4-a716-446655440002/next"
+      },
+      "response": {
+        "body": {
+          "currentNode": {
+            "id": "e2490de5-5bd3-43d5-b7c4-526e33f71304",
+            "jsonContent": "{}",
+            "key": "test-step",
+            "title": "Step Title",
+            "type": "Form"
+          },
+          "isCompleted": false,
+          "sessionId": "e2490de5-5bd3-43d5-b7c4-526e33f71304"
+        },
+        "generators": {
+          "body": {
+            "$.currentNode.id": {
+              "type": "Uuid"
+            },
+            "$.sessionId": {
+              "type": "Uuid"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.currentNode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.currentNode.jsonContent": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.isCompleted": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.sessionId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to start a session with missing flowId",
+      "request": {
+        "body": {},
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "test-api-key"
+        },
+        "method": "POST",
+        "path": "/api/workflow/sessions/start"
+      },
+      "response": {
+        "body": {
+          "status": 400,
+          "title": "Validation failed"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 400
+      }
+    },
+    {
+      "description": "a request to start an onboarding session",
+      "providerStates": [
+        {
+          "name": "a flow with id 550e8400-e29b-41d4-a716-446655440000 exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "flowId": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "test-api-key"
+        },
+        "method": "POST",
+        "path": "/api/workflow/sessions/start"
+      },
+      "response": {
+        "body": {
+          "currentNode": {
+            "id": "e2490de5-5bd3-43d5-b7c4-526e33f71304",
+            "jsonContent": "{}",
+            "key": "test-step",
+            "title": "Step Title",
+            "type": "Form"
+          },
+          "isCompleted": false,
+          "sessionId": "e2490de5-5bd3-43d5-b7c4-526e33f71304"
+        },
+        "generators": {
+          "body": {
+            "$.currentNode.id": {
+              "type": "Uuid"
+            },
+            "$.sessionId": {
+              "type": "Uuid"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.currentNode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.currentNode.jsonContent": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.isCompleted": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.sessionId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to submit a step",
+      "providerStates": [
+        {
+          "name": "session 770e8400-e29b-41d4-a716-446655440002 is at step 660e8400-e29b-41d4-a716-446655440001"
+        }
+      ],
+      "request": {
+        "body": {
+          "payload": {
+            "field": "value"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "test-api-key"
+        },
+        "matchingRules": {
+          "body": {
+            "$.payload": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {}
+        },
+        "method": "POST",
+        "path": "/api/workflow/sessions/770e8400-e29b-41d4-a716-446655440002/steps/660e8400-e29b-41d4-a716-446655440001/submit"
+      },
+      "response": {
+        "body": {
+          "currentNode": {
+            "id": "e2490de5-5bd3-43d5-b7c4-526e33f71304",
+            "jsonContent": "{}",
+            "key": "test-step",
+            "title": "Step Title",
+            "type": "Form"
+          },
+          "isCompleted": false,
+          "sessionId": "e2490de5-5bd3-43d5-b7c4-526e33f71304"
+        },
+        "generators": {
+          "body": {
+            "$.currentNode.id": {
+              "type": "Uuid"
+            },
+            "$.sessionId": {
+              "type": "Uuid"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.currentNode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.currentNode.jsonContent": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currentNode.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.isCompleted": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.sessionId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "13.2.0"
+    },
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "open-onboarding-api"
+  }
+}

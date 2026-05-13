@@ -4,4 +4,5 @@
   <Project Path="OpenOnboarding.Application/OpenOnboarding.Application.csproj" />
   <Project Path="OpenOnboarding.Domain/OpenOnboarding.Domain.csproj" />
   <Project Path="OpenOnboarding.Infrastructure/OpenOnboarding.Infrastructure.csproj" />
+  <Project Path="OpenOnboarding.Pact.Tests/OpenOnboarding.Pact.Tests.csproj" />
 </Solution>

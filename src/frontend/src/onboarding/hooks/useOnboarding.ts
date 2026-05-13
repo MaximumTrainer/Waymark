@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SessionStepResponse, StartSessionRequest, SubmitStepRequest } from '../types/flow'
+import {
+  startSession as apiStartSession,
+  submitStep as apiSubmitStep,
+  getNextStep as apiGetNextStep,
+} from '../api/workflow-api-client'
 
-const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '/api/workflow').replace(/\/$/, '')
+const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+const apiKey = import.meta.env.VITE_API_KEY || undefined
 
 export function useOnboarding() {
   const [step, setStep] = useState<SessionStepResponse | null>(null)
@@ -27,24 +33,14 @@ export function useOnboarding() {
     }
   }, [closeEventSource])
 
-  const request = useCallback(async <TResponse,>(path: string, options: RequestInit): Promise<TResponse> => {
+  // Declared before openEventStream so the polling fallback can reference it
+  const getNextStep = useCallback(async (sessionId: string) => {
     setIsLoading(true)
     setError(null)
-
     try {
-      const response = await fetch(`${apiBase}${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options.headers ?? {}),
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Onboarding API request failed with status ${response.status}`)
-      }
-
-      return await response.json() as TResponse
+      const next = await apiGetNextStep(serverBase, sessionId, apiKey)
+      setStep(next)
+      return next
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unknown onboarding error')
       throw requestError
@@ -58,7 +54,7 @@ export function useOnboarding() {
     sessionIdRef.current = sessionId
 
     if (typeof EventSource !== 'undefined') {
-      const evtSource = new EventSource(`${apiBase}/sessions/${sessionId}/events`)
+      const evtSource = new EventSource(`${serverBase}/api/workflow/sessions/${sessionId}/events`)
       eventSourceRef.current = evtSource
 
       evtSource.addEventListener('step-advanced', (e) => {
@@ -83,38 +79,39 @@ export function useOnboarding() {
         void getNextStep(sessionId)
       }, 5000)
     }
-  }, [closeEventSource]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [closeEventSource, getNextStep])
 
   const startSession = useCallback(async (payload: StartSessionRequest) => {
-    const next = await request<SessionStepResponse>('/sessions/start', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
-
-    setStep(next)
-    setIsCompleted(false)
-    openEventStream(next.sessionId)
-    return next
-  }, [request, openEventStream])
+    setIsLoading(true)
+    setError(null)
+    try {
+      const next = await apiStartSession(serverBase, payload, apiKey)
+      setStep(next)
+      setIsCompleted(false)
+      openEventStream(next.sessionId)
+      return next
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unknown onboarding error')
+      throw requestError
+    } finally {
+      setIsLoading(false)
+    }
+  }, [openEventStream])
 
   const submitStep = useCallback(async (sessionId: string, nodeId: string, payload: SubmitStepRequest) => {
-    const next = await request<SessionStepResponse>(`/sessions/${sessionId}/steps/${nodeId}/submit`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
-
-    setStep(next)
-    return next
-  }, [request])
-
-  const getNextStep = useCallback(async (sessionId: string) => {
-    const next = await request<SessionStepResponse>(`/sessions/${sessionId}/next`, {
-      method: 'GET',
-    })
-
-    setStep(next)
-    return next
-  }, [request])
+    setIsLoading(true)
+    setError(null)
+    try {
+      const next = await apiSubmitStep(serverBase, sessionId, nodeId, payload, apiKey)
+      setStep(next)
+      return next
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unknown onboarding error')
+      throw requestError
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   return {
     step,
@@ -126,3 +123,5 @@ export function useOnboarding() {
     getNextStep,
   }
 }
+
+

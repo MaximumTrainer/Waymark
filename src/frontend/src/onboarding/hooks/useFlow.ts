@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { FlowDefinition } from '../types/flow'
 
+const API_KEY = import.meta.env.VITE_API_KEY as string | undefined
+
 async function fetchFlowDefinition(flowId: string): Promise<FlowDefinition> {
-  const response = await fetch(`/api/flows/${flowId}`)
+  const headers: Record<string, string> = {}
+  if (API_KEY) headers['X-Api-Key'] = API_KEY
+
+  const response = await fetch(`/api/flows/${flowId}`, { headers })
   if (!response.ok) throw new Error(`Failed to fetch flow: ${response.status}`)
   return response.json() as Promise<FlowDefinition>
 }

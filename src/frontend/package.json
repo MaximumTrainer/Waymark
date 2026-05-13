@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:pact": "vitest run src/pact"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
@@ -20,6 +22,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@pact-foundation/pact": "^13.1.4",
+    "@vitest/runner": "^2.1.0",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -30,6 +34,7 @@
     "globals": "^17.6.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^2.1.0"
   }
 }
