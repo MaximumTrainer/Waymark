@@ -131,6 +131,7 @@ public sealed class PactProviderFixture : WebApplicationFactory<Program>
 
         var flowId = Guid.Parse("550e8400-e29b-41d4-a716-446655440000");
         var nodeId = Guid.Parse("660e8400-e29b-41d4-a716-446655440001");
+        var node2Id = Guid.Parse("880e8400-e29b-41d4-a716-446655440003");
 
         if (!await db.Flows.AnyAsync(f => f.Id == flowId))
         {
@@ -145,11 +146,32 @@ public sealed class PactProviderFixture : WebApplicationFactory<Program>
                 Id = nodeId,
                 FlowId = flowId,
                 Key = "test-step",
-                Title = "Test Step",
+                Title = "Step Title",
                 Type = OpenOnboarding.Domain.Enums.NodeType.Form,
-                IsStartNode = true
+                IsStartNode = true,
+                JsonContent = "{}"
+            };
+            // Second node so submitting node1 advances the session (not completes it),
+            // ensuring GET /next always returns a non-null currentNode regardless of interaction order.
+            var node2 = new OpenOnboarding.Domain.Entities.Node
+            {
+                Id = node2Id,
+                FlowId = flowId,
+                Key = "test-step-2",
+                Title = "Step Title 2",
+                Type = OpenOnboarding.Domain.Enums.NodeType.Form,
+                JsonContent = "{}"
+            };
+            var connection = new OpenOnboarding.Domain.Entities.Connection
+            {
+                FlowId = flowId,
+                SourceNodeId = nodeId,
+                TargetNodeId = node2Id,
+                Priority = 0
             };
             flow.Nodes.Add(node);
+            flow.Nodes.Add(node2);
+            flow.Connections.Add(connection);
             db.Flows.Add(flow);
             await db.SaveChangesAsync();
         }
