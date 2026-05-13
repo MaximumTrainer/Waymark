@@ -60,7 +60,7 @@ dotnet test src/backend/OpenOnboarding.slnx -c Release
 ```
 
 Notes:
-- Pact provider tests require PostgreSQL to be running and reachable on `localhost:5432`.
+- Pact provider tests require PostgreSQL to be running and reachable on `localhost:5432` (start it with `docker compose up -d` from the repository root, as shown in **Run locally**).
 - API startup applies EF Core migrations and seed data automatically.
 
 ### Frontend (Node 22)
