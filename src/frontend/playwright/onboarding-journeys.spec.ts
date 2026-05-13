@@ -137,8 +137,12 @@ const mockJourneys: Record<string, MockJourney> = {
   },
 }
 
+let documentUploads: Array<{ sessionId: string; nodeId: string }> = []
+
 test.beforeEach(async ({ page }) => {
   const sessions = new Map<string, { journeyId: string; nodeIndex: number }>()
+  documentUploads = []
+  let sessionCounter = 0
 
   await page.route('**/api/flows/*', async (route) => {
     const flowId = route.request().url().split('/').pop()!
@@ -165,7 +169,8 @@ test.beforeEach(async ({ page }) => {
       return
     }
 
-    const sessionId = `session-${Math.random().toString(36).slice(2)}`
+    sessionCounter += 1
+    const sessionId = `session-${sessionCounter}`
     sessions.set(sessionId, { journeyId: journey.id, nodeIndex: 0 })
 
     await route.fulfill({
@@ -218,6 +223,25 @@ test.beforeEach(async ({ page }) => {
     })
   })
 
+  await page.route('**/api/workflow/sessions/*/steps/*/documents', async (route) => {
+    const match = route.request().url().match(/\/api\/workflow\/sessions\/([^/]+)\/steps\/([^/]+)\/documents/)
+    const sessionId = match?.[1]
+    const nodeId = match?.[2]
+
+    if (!sessionId || !nodeId || !sessions.has(sessionId)) {
+      await route.fulfill({ status: 404, body: 'Session or node not found' })
+      return
+    }
+
+    documentUploads.push({ sessionId, nodeId })
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ fileId: 'file-1', fileName: 'ownership-proof.pdf' }]),
+    })
+  })
+
   await page.route('**/api/workflow/sessions/*/events', async (route) => {
     await route.fulfill({
       status: 200,
@@ -260,7 +284,18 @@ test('journey 2 reaches medium business document verification step', async ({ pa
   await page.getByRole('button', { name: 'Submit' }).click()
 
   await expect(page.locator('section.rounded-lg').getByText('Upload ownership and trading documents')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'ownership-proof.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('sample document content'),
+  })
+
+  await expect(page.getByText('✓ ownership-proof.pdf')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Continue' }).click()
+
+  expect(documentUploads).toHaveLength(1)
+  expect(documentUploads[0].nodeId).toBe('medium-node-2')
 })
 
 test('journey 3 runs large nationwide onboarding and compliance questions', async ({ page }) => {

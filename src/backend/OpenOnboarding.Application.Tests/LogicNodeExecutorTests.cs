@@ -172,7 +172,7 @@ public sealed class LogicNodeExecutorTests
             executor.ExecuteAsync(node, session, new Dictionary<string, object?>()));
     }
 
-    // ─── MockVerificationExecutor ──────────────────────────────────────
+    // MockVerificationExecutor
 
     [Fact]
     public async Task MockVerificationExecutor_AddsVerificationSubmission()
