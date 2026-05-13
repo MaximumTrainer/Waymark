@@ -131,6 +131,14 @@ describe('flowAuthoring validation', () => {
     expect(payload.nodes[0].jsonContent).toBe('{}')
   })
 
+  it('allows empty jsonContent during validation because payload normalizes it', () => {
+    const draft = createDefaultFlowDraft()
+    draft.nodes[0].jsonContent = '   '
+
+    const errors = validateFlowDraft(draft)
+    expect(errors).toEqual([])
+  })
+
   it('maps flow definition data into draft shape', () => {
     const draft = toFlowDraft({
       id: 'flow-id',
