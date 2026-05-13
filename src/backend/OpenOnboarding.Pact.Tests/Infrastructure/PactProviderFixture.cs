@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -13,12 +14,13 @@ namespace OpenOnboarding.Pact.Tests.Infrastructure;
 
 /// <summary>
 /// WebApplicationFactory for Pact provider verification.
-/// Binds Kestrel to a real TCP port so PactNet's Rust FFI verifier can connect.
-/// Uses real PostgreSQL (available in CI) and configures test authentication.
+/// Starts a real Kestrel TCP proxy in front of the in-memory TestServer so that
+/// PactNet's Rust FFI verifier can connect via a real TCP socket.
 /// </summary>
 public sealed class PactProviderFixture : WebApplicationFactory<Program>
 {
     private readonly int _port = GetFreePort();
+    private IHost? _proxy;
 
     /// <summary>Real base URI that PactNet's verifier should call.</summary>
     public Uri ServerUri => new($"http://localhost:{_port}");
@@ -26,11 +28,6 @@ public sealed class PactProviderFixture : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-
-        // Bind a real Kestrel TCP listener so PactNet's Rust FFI binary can connect.
-        // UseKestrel() is called after UseTestServer() (registered internally by WebApplicationFactory),
-        // making Kestrel the active IServer and giving us a real localhost port.
-        builder.UseKestrel(opts => opts.ListenLocalhost(_port));
 
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__OnboardingDb")
             ?? "Host=localhost;Port=5432;Database=onboarding_test;Username=postgres;Password=postgres";
@@ -49,20 +46,71 @@ public sealed class PactProviderFixture : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// Returns a dummy TestServer to satisfy WebApplicationFactory's internal requirement
-    /// (it calls CreateServer after building the host, then calls host.Start() itself).
-    /// The real server is Kestrel, bound above; this placeholder is never used for actual requests.
+    /// Starts the in-memory TestServer normally, then starts a Kestrel TCP proxy that
+    /// forwards requests to the TestServer. PactNet's Rust FFI verifier connects to the
+    /// Kestrel proxy (a real TCP socket); the app logic runs in the TestServer.
     /// </summary>
-    protected override TestServer CreateServer(IHost host)
+    protected override IHost CreateHost(IHostBuilder builder)
     {
-        // The base WebApplicationFactory.CreateHost() calls host.Start() after CreateServer() returns,
-        // which starts Kestrel on _port. We just need to return a valid TestServer placeholder here.
-        return new TestServer(new WebHostBuilder().Configure(app =>
-            app.Run(ctx =>
+        var testHost = base.CreateHost(builder);
+
+        var handler = testHost.GetTestServer().CreateHandler();
+        var baseAddress = testHost.GetTestServer().BaseAddress;
+        var proxyClient = new HttpClient(handler) { BaseAddress = baseAddress };
+
+        _proxy = new HostBuilder()
+            .ConfigureWebHost(web =>
             {
-                ctx.Response.StatusCode = 418;
-                return Task.CompletedTask;
-            })));
+                web.UseKestrel(opts => opts.ListenLocalhost(_port));
+                web.Configure(app => app.Run(ctx => ProxyRequestAsync(ctx, proxyClient)));
+            })
+            .Build();
+        _proxy.Start();
+
+        return testHost;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            _proxy?.StopAsync(cts.Token).GetAwaiter().GetResult();
+            _proxy?.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+
+    private static async Task ProxyRequestAsync(HttpContext ctx, HttpClient client)
+    {
+        var targetUri = new Uri(client.BaseAddress!, ctx.Request.Path.Value + ctx.Request.QueryString.Value);
+        using var request = new HttpRequestMessage(new HttpMethod(ctx.Request.Method), targetUri);
+
+        foreach (var header in ctx.Request.Headers)
+        {
+            if (!request.Headers.TryAddWithoutValidation(header.Key, (IEnumerable<string>)header.Value))
+                request.Content?.Headers.TryAddWithoutValidation(header.Key, (IEnumerable<string>)header.Value);
+        }
+
+        if (ctx.Request.ContentLength > 0 || ctx.Request.Headers.ContainsKey("Transfer-Encoding"))
+        {
+            request.Content = new StreamContent(ctx.Request.Body);
+            if (ctx.Request.ContentType is not null)
+                request.Content.Headers.TryAddWithoutValidation("Content-Type", ctx.Request.ContentType);
+        }
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted);
+        ctx.Response.StatusCode = (int)response.StatusCode;
+
+        foreach (var header in response.Headers)
+            foreach (var value in header.Value)
+                ctx.Response.Headers.Append(header.Key, value);
+
+        foreach (var header in response.Content.Headers)
+            foreach (var value in header.Value)
+                ctx.Response.Headers.Append(header.Key, value);
+
+        await response.Content.CopyToAsync(ctx.Response.Body, ctx.RequestAborted);
     }
 
     private static int GetFreePort()
