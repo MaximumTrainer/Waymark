@@ -4,9 +4,11 @@ import {
   startSession as apiStartSession,
   submitStep as apiSubmitStep,
   getNextStep as apiGetNextStep,
+  resolveWorkflowApiBase,
 } from '../api/workflow-api-client'
 
 const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+const workflowApiBase = resolveWorkflowApiBase(serverBase)
 const apiKey = import.meta.env.VITE_API_KEY || undefined
 
 export function useOnboarding() {
@@ -54,7 +56,7 @@ export function useOnboarding() {
     sessionIdRef.current = sessionId
 
     if (typeof EventSource !== 'undefined') {
-      const evtSource = new EventSource(`${serverBase}/api/workflow/sessions/${sessionId}/events`)
+      const evtSource = new EventSource(`${workflowApiBase}/sessions/${sessionId}/events`)
       eventSourceRef.current = evtSource
 
       evtSource.addEventListener('step-advanced', (e) => {
@@ -123,5 +125,4 @@ export function useOnboarding() {
     getNextStep,
   }
 }
-
 
