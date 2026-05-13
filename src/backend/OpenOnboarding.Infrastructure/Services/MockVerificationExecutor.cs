@@ -25,13 +25,31 @@ public sealed class MockVerificationExecutor : ILogicNodeExecutor
         }
 
         var provider = providerProp.GetString()!;
-        var approved = root.TryGetProperty("approved", out var approvedProp) && approvedProp.ValueKind == JsonValueKind.False
-            ? false
-            : true;
-        var resultField = root.TryGetProperty("resultField", out var resultFieldProp)
-            ? resultFieldProp.GetString()
-            : $"{provider}Status";
 
+        var approved = true;
+        if (root.TryGetProperty("approved", out var approvedProp))
+        {
+            approved = approvedProp.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                _ => throw new InvalidOperationException("MockVerification node 'approved' must be a boolean when provided.")
+            };
+        }
+
+        var resultField = $"{provider}Status";
+        if (root.TryGetProperty("resultField", out var resultFieldProp))
+        {
+            resultField = resultFieldProp.ValueKind switch
+            {
+                JsonValueKind.Null => resultField,
+                JsonValueKind.String when string.IsNullOrWhiteSpace(resultFieldProp.GetString()) => resultField,
+                JsonValueKind.String => resultFieldProp.GetString()!,
+                _ => throw new InvalidOperationException("MockVerification node 'resultField' must be a string when provided.")
+            };
+        }
+
+        var timestamp = DateTimeOffset.UtcNow;
         var submission = new Submission
         {
             SessionId = session.Id,
@@ -41,10 +59,10 @@ public sealed class MockVerificationExecutor : ILogicNodeExecutor
                 provider,
                 resultField,
                 status = approved ? "Approved" : "Rejected",
-                checkedAt = DateTimeOffset.UtcNow,
+                checkedAt = timestamp,
                 payloadSnapshot = latestPayload
             }, _jsonOptions),
-            SubmittedAt = DateTimeOffset.UtcNow
+            SubmittedAt = timestamp
         };
 
         session.Submissions.Add(submission);

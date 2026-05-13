@@ -137,7 +137,7 @@ const mockJourneys: Record<string, MockJourney> = {
   },
 }
 
-let documentUploads: Array<{ sessionId: string; nodeId: string }> = []
+let documentUploads: Array<{ sessionId: string; nodeId: string; apiKey: string | null }> = []
 
 test.beforeEach(async ({ page }) => {
   const sessions = new Map<string, { journeyId: string; nodeIndex: number }>()
@@ -233,7 +233,11 @@ test.beforeEach(async ({ page }) => {
       return
     }
 
-    documentUploads.push({ sessionId, nodeId })
+    documentUploads.push({
+      sessionId,
+      nodeId,
+      apiKey: route.request().headers()['x-api-key'] ?? null,
+    })
 
     await route.fulfill({
       status: 200,
@@ -296,6 +300,7 @@ test('journey 2 reaches medium business document verification step', async ({ pa
 
   expect(documentUploads).toHaveLength(1)
   expect(documentUploads[0].nodeId).toBe('medium-node-2')
+  expect(documentUploads[0].apiKey).toBe('playwright-api-key')
 })
 
 test('journey 3 runs large nationwide onboarding and compliance questions', async ({ page }) => {

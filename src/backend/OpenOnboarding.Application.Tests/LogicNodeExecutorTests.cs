@@ -225,6 +225,99 @@ public sealed class LogicNodeExecutorTests
             executor.ExecuteAsync(node, session, new Dictionary<string, object?>()));
     }
 
+    [Fact]
+    public async Task MockVerificationExecutor_ThrowsWhenApprovedIsNotBoolean()
+    {
+        var session = new Session
+        {
+            Id = Guid.NewGuid(),
+            FlowId = Guid.NewGuid()
+        };
+
+        var node = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = session.FlowId,
+            Key = "mock-verification",
+            Type = NodeType.Logic,
+            JsonContent = """{"action":"MockVerification","provider":"Experian","approved":"false"}"""
+        };
+
+        var executor = new MockVerificationExecutor();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            executor.ExecuteAsync(node, session, new Dictionary<string, object?>()));
+    }
+
+    [Fact]
+    public async Task MockVerificationExecutor_FallsBackResultFieldWhenEmptyOrNull()
+    {
+        var session = new Session
+        {
+            Id = Guid.NewGuid(),
+            FlowId = Guid.NewGuid()
+        };
+
+        var nodeWithEmpty = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = session.FlowId,
+            Key = "mock-verification-empty-result-field",
+            Type = NodeType.Logic,
+            JsonContent = """{"action":"MockVerification","provider":"Experian","resultField":""}"""
+        };
+
+        var nodeWithNull = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = session.FlowId,
+            Key = "mock-verification-null-result-field",
+            Type = NodeType.Logic,
+            JsonContent = """{"action":"MockVerification","provider":"Experian","resultField":null}"""
+        };
+
+        var executor = new MockVerificationExecutor();
+        await executor.ExecuteAsync(nodeWithEmpty, session, new Dictionary<string, object?>());
+        await executor.ExecuteAsync(nodeWithNull, session, new Dictionary<string, object?>());
+
+        Assert.Equal(2, session.Submissions.Count);
+
+        var submissions = session.Submissions.ToList();
+        var first = JsonSerializer.Deserialize<JsonElement>(submissions[0].DataJson);
+        var second = JsonSerializer.Deserialize<JsonElement>(submissions[1].DataJson);
+
+        Assert.Equal("ExperianStatus", first.GetProperty("resultField").GetString());
+        Assert.Equal("ExperianStatus", second.GetProperty("resultField").GetString());
+    }
+
+    [Fact]
+    public async Task MockVerificationExecutor_UsesSingleTimestampForPayloadAndSubmission()
+    {
+        var session = new Session
+        {
+            Id = Guid.NewGuid(),
+            FlowId = Guid.NewGuid()
+        };
+
+        var node = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = session.FlowId,
+            Key = "mock-verification",
+            Type = NodeType.Logic,
+            JsonContent = """{"action":"MockVerification","provider":"Experian"}"""
+        };
+
+        var executor = new MockVerificationExecutor();
+        await executor.ExecuteAsync(node, session, new Dictionary<string, object?>());
+
+        var submission = Assert.Single(session.Submissions);
+        var data = JsonSerializer.Deserialize<JsonElement>(submission.DataJson);
+        var checkedAt = data.GetProperty("checkedAt").GetDateTimeOffset();
+
+        Assert.Equal(checkedAt, submission.SubmittedAt);
+    }
+
     // ─── WorkflowService: Logic node auto-execution ───────────────────
 
     [Fact]

@@ -32,6 +32,7 @@ const JOURNEYS: JourneyOption[] = [
 
 function App() {
   const { step, startSession, submitStep, isLoading, error } = useOnboarding()
+  const apiKey = import.meta.env.VITE_API_KEY || undefined
   const [selectedFlowId, setSelectedFlowId] = useState<string>(JOURNEYS[0].id)
   const [visitedNodeIds, setVisitedNodeIds] = useState<Set<string>>(new Set())
 
@@ -98,6 +99,7 @@ function App() {
             node={step.currentNode}
             sessionId={step.sessionId}
             nodeId={step.currentNode?.id}
+            apiKey={apiKey}
             onSubmit={async (payload) => {
               if (!step.currentNode) {
                 return
