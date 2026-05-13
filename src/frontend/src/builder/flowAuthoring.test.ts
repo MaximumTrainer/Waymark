@@ -7,6 +7,28 @@ import {
 } from './flowAuthoring'
 
 describe('flowAuthoring validation', () => {
+  it('rejects missing flow name and missing nodes', () => {
+    const draft = createDefaultFlowDraft()
+    draft.name = '   '
+    draft.nodes = []
+
+    const errors = validateFlowDraft(draft)
+    expect(errors).toContain('Flow name is required.')
+    expect(errors).toContain('At least one node is required.')
+  })
+
+  it('rejects duplicate node ids and invalid start-node count', () => {
+    const draft = createDefaultFlowDraft()
+    draft.nodes = [
+      { ...draft.nodes[0], id: 'same-id', isStartNode: true },
+      { ...draft.nodes[0], id: 'same-id', key: 'next', title: 'Next', isStartNode: true },
+    ]
+
+    const errors = validateFlowDraft(draft)
+    expect(errors).toContain('Node #2: id must be unique.')
+    expect(errors).toContain('Exactly one start node is required.')
+  })
+
   it('rejects invalid connections before save', () => {
     const draft = createDefaultFlowDraft()
     draft.connections = [
@@ -24,16 +46,33 @@ describe('flowAuthoring validation', () => {
   it('accepts a valid draft and trims payload values', () => {
     const draft = createDefaultFlowDraft()
     draft.name = '  My flow  '
+    draft.description = '   '
     draft.nodes[0].key = '  start  '
     draft.nodes[0].title = '  Start  '
+    draft.nodes[0].complianceRuleJson = '  {"rule":"x"}  '
+    draft.connections = [
+      {
+        sourceNodeId: draft.nodes[0].id,
+        targetNodeId: draft.nodes[0].id,
+        conditionField: '  country ',
+        conditionOperator: ' Equals ',
+        conditionValue: ' US ',
+        priority: 0,
+      },
+    ]
 
     const errors = validateFlowDraft(draft)
     expect(errors).toEqual([])
 
     const payload = buildFlowWritePayload(draft)
     expect(payload.name).toBe('My flow')
+    expect(payload.description).toBeNull()
     expect(payload.nodes[0].key).toBe('start')
     expect(payload.nodes[0].title).toBe('Start')
+    expect(payload.nodes[0].complianceRuleJson).toBe('  {"rule":"x"}  ')
+    expect(payload.connections[0].conditionField).toBe('country')
+    expect(payload.connections[0].conditionOperator).toBe('Equals')
+    expect(payload.connections[0].conditionValue).toBe('US')
   })
 
   it('treats re-ordered nodes and connections as identical graph', () => {
@@ -51,6 +90,24 @@ describe('flowAuthoring validation', () => {
       description: '',
       nodes: [...left.nodes].reverse(),
       connections: [...left.connections],
+    }
+
+    expect(areDraftGraphsEqual(left, right)).toBe(true)
+  })
+
+  it('treats null and empty optional graph fields as equivalent', () => {
+    const left = {
+      name: 'Flow',
+      description: null,
+      nodes: [
+        { id: 'a', key: 'start', type: 'Form' as const, title: 'Start', jsonContent: '{}', isStartNode: true },
+      ],
+      connections: [{ sourceNodeId: 'a', targetNodeId: 'a', conditionField: null, conditionOperator: null, conditionValue: null, priority: 0 }],
+    }
+    const right = {
+      ...left,
+      description: '',
+      connections: [{ sourceNodeId: 'a', targetNodeId: 'a', conditionField: '', conditionOperator: '', conditionValue: '', priority: 0 }],
     }
 
     expect(areDraftGraphsEqual(left, right)).toBe(true)
