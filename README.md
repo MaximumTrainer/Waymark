@@ -1,7 +1,7 @@
 # Open Onboarding
 
 Open Onboarding is a schema-driven onboarding platform with:
-- A .NET 10 backend API for flow definition, session orchestration, compliance checks, document upload, SSE progress events, and webhooks
+- A .NET 10 backend API for flow definition, session orchestration, compliance checks, document upload, Server-Sent Event progress, and webhooks
 - A React + Vite frontend for rendering dynamic onboarding steps and visualizing flow paths
 - CI/CD workflows for validation and cloud deployment targets (Azure and AWS)
 
@@ -47,7 +47,7 @@ The backend uses a Ports & Adapters (Hexagonal) structure:
 The frontend is a Vite React app with:
 - `StepRenderer` for schema-driven node UX (`Form`, `DocumentUpload`, `Redirect`, `Information`, `Logic`)
 - `JourneyBuilder` for graph visualization via React Flow
-- `useOnboarding` hook for session lifecycle and SSE updates
+- `useOnboarding` hook for session lifecycle and Server-Sent Event updates
 
 ## Build, test, and validation
 
