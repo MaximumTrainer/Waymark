@@ -1,7 +1,7 @@
 using PactNet;
 using OpenOnboarding.Pact.Tests.Infrastructure;
+using Xunit;
 using Xunit.Abstractions;
-using OpenOnboarding.Pact.Tests.Infrastructure;
 
 namespace OpenOnboarding.Pact.Tests.Providers;
 
