@@ -22,6 +22,7 @@ public sealed class WorkflowService(
     ILogger<WorkflowService> logger,
     IEnumerable<ILogicNodeExecutor> logicNodeExecutors,
     ISessionEventEmitter eventEmitter,
+    IWebhookService webhookService,
     IDocumentStorageService documentStorageService) : IWorkflowService
 {
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
@@ -164,6 +165,11 @@ public sealed class WorkflowService(
             ? (object)new { sessionId = session.Id, completedAt = session.UpdatedAt }
             : new { sessionId = session.Id, currentNode = BuildNodeDto(nextNode, session) };
         await eventEmitter.EmitAsync(session.Id, eventType, eventPayload, cancellationToken);
+
+        if (nextNode is null)
+        {
+            await webhookService.DeliverAsync(session.Id, session.FlowId, eventType, eventPayload, cancellationToken);
+        }
 
         return response;
     }

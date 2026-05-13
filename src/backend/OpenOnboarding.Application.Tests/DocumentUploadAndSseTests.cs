@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Interfaces;
+using OpenOnboarding.Application.Tests.TestHelpers;
 using OpenOnboarding.Domain.Entities;
 using OpenOnboarding.Domain.Enums;
 using OpenOnboarding.Infrastructure.Persistence;
@@ -289,6 +290,7 @@ public sealed class WorkflowServiceEmitsEventsTests
             Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkflowService>.Instance,
             [],
             emitter,
+            new NoOpWebhookService(),
             new NoOpDocumentStorageService());
     }
 

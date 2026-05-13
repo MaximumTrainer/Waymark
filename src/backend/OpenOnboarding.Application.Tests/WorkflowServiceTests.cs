@@ -424,6 +424,7 @@ public sealed class WorkflowServiceTests
             NullLogger<WorkflowService>.Instance,
             executors ?? [],
             new InMemorySessionEventEmitter(),
+            new NoOpWebhookService(),
             new NoOpDocumentStorageService());
     }
 
