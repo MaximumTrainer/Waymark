@@ -130,8 +130,12 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Open Onboarding API v1");
         c.RoutePrefix = "swagger";
     });
+}
 
-    await using var scope = app.Services.CreateAsyncScope();
+// Apply EF Core migrations and seed reference data on startup.
+// Runs in all environments (including Testing / CI) so the schema is always current.
+await using (var scope = app.Services.CreateAsyncScope())
+{
     var db = scope.ServiceProvider.GetRequiredService<OnboardingDbContext>();
     await db.Database.MigrateAsync();
     await DataSeeder.SeedAsync(db);

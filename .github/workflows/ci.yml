@@ -61,17 +61,6 @@ jobs:
       - name: Build (Release)
         run: dotnet build src/backend/OpenOnboarding.slnx --no-restore -c Release
 
-      - name: Install EF Core CLI tools
-        run: dotnet tool install --global dotnet-ef
-
-      - name: Apply database migrations
-        run: >
-          dotnet ef database update
-          --project src/backend/OpenOnboarding.Infrastructure
-          --startup-project src/backend/OpenOnboarding.Api
-          --configuration Release
-          --no-build
-
       - name: Test with coverage
         run: >
           dotnet test src/backend/OpenOnboarding.slnx
