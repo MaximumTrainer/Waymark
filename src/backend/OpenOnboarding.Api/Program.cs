@@ -10,11 +10,14 @@ using System.Reflection;
 using System.Text.Json.Serialization;
 using OpenOnboarding.Api.Authentication;
 using OpenOnboarding.Api.Authorization;
+using OpenOnboarding.Api.Configuration;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Infrastructure.DependencyInjection;
 using OpenOnboarding.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+OnboardingDbConnectionStringValidator.ValidateOrThrow(
+    builder.Configuration.GetConnectionString("OnboardingDb"));
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

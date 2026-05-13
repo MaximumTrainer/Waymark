@@ -1,6 +1,7 @@
 import type { SessionStepResponse, StartSessionRequest, SubmitStepRequest } from '../types/flow'
 
 const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY ?? ''
+const WORKFLOW_API_BASE_PATH = '/api/workflow'
 
 function buildHeaders(apiKey?: string): Record<string, string> {
   const key = apiKey ?? DEFAULT_API_KEY
@@ -9,12 +10,21 @@ function buildHeaders(apiKey?: string): Record<string, string> {
   return headers
 }
 
+export function resolveWorkflowApiBase(baseUrl: string): string {
+  const normalizedBase = (baseUrl ?? '').trim().replace(/\/+$/, '')
+  if (!normalizedBase) return WORKFLOW_API_BASE_PATH
+  return normalizedBase.endsWith(WORKFLOW_API_BASE_PATH)
+    ? normalizedBase
+    : `${normalizedBase}${WORKFLOW_API_BASE_PATH}`
+}
+
 export async function startSession(
   baseUrl: string,
   payload: StartSessionRequest,
   apiKey?: string,
 ): Promise<SessionStepResponse> {
-  const res = await fetch(`${baseUrl}/api/workflow/sessions/start`, {
+  const workflowBase = resolveWorkflowApiBase(baseUrl)
+  const res = await fetch(`${workflowBase}/sessions/start`, {
     method: 'POST',
     headers: buildHeaders(apiKey),
     body: JSON.stringify(payload),
@@ -30,8 +40,9 @@ export async function submitStep(
   payload: SubmitStepRequest,
   apiKey?: string,
 ): Promise<SessionStepResponse> {
+  const workflowBase = resolveWorkflowApiBase(baseUrl)
   const res = await fetch(
-    `${baseUrl}/api/workflow/sessions/${sessionId}/steps/${nodeId}/submit`,
+    `${workflowBase}/sessions/${sessionId}/steps/${nodeId}/submit`,
     {
       method: 'POST',
       headers: buildHeaders(apiKey),
@@ -47,7 +58,8 @@ export async function getNextStep(
   sessionId: string,
   apiKey?: string,
 ): Promise<SessionStepResponse> {
-  const res = await fetch(`${baseUrl}/api/workflow/sessions/${sessionId}/next`, {
+  const workflowBase = resolveWorkflowApiBase(baseUrl)
+  const res = await fetch(`${workflowBase}/sessions/${sessionId}/next`, {
     method: 'GET',
     headers: buildHeaders(apiKey),
   })
