@@ -90,7 +90,7 @@ Renders a dynamic form from the field list in `jsonContent`. Each field definiti
 
 Supported `type` values: `text`, `email`, `number`, `select`, `checkbox`, `textarea`, `date`. Any unrecognised value falls back to `text`.
 
-When `complianceRuleJson` is set (see [ComplianceRuleJson reference](#compliancerujson-reference)), the engine validates the submitted payload server-side before advancing the session.
+When `complianceRuleJson` is set (see [ComplianceRuleJson reference](#compliancerulejson-reference)), the engine validates the submitted payload server-side before advancing the session.
 
 #### DocumentUpload
 
