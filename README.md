@@ -358,7 +358,7 @@ files=<binary>
 The upload response (`StoredFileInfo[]`) is passed as the `files` field in the subsequent step submission payload:
 
 ```json
-{ "payload": { "files": [{ "fileId": "...", "fileName": "...", "contentType": "...", "sizeBytes": 0, "storedAt": "..." }] } }
+{ "payload": { "files": [{ "fileId": "...", "fileName": "...", "contentType": "...", "sizeBytes": 204800, "storedAt": "..." }] } }
 ```
 
 ### Expanding the engine
