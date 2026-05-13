@@ -82,3 +82,4 @@ dotnet test src/backend/OpenOnboarding.slnx -c Release
 4. Run backend + frontend validation commands before pushing.
 5. Open a PR and ensure CI passes.
 6. Do not merge behavior changes unless corresponding automated tests are included and passing.
+7. For documentation-only changes, validate command examples against a local setup and ensure CI references remain accurate.
