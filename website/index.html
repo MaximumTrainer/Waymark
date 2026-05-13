@@ -25,7 +25,7 @@
   <nav class="fixed top-0 inset-x-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-sm">
     <div class="mx-auto max-w-7xl px-6 flex items-center justify-between h-14">
       <a href="#" class="flex items-center gap-2 font-bold text-lg tracking-tight">
-        <svg class="w-6 h-6 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg aria-hidden="true" class="w-6 h-6 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
         </svg>
         <span class="text-white">Waymark</span>
@@ -41,7 +41,7 @@
         <a href="docs.html" class="hidden md:inline-flex items-center gap-1.5 text-sm text-slate-300 hover:text-white transition-colors">
           Documentation
         </a>
-        <a href="https://github.com/MaximumTrainer/Waymark" class="inline-flex items-center gap-1.5 rounded-md bg-brand-500 hover:bg-brand-400 px-4 py-1.5 text-sm font-medium text-white transition-colors">
+        <a href="https://github.com/MaximumTrainer/Waymark" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 rounded-md bg-brand-500 hover:bg-brand-400 px-4 py-1.5 text-sm font-medium text-white transition-colors">
           GitHub
         </a>
       </div>
@@ -89,21 +89,21 @@
         <pre class="p-6 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code><span class="text-slate-500">{</span>
   <span class="text-sky-400">"name"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Enterprise Onboarding"</span><span class="text-slate-500">,</span>
   <span class="text-sky-400">"nodes"</span><span class="text-slate-500">: [</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"user-type"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"isStartNode"</span><span class="text-slate-500">:</span> <span class="text-violet-400">true</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"admin-setup"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"guest-welcome"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Information"</span> <span class="text-slate-500">}</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"11111111-1111-1111-1111-111111111111"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"user-type"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"isStartNode"</span><span class="text-slate-500">:</span> <span class="text-violet-400">true</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"22222222-2222-2222-2222-222222222222"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"admin-setup"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"33333333-3333-3333-3333-333333333333"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"guest-welcome"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Information"</span> <span class="text-slate-500">}</span>
   <span class="text-slate-500">],</span>
   <span class="text-sky-400">"connections"</span><span class="text-slate-500">: [</span>
     <span class="text-slate-500">{</span>
-      <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"user-type"</span><span class="text-slate-500">,</span>
-      <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"admin-setup"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"11111111-1111-1111-1111-111111111111"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"22222222-2222-2222-2222-222222222222"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"conditionField"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Role"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"conditionOperator"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Equals"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"conditionValue"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Admin"</span>
     <span class="text-slate-500">},</span>
     <span class="text-slate-500">{</span>
-      <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"user-type"</span><span class="text-slate-500">,</span>
-      <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"guest-welcome"</span>
+      <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"11111111-1111-1111-1111-111111111111"</span><span class="text-slate-500">,</span>
+      <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"33333333-3333-3333-3333-333333333333"</span>
     <span class="text-slate-500">}</span>
   <span class="text-slate-500">]</span>
 <span class="text-slate-500">}</span></code></pre>
@@ -362,14 +362,14 @@
       </div>
 
       <!-- Tabs -->
-      <div class="flex gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800 w-fit mb-8">
-        <button onclick="showTab('basic')"    id="tab-basic"    class="tab-btn active px-4 py-2 rounded-md text-sm font-medium transition-colors bg-slate-800 text-white">Basic Flow</button>
-        <button onclick="showTab('advanced')" id="tab-advanced" class="tab-btn px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-white">Advanced Logic</button>
-        <button onclick="showTab('edge')"     id="tab-edge"     class="tab-btn px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-white">Edge Cases</button>
+      <div role="tablist" aria-label="Code examples" class="flex gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800 w-fit mb-8">
+        <button type="button" id="tab-basic" role="tab" aria-selected="true" aria-controls="panel-basic" tabindex="0" class="tab-btn active px-4 py-2 rounded-md text-sm font-medium transition-colors bg-slate-800 text-white">Basic Flow</button>
+        <button type="button" id="tab-advanced" role="tab" aria-selected="false" aria-controls="panel-advanced" tabindex="-1" class="tab-btn px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-white">Advanced Logic</button>
+        <button type="button" id="tab-edge" role="tab" aria-selected="false" aria-controls="panel-edge" tabindex="-1" class="tab-btn px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-white">Edge Cases</button>
       </div>
 
       <!-- Basic -->
-      <div id="panel-basic" class="code-block rounded-xl overflow-hidden">
+      <div id="panel-basic" role="tabpanel" aria-labelledby="tab-basic" class="code-block rounded-xl overflow-hidden">
         <div class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800">
           <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
           <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
@@ -380,6 +380,7 @@
   <span class="text-sky-400">"name"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Contact Form"</span><span class="text-slate-500">,</span>
   <span class="text-sky-400">"nodes"</span><span class="text-slate-500">: [</span>
     <span class="text-slate-500">{</span>
+      <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"11111111-1111-1111-1111-111111111111"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"personal-info"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Your details"</span><span class="text-slate-500">,</span>
@@ -387,26 +388,28 @@
       <span class="text-sky-400">"jsonContent"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"fields\":[{\"name\":\"Name\",\"type\":\"text\",\"required\":true},{\"name\":\"Email\",\"type\":\"email\",\"required\":true}]}"</span>
     <span class="text-slate-500">},</span>
     <span class="text-slate-500">{</span>
+      <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"22222222-2222-2222-2222-222222222222"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"message"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Your message"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"jsonContent"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"fields\":[{\"name\":\"Subject\",\"type\":\"text\",\"required\":true},{\"name\":\"Body\",\"type\":\"textarea\",\"required\":true}]}"</span>
     <span class="text-slate-500">},</span>
     <span class="text-slate-500">{</span>
+      <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"33333333-3333-3333-3333-333333333333"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"confirmation"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Information"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Thank you! We'll be in touch within 24 hours."</span>
     <span class="text-slate-500">}</span>
   <span class="text-slate-500">],</span>
   <span class="text-sky-400">"connections"</span><span class="text-slate-500">: [</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"personal-info"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"message"</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"message"</span><span class="text-slate-500">,</span>       <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"confirmation"</span> <span class="text-slate-500">}</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"11111111-1111-1111-1111-111111111111"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"22222222-2222-2222-2222-222222222222"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"22222222-2222-2222-2222-222222222222"</span><span class="text-slate-500">,</span>       <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"33333333-3333-3333-3333-333333333333"</span> <span class="text-slate-500">}</span>
   <span class="text-slate-500">]</span>
 <span class="text-slate-500">}</span></code></pre>
       </div>
 
       <!-- Advanced -->
-      <div id="panel-advanced" class="code-block rounded-xl overflow-hidden hidden">
+      <div id="panel-advanced" role="tabpanel" aria-labelledby="tab-advanced" aria-hidden="true" class="code-block rounded-xl overflow-hidden hidden">
         <div class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800">
           <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
           <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
@@ -416,26 +419,26 @@
         <pre class="p-6 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code><span class="text-slate-500">{</span>
   <span class="text-sky-400">"name"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Conditional Payment"</span><span class="text-slate-500">,</span>
   <span class="text-sky-400">"nodes"</span><span class="text-slate-500">: [</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"payment-method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"isStartNode"</span><span class="text-slate-500">:</span> <span class="text-violet-400">true</span><span class="text-slate-500">,</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"44444444-4444-4444-4444-444444444444"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"payment-method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"isStartNode"</span><span class="text-slate-500">:</span> <span class="text-violet-400">true</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"jsonContent"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"fields\":[{\"name\":\"Method\",\"type\":\"select\",\"options\":[\"CreditCard\",\"PayPal\"],\"required\":true}]}"</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"card-details"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"55555555-5555-5555-5555-555555555555"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"card-details"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Form"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"complianceRuleJson"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"requiredFields\":[\"CardNumber\",\"CVV\"],\"rules\":[{\"field\":\"CardNumber\",\"pattern\":\"^[0-9]{16}$\"}]}"</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"paypal-redirect"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Redirect"</span><span class="text-slate-500">,</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"66666666-6666-6666-6666-666666666666"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"paypal-redirect"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Redirect"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"jsonContent"</span><span class="text-slate-500">:</span> <span class="text-green-400">"{\"url\":\"https://paypal.com/checkout?session={{sessionId}}\"}"</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"success"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Information"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Payment accepted!"</span> <span class="text-slate-500">}</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"id"</span><span class="text-slate-500">:</span> <span class="text-green-400">"77777777-7777-7777-7777-777777777777"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"key"</span><span class="text-slate-500">:</span> <span class="text-green-400">"success"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"type"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Information"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"title"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Payment accepted!"</span> <span class="text-slate-500">}</span>
   <span class="text-slate-500">],</span>
   <span class="text-sky-400">"connections"</span><span class="text-slate-500">: [</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"payment-method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"card-details"</span><span class="text-slate-500">,</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"44444444-4444-4444-4444-444444444444"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"55555555-5555-5555-5555-555555555555"</span><span class="text-slate-500">,</span>
       <span class="text-sky-400">"conditionField"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"conditionOperator"</span><span class="text-slate-500">:</span> <span class="text-green-400">"Equals"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"conditionValue"</span><span class="text-slate-500">:</span> <span class="text-green-400">"CreditCard"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"priority"</span><span class="text-slate-500">:</span> <span class="text-violet-400">0</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"payment-method"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"paypal-redirect"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"priority"</span><span class="text-slate-500">:</span> <span class="text-violet-400">1</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"card-details"</span><span class="text-slate-500">,</span>    <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"success"</span> <span class="text-slate-500">},</span>
-    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"paypal-redirect"</span><span class="text-slate-500">,</span>  <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"success"</span> <span class="text-slate-500">}</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"44444444-4444-4444-4444-444444444444"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"66666666-6666-6666-6666-666666666666"</span><span class="text-slate-500">,</span> <span class="text-sky-400">"priority"</span><span class="text-slate-500">:</span> <span class="text-violet-400">1</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"55555555-5555-5555-5555-555555555555"</span><span class="text-slate-500">,</span>    <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"77777777-7777-7777-7777-777777777777"</span> <span class="text-slate-500">},</span>
+    <span class="text-slate-500">{</span> <span class="text-sky-400">"sourceNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"66666666-6666-6666-6666-666666666666"</span><span class="text-slate-500">,</span>  <span class="text-sky-400">"targetNodeId"</span><span class="text-slate-500">:</span> <span class="text-green-400">"77777777-7777-7777-7777-777777777777"</span> <span class="text-slate-500">}</span>
   <span class="text-slate-500">]</span>
 <span class="text-slate-500">}</span></code></pre>
       </div>
 
       <!-- Edge Cases -->
-      <div id="panel-edge" class="code-block rounded-xl overflow-hidden hidden">
+      <div id="panel-edge" role="tabpanel" aria-labelledby="tab-edge" aria-hidden="true" class="code-block rounded-xl overflow-hidden hidden">
         <div class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800">
           <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
           <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
@@ -529,8 +532,8 @@
           Read the Docs
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
         </a>
-        <a href="https://github.com/MaximumTrainer/Waymark" class="inline-flex items-center gap-2 rounded-lg border border-slate-700 hover:border-slate-500 px-8 py-3 text-sm font-medium text-slate-300 hover:text-white transition-colors">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        <a href="https://github.com/MaximumTrainer/Waymark" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-lg border border-slate-700 hover:border-slate-500 px-8 py-3 text-sm font-medium text-slate-300 hover:text-white transition-colors">
+          <svg aria-hidden="true" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           View on GitHub
         </a>
       </div>
@@ -541,33 +544,67 @@
   <footer class="border-t border-slate-800 py-8 px-6 bg-slate-950">
     <div class="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
       <div class="flex items-center gap-2 font-semibold text-slate-400">
-        <svg class="w-4 h-4 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+        <svg aria-hidden="true" class="w-4 h-4 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
         Waymark
       </div>
       <div class="flex gap-6">
         <a href="docs.html" class="hover:text-slate-300 transition-colors">Documentation</a>
-        <a href="https://github.com/MaximumTrainer/Waymark" class="hover:text-slate-300 transition-colors">GitHub</a>
+        <a href="https://github.com/MaximumTrainer/Waymark" target="_blank" rel="noopener noreferrer" class="hover:text-slate-300 transition-colors">GitHub</a>
       </div>
       <p>Schema-driven journey orchestration engine</p>
     </div>
   </footer>
 
   <script>
+    const tabNames = ['basic', 'advanced', 'edge']
+
     function showTab(name) {
-      ['basic', 'advanced', 'edge'].forEach(t => {
+      tabNames.forEach(t => {
         const panel = document.getElementById('panel-' + t)
         const btn   = document.getElementById('tab-'   + t)
         if (t === name) {
           panel.classList.remove('hidden')
+          panel.setAttribute('aria-hidden', 'false')
           btn.classList.add('bg-slate-800', 'text-white')
           btn.classList.remove('text-slate-400')
+          btn.setAttribute('aria-selected', 'true')
+          btn.setAttribute('tabindex', '0')
         } else {
           panel.classList.add('hidden')
+          panel.setAttribute('aria-hidden', 'true')
           btn.classList.remove('bg-slate-800', 'text-white')
           btn.classList.add('text-slate-400')
+          btn.setAttribute('aria-selected', 'false')
+          btn.setAttribute('tabindex', '-1')
         }
       })
     }
+
+    function handleTabKeydown(event) {
+      const currentIndex = tabNames.indexOf(event.currentTarget.id.replace('tab-', ''))
+      if (currentIndex === -1) return
+
+      let nextIndex = currentIndex
+      if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabNames.length
+      if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabNames.length) % tabNames.length
+      if (event.key === 'Home') nextIndex = 0
+      if (event.key === 'End') nextIndex = tabNames.length - 1
+
+      if (nextIndex !== currentIndex) {
+        event.preventDefault()
+        const nextName = tabNames[nextIndex]
+        showTab(nextName)
+        document.getElementById('tab-' + nextName).focus()
+      }
+    }
+
+    tabNames.forEach(name => {
+      const button = document.getElementById('tab-' + name)
+      button.addEventListener('click', () => showTab(name))
+      button.addEventListener('keydown', handleTabKeydown)
+    })
+
+    showTab('basic')
   </script>
 </body>
 </html>
