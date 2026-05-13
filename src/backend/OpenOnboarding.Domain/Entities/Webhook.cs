@@ -8,6 +8,7 @@ public sealed class Webhook
     public string Url { get; set; } = string.Empty;
     public string Secret { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public ICollection<WebhookDelivery> Deliveries { get; set; } = new List<WebhookDelivery>();
 }

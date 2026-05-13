@@ -1,6 +1,7 @@
 import { Component, type ReactNode, useState } from 'react'
 import { Label } from '@radix-ui/react-label'
 import type { FlowNode } from '../types/flow'
+import { ComplianceError } from '../api/workflow-api-client'
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 type ErrorBoundaryState = { hasError: boolean }
@@ -133,15 +134,46 @@ function DynamicForm({
   const [values, setValues] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(fields.map((f) => [f.name, f.type === 'checkbox' ? false : ''])),
   )
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [globalErrors, setGlobalErrors] = useState<string[]>([])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await onSubmit(values)
+    setFieldErrors({})
+    setGlobalErrors([])
+    try {
+      await onSubmit(values)
+    } catch (err) {
+      if (err instanceof ComplianceError) {
+        const fieldNames = new Set(fields.map((f) => f.name))
+        const nextFieldErrors: Record<string, string> = {}
+        const nextGlobalErrors: string[] = []
+        for (const v of err.violations) {
+          if (fieldNames.has(v.field)) {
+            nextFieldErrors[v.field] = v.message
+          } else {
+            nextGlobalErrors.push(v.message)
+          }
+        }
+        setFieldErrors(nextFieldErrors)
+        setGlobalErrors(nextGlobalErrors)
+      }
+      // Non-compliance errors are handled by the hook (global error state)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
       <Label className="text-sm font-semibold text-slate-800">{node.title}</Label>
+      {globalErrors.length > 0 && (
+        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <ul className="list-disc pl-4 space-y-1">
+            {globalErrors.map((msg, i) => (
+              <li key={i}>{msg}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {fields.length === 0 && (
         <p className="text-xs text-slate-500">No fields defined for this step.</p>
       )}
@@ -156,6 +188,9 @@ function DynamicForm({
             value={values[field.name]}
             onChange={(val) => setValues((prev) => ({ ...prev, [field.name]: val }))}
           />
+          {fieldErrors[field.name] && (
+            <p className="text-xs text-red-600">{fieldErrors[field.name]}</p>
+          )}
         </div>
       ))}
       <button

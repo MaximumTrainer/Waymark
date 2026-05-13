@@ -3,6 +3,11 @@ import { FlowAuthoringPanel } from './builder/FlowAuthoringPanel'
 import { JourneyBuilder } from './builder/JourneyBuilder'
 import { StepRenderer } from './onboarding/components/StepRenderer'
 import { useOnboarding } from './onboarding/hooks/useOnboarding'
+import { FlowAnalytics } from './analytics/FlowAnalytics'
+import { WebhookDeliveries } from './webhooks/WebhookDeliveries'
+import { SessionList } from './sessions/SessionList'
+import { SessionDetail } from './sessions/SessionDetail'
+import type { SessionSummary } from './sessions/SessionList'
 
 type JourneyOption = {
   id: string
@@ -38,6 +43,7 @@ function App() {
   const [selectedFlowId, setSelectedFlowId] = useState<string>(JOURNEYS[0].id)
   const [visitedNodeIds, setVisitedNodeIds] = useState<Set<string>>(new Set())
   const [builderFlowId, setBuilderFlowId] = useState<string | null>(defaultFlowId)
+  const [selectedSession, setSelectedSession] = useState<SessionSummary | null>(null)
 
   useEffect(() => {
     startSession({ flowId: selectedFlowId })
@@ -119,6 +125,28 @@ function App() {
             }}
           />
         ) : null}
+      </section>
+      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Flow Analytics</h2>
+        <FlowAnalytics flowId={selectedFlowId} apiKey={apiKey} />
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Session History</h2>
+        {selectedSession ? (
+          <SessionDetail
+            sessionId={selectedSession.id}
+            apiKey={apiKey}
+            onBack={() => setSelectedSession(null)}
+          />
+        ) : (
+          <SessionList apiKey={apiKey} onSelectSession={setSelectedSession} />
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Webhook Deliveries</h2>
+        <WebhookDeliveries apiKey={apiKey} />
       </section>
     </main>
   )

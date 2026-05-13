@@ -96,7 +96,7 @@ public sealed class WorkflowService(
         var violations = complianceRuleEvaluator.Evaluate(currentNode, request.Payload, previousSubmissions);
         if (violations.Count > 0)
         {
-            throw new ValidationException(string.Join("; ", violations.Select(v => v.Message)));
+            throw new ComplianceViolationException(violations);
         }
 
         var submission = new Submission

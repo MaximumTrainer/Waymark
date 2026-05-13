@@ -5,7 +5,9 @@ import {
   submitStep as apiSubmitStep,
   getNextStep as apiGetNextStep,
   resolveWorkflowApiBase,
+  ComplianceError,
 } from '../api/workflow-api-client'
+import { createSessionEventSource } from './session-event-source'
 
 const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const workflowApiBase = resolveWorkflowApiBase(serverBase)
@@ -56,25 +58,26 @@ export function useOnboarding() {
     sessionIdRef.current = sessionId
 
     if (typeof EventSource !== 'undefined') {
-      const evtSource = new EventSource(`${workflowApiBase}/sessions/${sessionId}/events`)
-      eventSourceRef.current = evtSource
-
-      evtSource.addEventListener('step-advanced', (e) => {
-        const data = JSON.parse((e as MessageEvent).data) as SessionStepResponse
-        setStep(data)
-      })
-
-      evtSource.addEventListener('session-completed', () => {
-        setIsCompleted(true)
-        setStep(null)
-        evtSource.close()
-        eventSourceRef.current = null
-      })
-
-      evtSource.addEventListener('session-abandoned', () => {
-        evtSource.close()
-        eventSourceRef.current = null
-      })
+      const handle = createSessionEventSource(
+        `${workflowApiBase}/sessions/${sessionId}/events`,
+        {
+          onStepAdvanced: (data) => setStep(data),
+          onCompleted: () => {
+            setIsCompleted(true)
+            setStep(null)
+            eventSourceRef.current = null
+          },
+          onAbandoned: () => {
+            eventSourceRef.current = null
+          },
+          onError: () => {
+            eventSourceRef.current = null
+            setError('Connection to session stream lost. Please refresh.')
+          },
+        },
+      )
+      // Store a compatible ref so closeEventSource can still close it
+      eventSourceRef.current = { close: handle.close } as unknown as EventSource
     } else {
       // Fallback: poll every 5s
       pollingRef.current = setInterval(() => {
@@ -108,7 +111,10 @@ export function useOnboarding() {
       setStep(next)
       return next
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unknown onboarding error')
+      // ComplianceErrors are handled by the form component — don't set global error
+      if (!(requestError instanceof ComplianceError)) {
+        setError(requestError instanceof Error ? requestError.message : 'Unknown onboarding error')
+      }
       throw requestError
     } finally {
       setIsLoading(false)

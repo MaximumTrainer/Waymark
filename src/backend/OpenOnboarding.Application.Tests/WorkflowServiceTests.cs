@@ -103,6 +103,78 @@ public sealed class WorkflowServiceTests
             }));
     }
 
+    [Fact]
+    public async Task SubmitStep_WithComplianceViolation_ThrowsComplianceViolationException()
+    {
+        var dbContext = BuildDbContext();
+        var flowId = Guid.NewGuid();
+        var startNode = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = flowId,
+            Key = "required-form",
+            Title = "Required Fields Form",
+            Type = NodeType.Form,
+            IsStartNode = true,
+            ComplianceRuleJson = "{\"requiredFields\":[\"RequiredField\"]}"
+        };
+        dbContext.Flows.Add(new Flow
+        {
+            Id = flowId,
+            Name = "Violation Test Flow",
+            Nodes = [startNode],
+            Connections = []
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flowId });
+
+        var ex = await Assert.ThrowsAsync<ComplianceViolationException>(() =>
+            service.SubmitStepAsync(started.SessionId, started.CurrentNode!.Id, new SubmitStepRequest
+            {
+                Payload = new Dictionary<string, object?>()
+            }));
+
+        Assert.NotEmpty(ex.Violations);
+    }
+
+    [Fact]
+    public async Task SubmitStep_WithMultipleViolations_ExceptionContainsAllViolations()
+    {
+        var dbContext = BuildDbContext();
+        var flowId = Guid.NewGuid();
+        var startNode = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = flowId,
+            Key = "multi-required-form",
+            Title = "Multi-Required Fields Form",
+            Type = NodeType.Form,
+            IsStartNode = true,
+            ComplianceRuleJson = "{\"requiredFields\":[\"FieldA\",\"FieldB\",\"FieldC\"]}"
+        };
+        dbContext.Flows.Add(new Flow
+        {
+            Id = flowId,
+            Name = "Multi-Violation Test Flow",
+            Nodes = [startNode],
+            Connections = []
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var started = await service.StartSessionAsync(new StartSessionRequest { FlowId = flowId });
+
+        var ex = await Assert.ThrowsAsync<ComplianceViolationException>(() =>
+            service.SubmitStepAsync(started.SessionId, started.CurrentNode!.Id, new SubmitStepRequest
+            {
+                Payload = new Dictionary<string, object?>()
+            }));
+
+        Assert.Equal(3, ex.Violations.Count);
+    }
+
     // Contains
     [Fact]
     public async Task EvaluateCondition_Contains_ReturnsTrueWhenFieldContainsValue()

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenOnboarding.Infrastructure.Persistence;
@@ -13,8 +14,14 @@ namespace OpenOnboarding.Application.Tests;
 /// </summary>
 internal static class TestWebAppFactory
 {
-    public static WebApplicationFactory<Program> Create(string? dbName = null) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+    public static WebApplicationFactory<Program> Create(string? dbName = null)
+    {
+        // A shared InMemoryDatabaseRoot ensures all DbContext instances across DI scopes
+        // (startup seed scope, test seed scope, request scope) read from the same store.
+        var dbRoot = new InMemoryDatabaseRoot();
+        var resolvedDbName = dbName ?? Guid.NewGuid().ToString();
+
+        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, config) =>
@@ -47,8 +54,8 @@ internal static class TestWebAppFactory
                     services.Remove(d);
 
                 services.AddDbContext<OnboardingDbContext>(options =>
-                    options.UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-                           .EnableServiceProviderCaching(false));
+                    options.UseInMemoryDatabase(resolvedDbName, dbRoot));
             });
         });
+    }
 }

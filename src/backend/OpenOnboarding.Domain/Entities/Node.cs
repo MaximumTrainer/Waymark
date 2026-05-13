@@ -15,4 +15,7 @@ public sealed class Node
     public string? ComplianceRuleJson { get; set; }
     public bool IsStartNode { get; set; }
     public string? ExecutionErrorJson { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

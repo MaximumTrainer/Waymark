@@ -1,5 +1,21 @@
 import type { SessionStepResponse, StartSessionRequest, SubmitStepRequest } from '../types/flow'
 
+export interface ComplianceViolation {
+  field: string
+  message: string
+  ruleId?: string
+}
+
+export class ComplianceError extends Error {
+  readonly violations: ComplianceViolation[]
+
+  constructor(violations: ComplianceViolation[]) {
+    super('Compliance validation failed')
+    this.name = 'ComplianceError'
+    this.violations = violations
+  }
+}
+
 const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY ?? ''
 const WORKFLOW_API_BASE_PATH = '/api/workflow'
 
@@ -49,6 +65,10 @@ export async function submitStep(
       body: JSON.stringify(payload),
     },
   )
+  if (res.status === 422) {
+    const problem = await res.json() as { violations?: ComplianceViolation[] }
+    throw new ComplianceError(problem.violations ?? [])
+  }
   if (!res.ok) throw new Error(`submitStep failed with status ${res.status}`)
   return res.json() as Promise<SessionStepResponse>
 }

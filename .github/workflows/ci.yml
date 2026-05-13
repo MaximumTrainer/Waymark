@@ -195,6 +195,48 @@ jobs:
           --no-build -c Release
           --filter "FullyQualifiedName~OpenOnboarding.Pact.Tests.Providers"
 
+  # ── Container image security scan ─────────────────────────
+  container-scan:
+    name: Container — Trivy vulnerability scan
+    runs-on: ubuntu-latest
+    # Run after backend passes so we have a meaningful image to scan
+    needs: [backend-ci]
+
+    permissions:
+      contents: read
+      security-events: write  # required to upload SARIF to GitHub Security tab
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image for scanning
+        run: docker build -t open-onboarding-api:scan .
+
+      - name: Run Trivy vulnerability scan (SARIF)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "open-onboarding-api:scan"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"  # report but don't fail (SARIF uploaded for visibility)
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-results.sarif"
+          category: "trivy-container"
+
+      - name: Run Trivy scan (table summary — fail on CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "open-onboarding-api:scan"
+          format: "table"
+          severity: "CRITICAL"
+          exit-code: "1"  # fail the job on any CRITICAL CVE
+
   # ── End-to-end verification ─────────────────────────────────
   e2e-verification:
     name: E2E — UI/API/Webhook verification
