@@ -13,7 +13,7 @@ public static class OnboardingDbConnectionStringValidator
                 "Set it in appsettings or via ConnectionStrings__OnboardingDb.");
         }
 
-        DbConnectionStringBuilder builder = new();
+        DbConnectionStringBuilder builder = new DbConnectionStringBuilder();
         try
         {
             builder.ConnectionString = connectionString;

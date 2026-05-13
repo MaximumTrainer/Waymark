@@ -14,6 +14,16 @@ public sealed class OnboardingDbConnectionStringValidatorTests
         Assert.Null(ex);
     }
 
+    [Fact]
+    public void ValidateOrThrow_DoesNotThrow_WhenConnectionStringUsesServerAndInitialCatalog()
+    {
+        var connectionString = "Server=localhost;Port=5432;Initial Catalog=onboarding;Username=postgres;Password=postgres";
+
+        var ex = Record.Exception(() => OnboardingDbConnectionStringValidator.ValidateOrThrow(connectionString));
+
+        Assert.Null(ex);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
