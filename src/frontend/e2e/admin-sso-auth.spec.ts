@@ -53,16 +53,18 @@ test.describe('Admin SSO auth guard', () => {
   })
 
   test('failed auth: invalid assertion shows access denied UI', async ({ page }) => {
+    await page.goto('/login')
+    const frontendOrigin = new URL(page.url()).origin
+
     await page.route('**/auth/saml/login**', async (route) => {
       await route.fulfill({
         status: 302,
         headers: {
-          location: '/login?error=saml_access_denied',
+          location: `${frontendOrigin}/login?error=saml_access_denied`,
         },
       })
     })
 
-    await page.goto('/login')
     await page.getByRole('button', { name: 'Login with SSO' }).click()
     await expect(page).toHaveURL(/\/login\?error=saml_access_denied/)
     await expect(page.getByRole('alert')).toContainText('Access Denied')
