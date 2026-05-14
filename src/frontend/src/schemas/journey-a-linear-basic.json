@@ -1,0 +1,45 @@
+{
+  "$schema": "https://open-onboarding.example.com/schema/flow-definition.json",
+  "id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+  "name": "Journey A – Linear Basic",
+  "description": "A simple two-step linear journey: contact details form followed by a confirmation screen.",
+  "version": 1,
+  "nodes": [
+    {
+      "id": "a1000001-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+      "key": "basic-contact-details",
+      "type": "Form",
+      "title": "Contact details",
+      "isStartNode": true,
+      "jsonContent": {
+        "fields": [
+          { "name": "FullName", "type": "text", "required": true },
+          { "name": "Email", "type": "email", "required": true }
+        ]
+      },
+      "complianceRuleJson": {
+        "requiredFields": ["FullName", "Email"],
+        "rules": [
+          { "field": "Email", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" }
+        ]
+      }
+    },
+    {
+      "id": "a1000002-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+      "key": "basic-confirmation",
+      "type": "Information",
+      "title": "Application received",
+      "jsonContent": {
+        "message": "Thank you. Your application has been received and will be reviewed shortly."
+      }
+    }
+  ],
+  "connections": [
+    {
+      "id": "a1000010-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+      "sourceNodeId": "a1000001-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+      "targetNodeId": "a1000002-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+      "priority": 0
+    }
+  ]
+}

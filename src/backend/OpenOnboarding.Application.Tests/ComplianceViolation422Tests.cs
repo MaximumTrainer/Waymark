@@ -48,7 +48,7 @@ public sealed class ComplianceViolation422Tests
 
         var violations = body.GetProperty("violations").EnumerateArray().ToList();
         Assert.NotEmpty(violations);
-        Assert.True(violations[0].TryGetProperty("fieldName", out _));
+        Assert.True(violations[0].TryGetProperty("field", out _));
         Assert.True(violations[0].TryGetProperty("message", out _));
     }
 

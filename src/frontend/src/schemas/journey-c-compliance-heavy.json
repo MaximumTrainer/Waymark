@@ -1,0 +1,70 @@
+{
+  "$schema": "https://open-onboarding.example.com/schema/flow-definition.json",
+  "id": "c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+  "name": "Journey C – Compliance Heavy",
+  "description": "Demonstrates strict compliance rules, document upload, and redirect to external verification service.",
+  "version": 1,
+  "nodes": [
+    {
+      "id": "c3000001-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "key": "identity-verification",
+      "type": "Form",
+      "title": "Identity verification",
+      "isStartNode": true,
+      "jsonContent": {
+        "fields": [
+          {
+            "name": "NationalId",
+            "type": "text",
+            "required": true,
+            "placeholder": "AB123456"
+          }
+        ]
+      },
+      "complianceRuleJson": {
+        "requiredFields": ["NationalId"],
+        "rules": [
+          {
+            "field": "NationalId",
+            "pattern": "^[A-Z]{2}[0-9]{6}$"
+          }
+        ]
+      }
+    },
+    {
+      "id": "c3000002-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "key": "id-document-upload",
+      "type": "DocumentUpload",
+      "title": "Upload identity document",
+      "jsonContent": {
+        "acceptedFileTypes": ["application/pdf", "image/png"],
+        "maxFiles": 1,
+        "instructions": "Please upload a clear scan of your national identity document."
+      }
+    },
+    {
+      "id": "c3000003-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "key": "external-verification",
+      "type": "Redirect",
+      "title": "External verification",
+      "jsonContent": {
+        "url": "https://verify.example.com/start?session={{sessionId}}&customer={{externalCustomerId}}",
+        "message": "You will be redirected to our verification partner to complete identity checks."
+      }
+    }
+  ],
+  "connections": [
+    {
+      "id": "c3000010-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "sourceNodeId": "c3000001-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "targetNodeId": "c3000002-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "priority": 0
+    },
+    {
+      "id": "c3000011-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "sourceNodeId": "c3000002-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "targetNodeId": "c3000003-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "priority": 0
+    }
+  ]
+}

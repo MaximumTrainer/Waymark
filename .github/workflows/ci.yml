@@ -290,3 +290,90 @@ jobs:
           path: |
             src/backend/OpenOnboarding.Pact.Tests/TestResults/**/*.trx
           retention-days: 14
+
+  # ── Playwright browser + API journey tests ──────────────────
+  playwright-e2e:
+    name: Playwright — Browser & Journey API Tests
+    runs-on: ubuntu-latest
+    needs: [backend-ci, frontend-ci]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: onboarding_playwright
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ConnectionStrings__OnboardingDb: "Host=localhost;Port=5432;Database=onboarding_playwright;Username=postgres;Password=postgres"
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://localhost:5072
+      Authentication__ApiKey: playwright-api-key
+      Authentication__JwtAuthority: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore backend
+        run: dotnet restore src/backend/OpenOnboarding.slnx
+
+      - name: Build backend
+        run: dotnet build src/backend/OpenOnboarding.slnx --no-restore -c Release
+
+      - name: Start API in background
+        run: |
+          dotnet run --project src/backend/OpenOnboarding.Api --no-build -c Release &
+          echo "API_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for API to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5072/health > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... attempt $i"
+            sleep 2
+          done
+          echo "API did not start in time" >&2
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend dependencies
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: src/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: src/frontend
+        env:
+          PLAYWRIGHT_API_BASE_URL: http://localhost:5072
+          PLAYWRIGHT_API_KEY: playwright-api-key
+          VITE_API_BASE_URL: http://localhost:5072
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: src/frontend/playwright-report/
+          retention-days: 14

@@ -445,7 +445,28 @@ export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: Step
           </div>
         )
       case 'Information':
-        return <p className="text-sm text-slate-700">{node.title}</p>
+        return (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700">{node.title}</p>
+            {node.jsonContent && (() => {
+              try {
+                const parsed = JSON.parse(node.jsonContent) as { message?: string }
+                return parsed.message ? (
+                  <p className="text-sm text-slate-600">{parsed.message}</p>
+                ) : null
+              } catch {
+                return null
+              }
+            })()}
+            <button
+              type="button"
+              onClick={() => void onSubmit({})}
+              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Continue
+            </button>
+          </div>
+        )
       case 'Logic':
         return (
           <div className="flex items-center gap-2 text-sm text-slate-500">

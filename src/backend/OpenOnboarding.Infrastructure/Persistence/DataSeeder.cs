@@ -13,9 +13,18 @@ public static class DataSeeder
     public static readonly Guid MediumBusinessFlowId = new("22222222-2222-2222-2222-222222222222");
     public static readonly Guid LargeBusinessFlowId = new("33333333-3333-3333-3333-333333333333");
 
+    // Test journey flow IDs (used by Playwright E2E tests)
+    public static readonly Guid LinearBasicFlowId = new("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1");
+    public static readonly Guid ConditionalBranchFlowId = new("b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2");
+    public static readonly Guid ComplianceHeavyFlowId = new("c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3");
+
     public static async Task SeedAsync(OnboardingDbContext dbContext, CancellationToken cancellationToken = default)
     {
-        var targetFlowIds = new[] { SmallBusinessFlowId, MediumBusinessFlowId, LargeBusinessFlowId };
+        var targetFlowIds = new[]
+        {
+            SmallBusinessFlowId, MediumBusinessFlowId, LargeBusinessFlowId,
+            LinearBasicFlowId, ConditionalBranchFlowId, ComplianceHeavyFlowId
+        };
 
         var existingFlowIds = await dbContext.Flows
             .Where(f => targetFlowIds.Contains(f.Id))
@@ -35,6 +44,21 @@ public static class DataSeeder
         if (!existingFlowIds.Contains(LargeBusinessFlowId))
         {
             dbContext.Flows.Add(CreateLargeBusinessFlow());
+        }
+
+        if (!existingFlowIds.Contains(LinearBasicFlowId))
+        {
+            dbContext.Flows.Add(CreateLinearBasicFlow());
+        }
+
+        if (!existingFlowIds.Contains(ConditionalBranchFlowId))
+        {
+            dbContext.Flows.Add(CreateConditionalBranchFlow());
+        }
+
+        if (!existingFlowIds.Contains(ComplianceHeavyFlowId))
+        {
+            dbContext.Flows.Add(CreateComplianceHeavyFlow());
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -319,6 +343,200 @@ public static class DataSeeder
                     FlowId = LargeBusinessFlowId,
                     SourceNodeId = companiesHouseNodeId,
                     TargetNodeId = completionNodeId,
+                    Priority = 0
+                }
+            ]
+        };
+    }
+
+    private static Flow CreateLinearBasicFlow()
+    {
+        var formNodeId = new Guid("a1000001-a1a1-a1a1-a1a1-a1a1a1a1a1a1");
+        var infoNodeId = new Guid("a1000002-a1a1-a1a1-a1a1-a1a1a1a1a1a1");
+
+        return new Flow
+        {
+            Id = LinearBasicFlowId,
+            Name = "Journey A – Linear Basic",
+            Description = "A simple two-step linear journey: form capture followed by a confirmation screen.",
+            Version = 1,
+            Nodes =
+            [
+                new Node
+                {
+                    Id = formNodeId,
+                    FlowId = LinearBasicFlowId,
+                    Key = "basic-contact-details",
+                    Type = NodeType.Form,
+                    Title = "Contact details",
+                    JsonContent = """{"fields":[{"name":"FullName","type":"text","required":true},{"name":"Email","type":"email","required":true}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["FullName","Email"],"rules":[{"field":"Email","pattern":"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"}]}""",
+                    IsStartNode = true
+                },
+                new Node
+                {
+                    Id = infoNodeId,
+                    FlowId = LinearBasicFlowId,
+                    Key = "basic-confirmation",
+                    Type = NodeType.Information,
+                    Title = "Application received",
+                    JsonContent = """{"message":"Thank you. Your application has been received and will be reviewed shortly."}"""
+                }
+            ],
+            Connections =
+            [
+                new Connection
+                {
+                    Id = new Guid("a1000010-a1a1-a1a1-a1a1-a1a1a1a1a1a1"),
+                    FlowId = LinearBasicFlowId,
+                    SourceNodeId = formNodeId,
+                    TargetNodeId = infoNodeId,
+                    Priority = 0
+                }
+            ]
+        };
+    }
+
+    private static Flow CreateConditionalBranchFlow()
+    {
+        var countryFormNodeId = new Guid("b2000001-b2b2-b2b2-b2b2-b2b2b2b2b2b2");
+        var euDisclosureNodeId = new Guid("b2000002-b2b2-b2b2-b2b2-b2b2b2b2b2b2");
+        var globalTermsNodeId = new Guid("b2000003-b2b2-b2b2-b2b2-b2b2b2b2b2b2");
+
+        return new Flow
+        {
+            Id = ConditionalBranchFlowId,
+            Name = "Journey B – Conditional Branch",
+            Description = "Demonstrates conditional routing: EU applicants see a GDPR disclosure; others see global terms.",
+            Version = 1,
+            Nodes =
+            [
+                new Node
+                {
+                    Id = countryFormNodeId,
+                    FlowId = ConditionalBranchFlowId,
+                    Key = "country-selection",
+                    Type = NodeType.Form,
+                    Title = "Country selection",
+                    JsonContent = """{"fields":[{"name":"Country","type":"select","required":true,"options":["France","Germany","USA","Other"]}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["Country"]}""",
+                    IsStartNode = true
+                },
+                new Node
+                {
+                    Id = euDisclosureNodeId,
+                    FlowId = ConditionalBranchFlowId,
+                    Key = "eu-gdpr-disclosure",
+                    Type = NodeType.Information,
+                    Title = "EU GDPR Disclosure",
+                    JsonContent = """{"message":"Under GDPR, you have the right to access, rectify, and erase your personal data. By continuing, you consent to processing under EU data protection law."}"""
+                },
+                new Node
+                {
+                    Id = globalTermsNodeId,
+                    FlowId = ConditionalBranchFlowId,
+                    Key = "global-terms-and-conditions",
+                    Type = NodeType.Information,
+                    Title = "Global Terms and Conditions",
+                    JsonContent = """{"message":"By continuing, you agree to the global terms and conditions applicable in your jurisdiction."}"""
+                }
+            ],
+            Connections =
+            [
+                new Connection
+                {
+                    Id = new Guid("b2000010-b2b2-b2b2-b2b2-b2b2b2b2b2b2"),
+                    FlowId = ConditionalBranchFlowId,
+                    SourceNodeId = countryFormNodeId,
+                    TargetNodeId = euDisclosureNodeId,
+                    ConditionField = "Country",
+                    ConditionOperator = ConditionOperator.Equals,
+                    ConditionValue = "France",
+                    Priority = 0
+                },
+                new Connection
+                {
+                    Id = new Guid("b2000011-b2b2-b2b2-b2b2-b2b2b2b2b2b2"),
+                    FlowId = ConditionalBranchFlowId,
+                    SourceNodeId = countryFormNodeId,
+                    TargetNodeId = euDisclosureNodeId,
+                    ConditionField = "Country",
+                    ConditionOperator = ConditionOperator.Equals,
+                    ConditionValue = "Germany",
+                    Priority = 1
+                },
+                new Connection
+                {
+                    Id = new Guid("b2000012-b2b2-b2b2-b2b2-b2b2b2b2b2b2"),
+                    FlowId = ConditionalBranchFlowId,
+                    SourceNodeId = countryFormNodeId,
+                    TargetNodeId = globalTermsNodeId,
+                    Priority = 2
+                }
+            ]
+        };
+    }
+
+    private static Flow CreateComplianceHeavyFlow()
+    {
+        var identityFormNodeId = new Guid("c3000001-c3c3-c3c3-c3c3-c3c3c3c3c3c3");
+        var documentUploadNodeId = new Guid("c3000002-c3c3-c3c3-c3c3-c3c3c3c3c3c3");
+        var redirectNodeId = new Guid("c3000003-c3c3-c3c3-c3c3-c3c3c3c3c3c3");
+
+        return new Flow
+        {
+            Id = ComplianceHeavyFlowId,
+            Name = "Journey C – Compliance Heavy",
+            Description = "Demonstrates strict compliance rules, document upload, and redirect to external verification service.",
+            Version = 1,
+            Nodes =
+            [
+                new Node
+                {
+                    Id = identityFormNodeId,
+                    FlowId = ComplianceHeavyFlowId,
+                    Key = "identity-verification",
+                    Type = NodeType.Form,
+                    Title = "Identity verification",
+                    JsonContent = """{"fields":[{"name":"NationalId","type":"text","required":true,"placeholder":"AB123456"}]}""",
+                    ComplianceRuleJson = """{"requiredFields":["NationalId"],"rules":[{"field":"NationalId","pattern":"^[A-Z]{2}[0-9]{6}$"}]}""",
+                    IsStartNode = true
+                },
+                new Node
+                {
+                    Id = documentUploadNodeId,
+                    FlowId = ComplianceHeavyFlowId,
+                    Key = "id-document-upload",
+                    Type = NodeType.DocumentUpload,
+                    Title = "Upload identity document",
+                    JsonContent = """{"acceptedFileTypes":["application/pdf","image/png"],"maxFiles":1,"instructions":"Please upload a clear scan of your national identity document."}"""
+                },
+                new Node
+                {
+                    Id = redirectNodeId,
+                    FlowId = ComplianceHeavyFlowId,
+                    Key = "external-verification",
+                    Type = NodeType.Redirect,
+                    Title = "External verification",
+                    JsonContent = """{"url":"https://verify.example.com/start?session={{sessionId}}&customer={{externalCustomerId}}","message":"You will be redirected to our verification partner to complete identity checks."}"""
+                }
+            ],
+            Connections =
+            [
+                new Connection
+                {
+                    Id = new Guid("c3000010-c3c3-c3c3-c3c3-c3c3c3c3c3c3"),
+                    FlowId = ComplianceHeavyFlowId,
+                    SourceNodeId = identityFormNodeId,
+                    TargetNodeId = documentUploadNodeId,
+                    Priority = 0
+                },
+                new Connection
+                {
+                    Id = new Guid("c3000011-c3c3-c3c3-c3c3-c3c3c3c3c3c3"),
+                    FlowId = ComplianceHeavyFlowId,
+                    SourceNodeId = documentUploadNodeId,
+                    TargetNodeId = redirectNodeId,
                     Priority = 0
                 }
             ]

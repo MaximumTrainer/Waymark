@@ -34,6 +34,24 @@ const JOURNEYS: JourneyOption[] = [
     description:
       'High-complexity flow with legal structure, advanced compliance questionnaire, outlets/staff size, and mocked Experian + Companies House checks.',
   },
+  {
+    id: 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1',
+    label: 'Journey A — Linear basic (test journey)',
+    description:
+      'Two-step linear journey: contact details form followed by a confirmation screen. Used for Playwright E2E test verification.',
+  },
+  {
+    id: 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2',
+    label: 'Journey B — Conditional branch (test journey)',
+    description:
+      'Demonstrates conditional routing: EU applicants (France, Germany) see a GDPR disclosure; others see global terms.',
+  },
+  {
+    id: 'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3',
+    label: 'Journey C — Compliance heavy (test journey)',
+    description:
+      'Strict compliance rules, national ID pattern validation, document upload, and redirect to external verification service.',
+  },
 ]
 const defaultFlowId = JOURNEYS[0].id
 

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://open-onboarding.example.com/schema/flow-definition.json",
+  "id": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+  "name": "Journey B – Conditional Branch",
+  "description": "Demonstrates conditional routing: EU applicants see a GDPR disclosure; others see global terms.",
+  "version": 1,
+  "nodes": [
+    {
+      "id": "b2000001-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "key": "country-selection",
+      "type": "Form",
+      "title": "Country selection",
+      "isStartNode": true,
+      "jsonContent": {
+        "fields": [
+          {
+            "name": "Country",
+            "type": "select",
+            "required": true,
+            "options": ["France", "Germany", "USA", "Other"]
+          }
+        ]
+      },
+      "complianceRuleJson": {
+        "requiredFields": ["Country"]
+      }
+    },
+    {
+      "id": "b2000002-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "key": "eu-gdpr-disclosure",
+      "type": "Information",
+      "title": "EU GDPR Disclosure",
+      "jsonContent": {
+        "message": "Under GDPR, you have the right to access, rectify, and erase your personal data. By continuing, you consent to processing under EU data protection law."
+      }
+    },
+    {
+      "id": "b2000003-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "key": "global-terms-and-conditions",
+      "type": "Information",
+      "title": "Global Terms and Conditions",
+      "jsonContent": {
+        "message": "By continuing, you agree to the global terms and conditions applicable in your jurisdiction."
+      }
+    }
+  ],
+  "connections": [
+    {
+      "id": "b2000010-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "sourceNodeId": "b2000001-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "targetNodeId": "b2000002-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "conditionField": "Country",
+      "conditionOperator": "Equals",
+      "conditionValue": "France",
+      "priority": 0
+    },
+    {
+      "id": "b2000011-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "sourceNodeId": "b2000001-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "targetNodeId": "b2000002-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "conditionField": "Country",
+      "conditionOperator": "Equals",
+      "conditionValue": "Germany",
+      "priority": 1
+    },
+    {
+      "id": "b2000012-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "sourceNodeId": "b2000001-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "targetNodeId": "b2000003-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "priority": 2
+    }
+  ]
+}

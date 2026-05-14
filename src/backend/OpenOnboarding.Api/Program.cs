@@ -226,7 +226,7 @@ app.UseExceptionHandler(exceptionHandler =>
             {
                 status = 422,
                 title = "Compliance violations",
-                violations = cve.Violations.Select(v => new { fieldName = v.Field, message = v.Message, ruleId = v.RuleId })
+                violations = cve.Violations.Select(v => new { field = v.Field, message = v.Message, ruleId = v.RuleId })
             });
             return;
         }
