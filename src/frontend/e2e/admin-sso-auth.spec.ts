@@ -1,0 +1,56 @@
+import { expect, test } from '@playwright/test'
+
+test.describe('Admin SSO auth guard', () => {
+  test('happy path: admin URL -> SSO login -> redirects to journey builder', async ({ page }) => {
+    await page.route('**/api/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ authenticated: true, roles: ['Operator'] }),
+      })
+    })
+
+    await page.route('**/auth/saml/login**', async (route) => {
+      await route.fulfill({
+        status: 302,
+        headers: {
+          location: '/admin/journey-builder',
+        },
+      })
+    })
+
+    await page.goto('/login?returnUrl=%2Fadmin%2Fjourney-builder')
+    await page.getByRole('button', { name: 'Login with SSO' }).click()
+    await expect(page).toHaveURL(/\/admin\/journey-builder/)
+  })
+
+  test('secure access: direct admin route without session redirects to login', async ({ page }) => {
+    await page.route('**/api/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ authenticated: false }),
+      })
+    })
+
+    await page.goto('/admin/journey-builder')
+    await expect(page).toHaveURL(/\/login\?returnUrl=/)
+    await expect(page.getByRole('button', { name: 'Login with SSO' })).toBeVisible()
+  })
+
+  test('failed auth: invalid assertion shows access denied UI', async ({ page }) => {
+    await page.route('**/auth/saml/login**', async (route) => {
+      await route.fulfill({
+        status: 302,
+        headers: {
+          location: '/login?error=saml_access_denied',
+        },
+      })
+    })
+
+    await page.goto('/login')
+    await page.getByRole('button', { name: 'Login with SSO' }).click()
+    await expect(page).toHaveURL(/\/login\?error=saml_access_denied/)
+    await expect(page.getByRole('alert')).toContainText('Access Denied')
+  })
+})

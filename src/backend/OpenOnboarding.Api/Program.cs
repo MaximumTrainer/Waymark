@@ -1,5 +1,6 @@
 using FluentValidation.AspNetCore;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
@@ -82,7 +83,18 @@ builder.Services
         options.ForwardDefaultSelector = context =>
             context.Request.Headers.ContainsKey("X-Api-Key")
                 ? ApiKeyAuthenticationHandler.SchemeName
+                : context.Request.Cookies.ContainsKey(AdminSessionAuthenticationDefaults.CookieName)
+                    ? AdminSessionAuthenticationDefaults.SchemeName
                 : JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddCookie(AdminSessionAuthenticationDefaults.SchemeName, options =>
+    {
+        options.Cookie.Name = AdminSessionAuthenticationDefaults.CookieName;
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.LoginPath = "/login";
+        options.AccessDeniedPath = "/login";
     })
     .AddJwtBearer(options =>
     {
