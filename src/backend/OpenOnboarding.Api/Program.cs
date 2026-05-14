@@ -92,7 +92,7 @@ builder.Services
         options.Cookie.Name = AdminSessionAuthenticationDefaults.CookieName;
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/login";
     })

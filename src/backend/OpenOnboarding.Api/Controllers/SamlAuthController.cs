@@ -96,7 +96,7 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             return NotFound();
 
         if (!Request.HasFormContentType)
-            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion"));
+            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", null));
 
         var form = await Request.ReadFormAsync();
         var safeReturnUrl = NormalizeReturnUrl(form["returnUrl"].ToString());
@@ -195,21 +195,27 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             return returnUrl;
         }
 
-        if (Uri.TryCreate(returnUrl, UriKind.Absolute, out var absoluteReturnUrl) &&
-            IsAllowedAbsoluteReturnUrl(absoluteReturnUrl))
+        if (Uri.TryCreate(returnUrl, UriKind.Absolute, out var absoluteReturnUrl))
         {
-            return absoluteReturnUrl.ToString();
+            var trustedOrigin = ResolveAllowedAbsoluteReturnOrigin(absoluteReturnUrl);
+            if (!string.IsNullOrWhiteSpace(trustedOrigin))
+            {
+                var pathAndQuery = string.IsNullOrWhiteSpace(absoluteReturnUrl.PathAndQuery)
+                    ? "/admin/journey-builder"
+                    : absoluteReturnUrl.PathAndQuery;
+                return $"{trustedOrigin}{pathAndQuery}{absoluteReturnUrl.Fragment}";
+            }
         }
 
         return "/admin/journey-builder";
     }
 
-    private bool IsAllowedAbsoluteReturnUrl(Uri returnUrl)
+    private string? ResolveAllowedAbsoluteReturnOrigin(Uri returnUrl)
     {
         if (!string.Equals(returnUrl.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(returnUrl.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
         {
-            return false;
+            return null;
         }
 
         var currentOrigin = $"{Request.Scheme}://{Request.Host}";
@@ -219,15 +225,17 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             StringComparison.OrdinalIgnoreCase);
 
         if (requestOriginMatches)
-            return true;
+            return currentOrigin;
 
         var allowedReturnOrigins = configuration
             .GetSection("Authentication:Saml:AllowedReturnOrigins")
             .Get<string[]>() ?? [];
 
-        return allowedReturnOrigins.Contains(
-            returnUrl.GetLeftPart(UriPartial.Authority),
-            StringComparer.OrdinalIgnoreCase);
+        return allowedReturnOrigins.FirstOrDefault(origin =>
+            string.Equals(
+                origin?.TrimEnd('/'),
+                returnUrl.GetLeftPart(UriPartial.Authority),
+                StringComparison.OrdinalIgnoreCase));
     }
 
     private IActionResult RedirectToValidatedReturnUrl(string safeReturnUrl)
@@ -250,9 +258,6 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
 
     private bool IsPlaceholderProviderEnabled()
         => configuration.GetValue<bool>("Authentication:Saml:EnablePlaceholderProvider");
-
-    private static string BuildLoginErrorRedirect(string errorCode)
-        => QueryHelpers.AddQueryString("/login", "error", errorCode);
 
     private int GetRelayStateTimeoutMinutes()
     {
