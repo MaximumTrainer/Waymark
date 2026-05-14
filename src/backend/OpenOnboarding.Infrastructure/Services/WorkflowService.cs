@@ -26,7 +26,8 @@ public sealed class WorkflowService(
     IWebhookService webhookService,
     IServiceScopeFactory? serviceScopeFactory,
     IDocumentStorageService documentStorageService,
-    IMetricsService metricsService) : IWorkflowService
+    IMetricsService metricsService,
+    ITelemetryService? telemetryService = null) : IWorkflowService
 {
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IReadOnlyList<ILogicNodeExecutor> _logicNodeExecutors = logicNodeExecutors.ToList();
@@ -64,6 +65,24 @@ public sealed class WorkflowService(
         dbContext.Sessions.Add(session);
         await dbContext.SaveChangesAsync(cancellationToken);
         metricsService.IncrementSessionsStarted(flow.Id.ToString());
+
+        if (telemetryService is not null)
+        {
+            await telemetryService.TrackAsync(new AnalyticsEvent
+            {
+                EventType = "session_started",
+                JourneyId = flow.Id.ToString(),
+                SessionId = session.Id.ToString(),
+                StepId = startNode.Id.ToString(),
+                StepIndex = 0,
+                Payload = new Dictionary<string, object?>
+                {
+                    ["flowName"] = flow.Name,
+                    ["stepKey"] = startNode.Key,
+                    ["stepTitle"] = startNode.Title
+                }
+            }, cancellationToken);
+        }
 
         return new SessionStepResponse
         {
@@ -172,6 +191,28 @@ public sealed class WorkflowService(
             ? (object)new { sessionId = session.Id, completedAt = session.UpdatedAt }
             : new { sessionId = session.Id, currentNode = BuildNodeDto(nextNode, session) };
         await eventEmitter.EmitAsync(session.Id, eventType, eventPayload, cancellationToken);
+
+        if (telemetryService is not null)
+        {
+            var submissionIndex = session.Submissions.Count - 1;
+            var analyticsEventType = nextNode is null ? "journey_complete" : "navigation_next";
+            await telemetryService.TrackAsync(new AnalyticsEvent
+            {
+                EventType = analyticsEventType,
+                JourneyId = session.FlowId.ToString(),
+                SessionId = session.Id.ToString(),
+                // For journey_complete there is no "next" step; use null to match the frontend schema
+                StepId = nextNode?.Id.ToString(),
+                StepIndex = submissionIndex,
+                Payload = new Dictionary<string, object?>
+                {
+                    ["submittedStepId"] = currentNode.Id.ToString(),
+                    ["submittedStepKey"] = currentNode.Key,
+                    ["nextStepId"] = nextNode?.Id.ToString(),
+                    ["nextStepKey"] = nextNode?.Key
+                }
+            }, cancellationToken);
+        }
 
         if (nextNode is null)
         {

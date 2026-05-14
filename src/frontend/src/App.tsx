@@ -4,6 +4,8 @@ import { JourneyBuilder } from './builder/JourneyBuilder'
 import { StepRenderer } from './onboarding/components/StepRenderer'
 import { useOnboarding } from './onboarding/hooks/useOnboarding'
 import { FlowAnalytics } from './analytics/FlowAnalytics'
+import { JourneyAnalyticsProvider } from './analytics/JourneyAnalyticsContext'
+import { consoleAnalyticsSink } from './analytics/consoleAnalyticsSink'
 import { WebhookDeliveries } from './webhooks/WebhookDeliveries'
 import { SessionList } from './sessions/SessionList'
 import { SessionDetail } from './sessions/SessionDetail'
@@ -78,6 +80,11 @@ function App() {
   const selectedJourney = JOURNEYS.find((j) => j.id === selectedFlowId) ?? JOURNEYS[0]
 
   return (
+    <JourneyAnalyticsProvider
+      journeyId={selectedFlowId}
+      sessionId={step?.sessionId ?? null}
+      initialSinks={[consoleAnalyticsSink]}
+    >
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-bold text-slate-900">Open Onboarding</h1>
@@ -167,6 +174,7 @@ function App() {
         <WebhookDeliveries apiKey={apiKey} />
       </section>
     </main>
+    </JourneyAnalyticsProvider>
   )
 }
 
