@@ -107,7 +107,7 @@ test.describe('StepRenderer – Information node', () => {
     await page.goto('/')
     await page.getByRole('button', { name: /continue/i }).click()
 
-    await expect(page.getByText(/journey complete/i)).toBeVisible()
+    await expect(page.getByText(/all steps finished/i)).toBeVisible()
     const parsed = JSON.parse(submitBody ?? '{}') as Record<string, unknown>
     expect(parsed).toEqual({ payload: {} })
   })
@@ -187,7 +187,7 @@ test.describe('StepRenderer – Form node with select field', () => {
     await mockSSE(page)
     await page.goto('/')
 
-    await expect(page.getByRole('combobox')).toBeVisible()
+    await expect(page.getByLabel('Country')).toBeVisible()
     await expect(page.getByRole('option', { name: 'France' })).toBeAttached()
     await expect(page.getByRole('option', { name: 'Germany' })).toBeAttached()
     await expect(page.getByRole('option', { name: 'USA' })).toBeAttached()
