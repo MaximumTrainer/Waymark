@@ -27,9 +27,8 @@ RUN dotnet publish OpenOnboarding.Api/OpenOnboarding.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# Create a non-root user for security
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+# Use the built-in non-root 'app' user provided by .NET runtime images
+USER app
 
 COPY --from=build /publish .
 

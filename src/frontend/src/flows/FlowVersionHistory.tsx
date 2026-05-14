@@ -18,8 +18,8 @@ export function FlowVersionHistory({ flowId, apiKey, onRestore }: FlowVersionHis
   const [restoring, setRestoring] = useState<number | null>(null)
   const [confirmVersion, setConfirmVersion] = useState<number | null>(null)
 
-  const headers = useMemo<Record<string, string>>(
-    () => (apiKey ? { 'X-Api-Key': apiKey } : {}),
+  const headers = useMemo(
+    (): Record<string, string> => (apiKey ? { 'X-Api-Key': apiKey } : {}),
     [apiKey],
   )
 
