@@ -43,6 +43,7 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         var relayState = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
         var safeReturnUrl = NormalizeReturnUrl(returnUrl);
         var idpSsoUrl = configuration["Authentication:Saml:IdpSsoUrl"] ?? "/login";
+        var relayStateTimeoutMinutes = GetRelayStateTimeoutMinutes();
 
         Response.Cookies.Append(RelayStateCookie, relayState, new CookieOptions
         {
@@ -50,7 +51,7 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             Secure = Request.IsHttps,
             SameSite = SameSiteMode.Lax,
             Path = "/auth/saml/callback",
-            MaxAge = TimeSpan.FromMinutes(5)
+            MaxAge = TimeSpan.FromMinutes(relayStateTimeoutMinutes)
         });
 
         var samlRequestPayload = new
@@ -138,7 +139,7 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             new AuthenticationProperties
             {
                 IsPersistent = false,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
+                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(GetAdminSessionDurationHours())
             });
 
         var safeReturnUrl = NormalizeReturnUrl(form["returnUrl"].ToString());
@@ -178,6 +179,18 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
 
     private static string BuildLoginErrorRedirect(string errorCode)
         => QueryHelpers.AddQueryString("/login", "error", errorCode);
+
+    private int GetRelayStateTimeoutMinutes()
+    {
+        var configured = configuration.GetValue<int?>("Authentication:Saml:RelayStateTimeoutMinutes");
+        return configured is > 0 ? configured.Value : 5;
+    }
+
+    private int GetAdminSessionDurationHours()
+    {
+        var configured = configuration.GetValue<int?>("Authentication:Saml:SessionDurationHours");
+        return configured is > 0 ? configured.Value : 8;
+    }
 
     private static SamlAssertionPayload? ParseAssertion(string encodedResponse)
     {

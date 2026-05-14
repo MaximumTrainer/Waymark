@@ -83,6 +83,7 @@ const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   saml_invalid_assertion: 'Invalid SAML assertion.',
   saml_assertion_not_encrypted: 'SAML assertion was not encrypted.',
   saml_csrf_failed: 'SAML security validation failed. Please try again.',
+  auth_check_failed: 'Could not validate your admin session. Please try again.',
 }
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
@@ -176,7 +177,7 @@ function App() {
       })
       .catch(() => {
         setAdminAuthState('unauthorized')
-        navigate(`/login?error=saml_invalid_assertion&returnUrl=${encodeURIComponent(currentPath)}`, true)
+        navigate(`/login?error=auth_check_failed&returnUrl=${encodeURIComponent(currentPath)}`, true)
       })
   }, [currentPath, isAdminJourneyBuilderRoute, navigate])
 
