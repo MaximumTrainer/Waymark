@@ -224,6 +224,18 @@ public sealed class WorkflowController(
                 Status = 415
             });
         }
+        catch (OpenOnboarding.Application.Exceptions.ScanFailedException)
+        {
+            return StatusCode(StatusCodes.Status422UnprocessableEntity, new { error = "File failed security scan" });
+        }
+        catch (OpenOnboarding.Application.Exceptions.ScanServiceUnavailableException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Virus scan service is unavailable.",
+                Status = 503
+            });
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(new ProblemDetails { Title = ex.Message, Status = 400 });

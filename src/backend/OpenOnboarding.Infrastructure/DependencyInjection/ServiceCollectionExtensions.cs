@@ -46,6 +46,14 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<OnboardingDbContext>(),
             sp.GetRequiredService<IWebhookHttpClient>()));
 
+        services.AddSingleton<IMetricsService, PrometheusMetricsService>();
+
+        // Virus scanning: use real ClamAV adapter when enabled, otherwise no-op
+        if (configuration.GetValue<bool>("VirusScan:Enabled"))
+            services.AddSingleton<IVirusScanService, ClamAvScanService>();
+        else
+            services.AddSingleton<IVirusScanService, NullVirusScanService>();
+
         services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
 
         services.AddHttpClient(nameof(HttpCallbackExecutor));

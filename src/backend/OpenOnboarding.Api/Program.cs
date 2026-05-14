@@ -15,6 +15,7 @@ using OpenOnboarding.Api.Configuration;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Infrastructure.DependencyInjection;
 using OpenOnboarding.Infrastructure.Persistence;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 OnboardingDbConnectionStringValidator.ValidateOrThrow(
@@ -230,6 +231,24 @@ app.UseExceptionHandler(exceptionHandler =>
             return;
         }
 
+        if (exception is ScanFailedException)
+        {
+            context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+            await context.Response.WriteAsJsonAsync(new { error = "File failed security scan" });
+            return;
+        }
+
+        if (exception is ScanServiceUnavailableException)
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = 503,
+                Title = "Virus scan service is unavailable.",
+            });
+            return;
+        }
+
         var (statusCode, title) = exception switch
         {
             ValidationException => (StatusCodes.Status400BadRequest, "Validation failed"),
@@ -302,6 +321,8 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 }).AllowAnonymous();
 
 app.MapControllers();
+
+app.MapMetrics().RequireAuthorization().DisableRateLimiting();
 
 app.Run();
 
