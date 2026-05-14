@@ -38,6 +38,20 @@ test.describe('Admin SSO auth guard', () => {
     await expect(page.getByRole('button', { name: 'Login with SSO' })).toBeVisible()
   })
 
+  test('auth check failure: backend error redirects to login with explicit error', async ({ page }) => {
+    await page.route('**/api/auth/me', async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ title: 'Service unavailable' }),
+      })
+    })
+
+    await page.goto('/admin/journey-builder')
+    await expect(page).toHaveURL(/\/login\?error=auth_check_failed&returnUrl=/)
+    await expect(page.getByRole('alert')).toContainText('Could not validate your admin session')
+  })
+
   test('failed auth: invalid assertion shows access denied UI', async ({ page }) => {
     await page.route('**/auth/saml/login**', async (route) => {
       await route.fulfill({

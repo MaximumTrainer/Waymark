@@ -14,7 +14,9 @@ namespace OpenOnboarding.Application.Tests;
 /// </summary>
 internal static class TestWebAppFactory
 {
-    public static WebApplicationFactory<Program> Create(string? dbName = null)
+    public static WebApplicationFactory<Program> Create(
+        string? dbName = null,
+        IReadOnlyDictionary<string, string?>? configurationOverrides = null)
     {
         // A shared InMemoryDatabaseRoot ensures all DbContext instances across DI scopes
         // (startup seed scope, test seed scope, request scope) read from the same store.
@@ -26,14 +28,25 @@ internal static class TestWebAppFactory
             builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, config) =>
             {
-                config.AddInMemoryCollection(new Dictionary<string, string?>
+                var settings = new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:OnboardingDb"] = "Host=localhost;Database=testdb;",
                     ["Authentication:ApiKey"] = "test-api-key",
                     ["Authentication:JwtAuthority"] = "",
+                    ["Authentication:Saml:EnablePlaceholderProvider"] = "true",
+                    ["Authentication:Saml:IdpSsoUrl"] = "https://example-idp.local/sso",
+                    ["Authentication:Saml:AllowedNameIds:0"] = "admin@example.com",
                     ["SessionTimeoutMinutes"] = "1440",
                     ["DocumentUpload:MaxFileSizeBytes"] = "10485760"
-                });
+                };
+
+                if (configurationOverrides is not null)
+                {
+                    foreach (var overrideSetting in configurationOverrides)
+                        settings[overrideSetting.Key] = overrideSetting.Value;
+                }
+
+                config.AddInMemoryCollection(settings);
             });
             builder.ConfigureTestServices(services =>
             {

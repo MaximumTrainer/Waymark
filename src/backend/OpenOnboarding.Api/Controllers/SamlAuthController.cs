@@ -16,12 +16,19 @@ namespace OpenOnboarding.Api.Controllers;
 [AllowAnonymous]
 public sealed class SamlAuthController(IConfiguration configuration) : ControllerBase
 {
-    private const string RelayStateCookie = "__Host-waymark-saml-relay-state";
+    private const string RelayStateCookie = "__Secure-waymark-saml-relay-state";
+    private static readonly JsonSerializerOptions AssertionJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     [HttpGet("metadata")]
     [Produces("application/samlmetadata+xml")]
     public IActionResult Metadata()
     {
+        if (!IsPlaceholderProviderEnabled())
+            return NotFound();
+
         var issuer = configuration["Authentication:Saml:Issuer"] ?? "waymark-service-provider";
         var acsUrl = ResolveAcsUrl();
 
@@ -40,6 +47,9 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
     [HttpGet("login")]
     public IActionResult Login([FromQuery] string? returnUrl = null)
     {
+        if (!IsPlaceholderProviderEnabled())
+            return NotFound();
+
         var relayState = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
         var safeReturnUrl = NormalizeReturnUrl(returnUrl);
         var idpSsoUrl = configuration["Authentication:Saml:IdpSsoUrl"];
@@ -50,8 +60,8 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         Response.Cookies.Append(RelayStateCookie, relayState, new CookieOptions
         {
             HttpOnly = true,
-            Secure = Request.IsHttps,
-            SameSite = SameSiteMode.Lax,
+            Secure = true,
+            SameSite = SameSiteMode.None,
             Path = "/auth/saml/callback",
             MaxAge = TimeSpan.FromMinutes(relayStateTimeoutMinutes)
         });
@@ -82,10 +92,14 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
     [Consumes("application/x-www-form-urlencoded")]
     public async Task<IActionResult> Callback()
     {
+        if (!IsPlaceholderProviderEnabled())
+            return NotFound();
+
         if (!Request.HasFormContentType)
             return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion"));
 
         var form = await Request.ReadFormAsync();
+        var safeReturnUrl = NormalizeReturnUrl(form["returnUrl"].ToString());
         var relayState = form["RelayState"].ToString();
         var expectedRelayState = Request.Cookies[RelayStateCookie];
         Response.Cookies.Delete(RelayStateCookie, new CookieOptions { Path = "/auth/saml/callback" });
@@ -94,35 +108,38 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             string.IsNullOrWhiteSpace(expectedRelayState) ||
             !string.Equals(relayState, expectedRelayState, StringComparison.Ordinal))
         {
-            return Redirect(BuildLoginErrorRedirect("saml_csrf_failed"));
+            return Redirect(BuildLoginErrorRedirect("saml_csrf_failed", safeReturnUrl));
         }
 
         var samlResponse = form["SAMLResponse"].ToString();
         var assertion = ParseAssertion(samlResponse);
         if (assertion is null)
-            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion"));
+            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
 
         if (assertion.CertificateExpired)
-            return Redirect(BuildLoginErrorRedirect("saml_certificate_expired"));
+            return Redirect(BuildLoginErrorRedirect("saml_certificate_expired", safeReturnUrl));
 
         if (!assertion.SignatureValid)
-            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion"));
+            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
 
         if (!assertion.Encrypted)
-            return Redirect(BuildLoginErrorRedirect("saml_assertion_not_encrypted"));
+            return Redirect(BuildLoginErrorRedirect("saml_assertion_not_encrypted", safeReturnUrl));
 
         var nameId = assertion.NameId?.Trim();
         if (string.IsNullOrWhiteSpace(nameId))
-            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion"));
+            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
 
         var allowedNameIds = configuration
             .GetSection("Authentication:Saml:AllowedNameIds")
-            .Get<string[]>() ?? [];
+            .Get<string[]>()?
+            .Select(id => id?.Trim())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToArray() ?? [];
 
-        if (allowedNameIds.Length > 0 &&
+        if (allowedNameIds.Length == 0 ||
             !allowedNameIds.Contains(nameId, StringComparer.OrdinalIgnoreCase))
         {
-            return Redirect(BuildLoginErrorRedirect("saml_access_denied"));
+            return Redirect(BuildLoginErrorRedirect("saml_access_denied", safeReturnUrl));
         }
 
         var claims = new List<Claim>
@@ -147,8 +164,7 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
                 ExpiresUtc = DateTimeOffset.UtcNow.AddHours(GetAdminSessionDurationHours())
             });
 
-        var safeReturnUrl = NormalizeReturnUrl(form["returnUrl"].ToString());
-        return LocalRedirect(safeReturnUrl);
+        return RedirectToValidatedReturnUrl(safeReturnUrl);
     }
 
     [HttpPost("logout")]
@@ -167,20 +183,73 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         return $"{Request.Scheme}://{Request.Host}/auth/saml/callback";
     }
 
-    private static string NormalizeReturnUrl(string? returnUrl)
+    private string NormalizeReturnUrl(string? returnUrl)
     {
         if (string.IsNullOrWhiteSpace(returnUrl))
             return "/admin/journey-builder";
 
-        if (!Uri.IsWellFormedUriString(returnUrl, UriKind.Relative) ||
-            !returnUrl.StartsWith('/', StringComparison.Ordinal) ||
-            returnUrl.StartsWith("//", StringComparison.Ordinal))
+        if (Uri.TryCreate(returnUrl, UriKind.Relative, out _) &&
+            returnUrl.StartsWith("/", StringComparison.Ordinal) &&
+            !returnUrl.StartsWith("//", StringComparison.Ordinal))
         {
-            return "/admin/journey-builder";
+            return returnUrl;
         }
 
-        return returnUrl;
+        if (Uri.TryCreate(returnUrl, UriKind.Absolute, out var absoluteReturnUrl) &&
+            IsAllowedAbsoluteReturnUrl(absoluteReturnUrl))
+        {
+            return absoluteReturnUrl.ToString();
+        }
+
+        return "/admin/journey-builder";
     }
+
+    private bool IsAllowedAbsoluteReturnUrl(Uri returnUrl)
+    {
+        if (!string.Equals(returnUrl.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(returnUrl.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var currentOrigin = $"{Request.Scheme}://{Request.Host}";
+        var requestOriginMatches = string.Equals(
+            currentOrigin,
+            returnUrl.GetLeftPart(UriPartial.Authority),
+            StringComparison.OrdinalIgnoreCase);
+
+        if (requestOriginMatches)
+            return true;
+
+        var allowedReturnOrigins = configuration
+            .GetSection("Authentication:Saml:AllowedReturnOrigins")
+            .Get<string[]>() ?? [];
+
+        return allowedReturnOrigins.Contains(
+            returnUrl.GetLeftPart(UriPartial.Authority),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private IActionResult RedirectToValidatedReturnUrl(string safeReturnUrl)
+    {
+        if (Uri.TryCreate(safeReturnUrl, UriKind.Absolute, out _))
+            return Redirect(safeReturnUrl);
+
+        return LocalRedirect(safeReturnUrl);
+    }
+
+    private static string BuildLoginErrorRedirect(string errorCode, string? returnUrl)
+    {
+        var query = new Dictionary<string, string?> { ["error"] = errorCode };
+
+        if (!string.IsNullOrWhiteSpace(returnUrl))
+            query["returnUrl"] = returnUrl;
+
+        return QueryHelpers.AddQueryString("/login", query);
+    }
+
+    private bool IsPlaceholderProviderEnabled()
+        => configuration.GetValue<bool>("Authentication:Saml:EnablePlaceholderProvider");
 
     private static string BuildLoginErrorRedirect(string errorCode)
         => QueryHelpers.AddQueryString("/login", "error", errorCode);
@@ -207,7 +276,7 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         try
         {
             var jsonBytes = Convert.FromBase64String(encodedResponse);
-            return JsonSerializer.Deserialize<SamlAssertionPayload>(jsonBytes);
+            return JsonSerializer.Deserialize<SamlAssertionPayload>(jsonBytes, AssertionJsonOptions);
         }
         catch (FormatException)
         {

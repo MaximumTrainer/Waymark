@@ -31,7 +31,8 @@ public sealed class SamlAuthControllerTests
         using var factory = TestWebAppFactory.Create();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
-            AllowAutoRedirect = false
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://localhost")
         });
 
         var response = await client.GetAsync("/auth/saml/login?returnUrl=%2Fadmin%2Fjourney-builder");
@@ -39,7 +40,10 @@ public sealed class SamlAuthControllerTests
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
         Assert.Contains("RelayState=", response.Headers.Location!.Query);
-        Assert.Contains("__Host-waymark-saml-relay-state", response.Headers.Single(h => h.Key == "Set-Cookie").Value.First());
+        var setCookie = response.Headers.Single(h => h.Key == "Set-Cookie").Value.First();
+        Assert.Contains("__Secure-waymark-saml-relay-state", setCookie);
+        Assert.Contains("samesite=none", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -49,7 +53,8 @@ public sealed class SamlAuthControllerTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
-            HandleCookies = true
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
         });
 
         var loginResponse = await client.GetAsync("/auth/saml/login?returnUrl=%2Fadmin%2Fjourney-builder");
@@ -88,7 +93,8 @@ public sealed class SamlAuthControllerTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
-            HandleCookies = true
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
         });
 
         await client.GetAsync("/auth/saml/login");
@@ -104,11 +110,96 @@ public sealed class SamlAuthControllerTests
         var callbackResponse = await client.PostAsync("/auth/saml/callback", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["SAMLResponse"] = assertion,
-            ["RelayState"] = "invalid"
+            ["RelayState"] = "invalid",
+            ["returnUrl"] = "/admin/journey-builder"
         }));
 
         Assert.Equal(HttpStatusCode.Redirect, callbackResponse.StatusCode);
-        Assert.Equal("/login?error=saml_csrf_failed", callbackResponse.Headers.Location?.ToString());
+        Assert.Equal("/login?error=saml_csrf_failed&returnUrl=%2Fadmin%2Fjourney-builder", callbackResponse.Headers.Location?.ToString());
+    }
+
+    [Fact]
+    public async Task Callback_WhenAllowedNameIdsNotConfigured_FailsClosed()
+    {
+        using var factory = TestWebAppFactory.Create(configurationOverrides: new Dictionary<string, string?>
+        {
+            ["Authentication:Saml:AllowedNameIds:0"] = null
+        });
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
+        });
+
+        var loginResponse = await client.GetAsync("/auth/saml/login");
+        var relayState = QueryHelpers.ParseQuery(loginResponse.Headers.Location!.Query)["RelayState"].ToString();
+        var assertion = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
+        {
+            nameId = "admin@example.com",
+            signatureValid = true,
+            encrypted = true,
+            certificateExpired = false
+        })));
+
+        var callbackResponse = await client.PostAsync("/auth/saml/callback", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["SAMLResponse"] = assertion,
+            ["RelayState"] = relayState
+        }));
+
+        Assert.Equal(HttpStatusCode.Redirect, callbackResponse.StatusCode);
+        Assert.Equal("/login?error=saml_access_denied&returnUrl=%2Fadmin%2Fjourney-builder", callbackResponse.Headers.Location?.ToString());
+    }
+
+    [Fact]
+    public async Task Login_WhenPlaceholderProviderDisabled_ReturnsNotFound()
+    {
+        using var factory = TestWebAppFactory.Create(configurationOverrides: new Dictionary<string, string?>
+        {
+            ["Authentication:Saml:EnablePlaceholderProvider"] = "false"
+        });
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/auth/saml/login");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Callback_WhenReturnUrlIsAllowedAbsoluteUrl_RedirectsToFrontendOrigin()
+    {
+        using var factory = TestWebAppFactory.Create(configurationOverrides: new Dictionary<string, string?>
+        {
+            ["Authentication:Saml:AllowedReturnOrigins:0"] = "https://frontend.example.test"
+        });
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
+        });
+
+        const string frontendReturnUrl = "https://frontend.example.test/admin/journey-builder";
+        var loginResponse = await client.GetAsync($"/auth/saml/login?returnUrl={Uri.EscapeDataString(frontendReturnUrl)}");
+        var relayState = QueryHelpers.ParseQuery(loginResponse.Headers.Location!.Query)["RelayState"].ToString();
+        var assertion = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
+        {
+            nameId = "admin@example.com",
+            signatureValid = true,
+            encrypted = true,
+            certificateExpired = false
+        })));
+
+        var callbackResponse = await client.PostAsync("/auth/saml/callback", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["SAMLResponse"] = assertion,
+            ["RelayState"] = relayState,
+            ["returnUrl"] = frontendReturnUrl
+        }));
+
+        Assert.Equal(HttpStatusCode.Redirect, callbackResponse.StatusCode);
+        Assert.Equal(frontendReturnUrl, callbackResponse.Headers.Location?.ToString());
     }
 
     private sealed class AuthMeResponse

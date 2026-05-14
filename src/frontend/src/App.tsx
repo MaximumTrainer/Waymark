@@ -92,6 +92,15 @@ function buildApiUrl(path: string) {
   return `${apiBase}${path}`
 }
 
+function shouldUseAbsoluteReturnUrl() {
+  const apiOrigin = new URL(buildApiUrl('/api/auth/me'), window.location.origin).origin
+  return apiOrigin !== window.location.origin
+}
+
+function buildReturnUrl(path: string) {
+  return shouldUseAbsoluteReturnUrl() ? `${window.location.origin}${path}` : path
+}
+
 function App() {
   const { step, startSession, submitStep, isLoading, error } = useOnboarding()
   const apiKey = import.meta.env.VITE_API_KEY || undefined
@@ -166,14 +175,14 @@ function App() {
 
     fetch(buildApiUrl('/api/auth/me'), { credentials: 'include' })
       .then(async (response) => {
-        if (!response.ok) return { authenticated: false } satisfies AuthMeResponse
+        if (!response.ok) throw new Error('auth_check_failed')
         return (await response.json()) as AuthMeResponse
       })
       .then((identity) => {
         const isAuthorized = identity.authenticated && (identity.roles ?? []).includes('Operator')
         if (!isAuthorized) {
           setAdminAuthState('unauthorized')
-          navigate(`/login?returnUrl=${encodeURIComponent(currentPath)}`, true)
+          navigate(`/login?returnUrl=${encodeURIComponent(buildReturnUrl(currentPath))}`, true)
           return
         }
 
@@ -181,14 +190,14 @@ function App() {
       })
       .catch(() => {
         setAdminAuthState('unauthorized')
-        navigate(`/login?error=auth_check_failed&returnUrl=${encodeURIComponent(currentPath)}`, true)
+        navigate(`/login?error=auth_check_failed&returnUrl=${encodeURIComponent(buildReturnUrl(currentPath))}`, true)
       })
   }, [currentPath, isAdminJourneyBuilderRoute, navigate])
 
   if (isLoginRoute) {
     const params = new URLSearchParams(currentSearch)
     const errorCode = params.get('error')
-    const returnUrl = params.get('returnUrl') ?? '/admin/journey-builder'
+    const returnUrl = params.get('returnUrl') ?? buildReturnUrl('/admin/journey-builder')
     const message = errorCode ? (LOGIN_ERROR_MESSAGES[errorCode] ?? 'Authentication failed.') : null
     const loginUrl = `${buildApiUrl('/auth/saml/login')}?${new URLSearchParams({ returnUrl }).toString()}`
 
