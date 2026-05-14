@@ -113,7 +113,11 @@ function App() {
   )
 
   useEffect(() => {
-    if (currentPath === '/login' || (currentPath.startsWith('/admin/journey-builder') && adminAuthState !== 'authorized')) {
+    if (currentPath === '/login') {
+      return
+    }
+
+    if (currentPath.startsWith('/admin/journey-builder') && adminAuthState !== 'authorized') {
       return
     }
 
@@ -186,7 +190,7 @@ function App() {
     const errorCode = params.get('error')
     const returnUrl = params.get('returnUrl') ?? '/admin/journey-builder'
     const message = errorCode ? (LOGIN_ERROR_MESSAGES[errorCode] ?? 'Authentication failed.') : null
-    const loginUrl = `${buildApiUrl('/auth/saml/login')}?returnUrl=${encodeURIComponent(returnUrl)}`
+    const loginUrl = `${buildApiUrl('/auth/saml/login')}?${new URLSearchParams({ returnUrl }).toString()}`
 
     return (
       <main className="mx-auto flex min-h-screen max-w-xl items-center p-6">

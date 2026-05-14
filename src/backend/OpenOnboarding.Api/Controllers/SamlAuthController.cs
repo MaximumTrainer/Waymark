@@ -42,7 +42,9 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
     {
         var relayState = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
         var safeReturnUrl = NormalizeReturnUrl(returnUrl);
-        var idpSsoUrl = configuration["Authentication:Saml:IdpSsoUrl"] ?? "/login";
+        var idpSsoUrl = configuration["Authentication:Saml:IdpSsoUrl"];
+        if (string.IsNullOrWhiteSpace(idpSsoUrl))
+            throw new InvalidOperationException("Authentication:Saml:IdpSsoUrl must be configured.");
         var relayStateTimeoutMinutes = GetRelayStateTimeoutMinutes();
 
         Response.Cookies.Append(RelayStateCookie, relayState, new CookieOptions
@@ -54,6 +56,9 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             MaxAge = TimeSpan.FromMinutes(relayStateTimeoutMinutes)
         });
 
+        // Placeholder wire format:
+        // Until full SAML XML tooling is integrated, we encode a compact JSON envelope that
+        // tests and local mocks can round-trip deterministically.
         var samlRequestPayload = new
         {
             issuer = configuration["Authentication:Saml:Issuer"] ?? "waymark-service-provider",
@@ -197,6 +202,8 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         if (string.IsNullOrWhiteSpace(encodedResponse))
             return null;
 
+        // Placeholder wire format:
+        // IdP assertions are expected to be base64-encoded JSON in this temporary implementation.
         try
         {
             var jsonBytes = Convert.FromBase64String(encodedResponse);

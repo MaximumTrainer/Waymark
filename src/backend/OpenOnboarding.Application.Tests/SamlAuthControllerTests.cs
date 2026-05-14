@@ -20,8 +20,9 @@ public sealed class SamlAuthControllerTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/samlmetadata+xml; charset=utf-8", response.Content.Headers.ContentType?.ToString());
         var metadata = await response.Content.ReadAsStringAsync();
+        var expectedAcs = $"{client.BaseAddress!.GetLeftPart(UriPartial.Authority)}/auth/saml/callback";
         Assert.Contains("EntityDescriptor", metadata);
-        Assert.Contains("/auth/saml/callback", metadata);
+        Assert.Contains(expectedAcs, metadata);
     }
 
     [Fact]
