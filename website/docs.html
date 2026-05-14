@@ -325,7 +325,7 @@ X-Api-Key: dev-api-key-change-in-production
           <table>
             <thead><tr><th>Journey JSON field</th><th>Frontend usage</th><th>Result</th></tr></thead>
             <tbody>
-              <tr><td><code>flowId</code></td><td><code>App.tsx</code> + <code>useOnboarding</code></td><td>Starts a session for the selected journey.</td></tr>
+              <tr><td><code>id</code> (selected flow)</td><td><code>App.tsx</code> + <code>useOnboarding</code></td><td>Passed as <code>StartSessionRequest.flowId</code> to start a session.</td></tr>
               <tr><td><code>nodes[].type</code></td><td><code>StepRenderer.tsx</code></td><td>Selects rendered step UI (Form, DocumentUpload, Redirect, Information, Logic).</td></tr>
               <tr><td><code>nodes[].jsonContent</code></td><td><code>StepRenderer.tsx</code></td><td>Parsed into dynamic form/upload/redirect configuration.</td></tr>
               <tr><td><code>connections[]</code></td><td>Engine + <code>JourneyBuilder.tsx</code></td><td>Controls branching and edge labels in the graph.</td></tr>
@@ -345,7 +345,7 @@ X-Api-Key: dev-api-key-change-in-production
           </div>
           <p>
             For a complete real example already included in this repository, see
-            <a href="../src/frontend/src/schemas/flow-definition.example.json" class="text-brand-400 hover:text-brand-300">
+            <a href="https://github.com/MaximumTrainer/Waymark/blob/main/src/frontend/src/schemas/flow-definition.example.json" class="text-brand-400 hover:text-brand-300">
               <code>src/frontend/src/schemas/flow-definition.example.json</code>
             </a>.
           </p>

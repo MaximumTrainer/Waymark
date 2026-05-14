@@ -71,7 +71,7 @@ Waymark evaluates this graph at runtime to decide the next step for each session
 
 ## Structure reference
 
-### Top-level flow fields
+### Create/update payload fields (`POST /api/flows`, `PUT /api/flows/{flowId}`)
 
 | Field | Required | Description |
 |---|---|---|
@@ -84,11 +84,11 @@ Waymark evaluates this graph at runtime to decide the next step for each session
 
 | Field | Required | Description |
 |---|---|---|
-| `id` | Yes | GUID for node identity and edge linkage. |
+| `id` | No | GUID for node identity and edge linkage (defaults to a generated GUID when omitted). |
 | `key` | Yes | Stable logical identifier (slug-like). |
 | `type` | Yes | `Form`, `DocumentUpload`, `Redirect`, `Information`, or `Logic`. |
 | `title` | Yes | Label/instruction rendered in the UI. |
-| `jsonContent` | Yes | Type-specific JSON serialized as a string (use the JSON string `"{}"` when the node type does not need additional config). |
+| `jsonContent` | No | Type-specific JSON serialized as a string (defaults to the JSON string `"{}"` when omitted). |
 | `complianceRuleJson` | No | Optional validation rules JSON (string). |
 | `isStartNode` | Yes | Exactly one node in a journey should be `true`. |
 
@@ -103,13 +103,21 @@ Waymark evaluates this graph at runtime to decide the next step for each session
 | `conditionValue` | No | Value used by the operator. |
 | `priority` | Yes | Evaluation order (ascending). |
 
+### Read model fields returned by the API (`GET /api/flows/{flowId}`)
+
+The API response includes additional identity/version fields that are not part of the write payload:
+
+- Top-level flow: `id`, `version`
+- Node objects: `id`, `flowId`
+- Connection objects: `id`, `flowId`
+
 ## Frontend linkage
 
 The journey JSON links directly to frontend behavior:
 
 | Journey JSON field | Frontend component/hook | Effect |
 |---|---|---|
-| `flowId` | `App.tsx` + `useOnboarding` | Starts a session for the selected journey. |
+| `id` (selected flow) | `App.tsx` + `useOnboarding` | Passed as `StartSessionRequest.flowId` to start a session for the selected journey. |
 | `nodes[].type` | `StepRenderer.tsx` | Chooses which UI is rendered for the current step. |
 | `nodes[].jsonContent` | `StepRenderer.tsx` | Parsed to build dynamic form fields, upload config, redirect URL, etc. |
 | `nodes[].complianceRuleJson` | API + `ComplianceError` handling in `StepRenderer.tsx` | Server validates payload and returns field/global errors. |
