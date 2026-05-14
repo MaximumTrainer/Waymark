@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Tests.TestHelpers;
@@ -202,7 +202,8 @@ public sealed class SessionAnalyticsServiceTests
             new InMemorySessionEventEmitter(),
             new NoOpWebhookService(),
             null,
-            new NoOpDocumentStorageService());
+            new NoOpDocumentStorageService(),
+            new NoOpMetricsService());
     }
 
     /// <summary>Single-step flow that has no outgoing connections so it completes immediately.</summary>

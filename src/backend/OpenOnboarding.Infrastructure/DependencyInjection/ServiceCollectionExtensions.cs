@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,7 +44,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWebhookHttpClient, HttpWebhookClient>();
         services.AddScoped<IWebhookService>(sp => new WebhookService(
             sp.GetRequiredService<OnboardingDbContext>(),
-            sp.GetRequiredService<IWebhookHttpClient>()));
+            sp.GetRequiredService<IWebhookHttpClient>(),
+            sp.GetRequiredService<IMetricsService>()));
 
         services.AddSingleton<IMetricsService, PrometheusMetricsService>();
 

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Application.Tests.TestHelpers;
 using OpenOnboarding.Domain.Entities;
@@ -62,7 +62,7 @@ public sealed class WebhookRetryTests
     {
         // No-op delay by default so tests run fast
         delayProvider ??= (_, _) => Task.CompletedTask;
-        return new WebhookService(db, fakeClient, delayProvider);
+        return new WebhookService(db, fakeClient, new NoOpMetricsService(), delayProvider);
     }
 
     // ── Tests ─────────────────────────────────────────────────────────────────

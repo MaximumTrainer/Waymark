@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -498,7 +498,8 @@ public sealed class WorkflowServiceTests
             new InMemorySessionEventEmitter(),
             new NoOpWebhookService(),
             null,
-            new NoOpDocumentStorageService());
+            new NoOpDocumentStorageService(),
+            new NoOpMetricsService());
     }
 
     private static OnboardingDbContext BuildDbContext()

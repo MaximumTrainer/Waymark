@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Interfaces;
@@ -9,11 +9,14 @@ public sealed class LocalDocumentStorageService : IDocumentStorageService
 {
     private readonly string _basePath;
 
-    public LocalDocumentStorageService(IWebHostEnvironment env)
+    private readonly IVirusScanService _virusScanService;
+
+    public LocalDocumentStorageService(IWebHostEnvironment env, IVirusScanService virusScanService)
     {
         _basePath = Path.Combine(
             env.WebRootPath ?? env.ContentRootPath,
             "uploads");
+        _virusScanService = virusScanService;
     }
 
     public async Task<StoredFileInfo> StoreAsync(Stream stream, string fileName, string contentType, CancellationToken cancellationToken = default)
@@ -55,8 +58,17 @@ public sealed class LocalDocumentStorageService : IDocumentStorageService
         return (stream, info);
     }
 
-    public Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
+    public async Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(new ScanResult(true, null));
+        if (fileId.Length >= 2)
+        {
+            var filePath = Path.Combine(_basePath, fileId[..2], fileId);
+            if (File.Exists(filePath))
+            {
+                await using var stream = File.OpenRead(filePath);
+                return await _virusScanService.ScanAsync(stream, cancellationToken);
+            }
+        }
+        return await _virusScanService.ScanAsync(Stream.Null, cancellationToken);
     }
 }

@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +13,12 @@ namespace OpenOnboarding.Infrastructure.Services;
 public sealed class WebhookService(
     OnboardingDbContext dbContext,
     IWebhookHttpClient webhookHttpClient,
+    IMetricsService metricsService,
     Func<int, CancellationToken, Task>? delayProvider = null) : IWebhookService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly Func<int, CancellationToken, Task> _delay = delayProvider ?? ((ms, ct) => Task.Delay(ms, ct));
+    private readonly IMetricsService _metricsService = metricsService;
 
     public async Task<WebhookDto> RegisterAsync(Guid flowId, string url, string secret, CancellationToken cancellationToken = default)
     {
@@ -120,12 +122,14 @@ public sealed class WebhookService(
                 delivery.Status = "delivered";
                 delivery.DeliveredAt = DateTimeOffset.UtcNow;
                 await dbContext.SaveChangesAsync();
+                _metricsService.IncrementWebhookDeliveries("delivered");
                 return;
             }
         }
 
         delivery.Status = "failed";
         await dbContext.SaveChangesAsync();
+            _metricsService.IncrementWebhookDeliveries("failed");
     }
 
     private static string ComputeSignature(string payload, string secret)

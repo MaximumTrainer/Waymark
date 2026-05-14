@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentValidation;
@@ -25,7 +25,8 @@ public sealed class WorkflowService(
     ISessionEventEmitter eventEmitter,
     IWebhookService webhookService,
     IServiceScopeFactory? serviceScopeFactory,
-    IDocumentStorageService documentStorageService) : IWorkflowService
+    IDocumentStorageService documentStorageService,
+    IMetricsService metricsService) : IWorkflowService
 {
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IReadOnlyList<ILogicNodeExecutor> _logicNodeExecutors = logicNodeExecutors.ToList();
@@ -62,6 +63,7 @@ public sealed class WorkflowService(
 
         dbContext.Sessions.Add(session);
         await dbContext.SaveChangesAsync(cancellationToken);
+        metricsService.IncrementSessionsStarted(flow.Id.ToString());
 
         return new SessionStepResponse
         {
@@ -154,6 +156,9 @@ public sealed class WorkflowService(
         session.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (nextNode is null)
+            metricsService.IncrementSessionsCompleted(session.FlowId.ToString());
 
         var response = new SessionStepResponse
         {
@@ -560,7 +565,17 @@ public sealed class WorkflowService(
         foreach (var file in files)
         {
             var info = await documentStorageService.StoreAsync(file.Stream, file.FileName, file.ContentType, cancellationToken);
-            await documentStorageService.ScanAsync(info.FileId, cancellationToken);
+            ScanResult scanResult;
+            try
+            {
+                scanResult = await documentStorageService.ScanAsync(info.FileId, cancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                throw new ScanServiceUnavailableException();
+            }
+            if (!scanResult.IsSafe)
+                throw new ScanFailedException(file.FileName, scanResult.ThreatName ?? "Unknown");
             stored.Add(info);
         }
 

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -532,7 +532,8 @@ public sealed class LogicNodeExecutorTests
             new InMemorySessionEventEmitter(),
             new NoOpWebhookService(),
             null,
-            new NoOpDocumentStorageService());
+            new NoOpDocumentStorageService(),
+            new NoOpMetricsService());
     }
 
     private static OnboardingDbContext BuildDbContext()

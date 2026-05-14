@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Interfaces;
@@ -21,7 +21,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env);
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
 
             var content = "hello world"u8.ToArray();
             using var stream = new MemoryStream(content);
@@ -49,7 +49,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env);
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
 
             var content = "test content"u8.ToArray();
             using var storeStream = new MemoryStream(content);
@@ -81,7 +81,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env);
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
 
             await Assert.ThrowsAsync<NotFoundException>(() =>
                 service.GetStreamAsync("nonexistentfileid00000000000000"));
@@ -101,7 +101,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env);
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
 
             var result = await service.ScanAsync("anyfileid");
             Assert.True(result.IsSafe);
@@ -292,7 +292,8 @@ public sealed class WorkflowServiceEmitsEventsTests
             emitter,
             new NoOpWebhookService(),
             null,
-            new NoOpDocumentStorageService());
+            new NoOpDocumentStorageService(),
+            new NoOpMetricsService());
     }
 
     private static OnboardingDbContext BuildDbContext()
@@ -376,4 +377,195 @@ internal sealed class NoOpDocumentStorageService : IDocumentStorageService
 
     public Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
         => Task.FromResult(new ScanResult(true, null));
+}
+/// <summary>Test stub: always returns infected scan result.</summary>
+internal sealed class InfectedDocumentStorageService : IDocumentStorageService
+{
+    public Task<StoredFileInfo> StoreAsync(Stream stream, string fileName, string contentType, CancellationToken cancellationToken = default)
+        => Task.FromResult(new StoredFileInfo(Guid.NewGuid().ToString("N"), fileName, contentType, 0, DateTimeOffset.UtcNow));
+
+    public Task<(Stream Stream, StoredFileInfo Info)> GetStreamAsync(string fileId, CancellationToken cancellationToken = default)
+    {
+        Stream s = new MemoryStream();
+        var info = new StoredFileInfo(fileId, "file", "application/octet-stream", 0, DateTimeOffset.UtcNow);
+        return Task.FromResult((s, info));
+    }
+
+    public Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new ScanResult(false, "Eicar.Test.Virus"));
+}
+
+/// <summary>Test stub: scan always throws TimeoutException (simulates ClamAV unavailable).</summary>
+internal sealed class UnavailableScanDocumentStorageService : IDocumentStorageService
+{
+    public Task<StoredFileInfo> StoreAsync(Stream stream, string fileName, string contentType, CancellationToken cancellationToken = default)
+        => Task.FromResult(new StoredFileInfo(Guid.NewGuid().ToString("N"), fileName, contentType, 0, DateTimeOffset.UtcNow));
+
+    public Task<(Stream Stream, StoredFileInfo Info)> GetStreamAsync(string fileId, CancellationToken cancellationToken = default)
+    {
+        Stream s = new MemoryStream();
+        var info = new StoredFileInfo(fileId, "file", "application/octet-stream", 0, DateTimeOffset.UtcNow);
+        return Task.FromResult((s, info));
+    }
+
+    public Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
+        => Task.FromException<ScanResult>(new TimeoutException("ClamAV timed out"));
+}
+
+/// <summary>Test stub: records calls to IncrementSessionsStarted.</summary>
+internal sealed class RecordingMetricsService : IMetricsService
+{
+    public int SessionsStarted { get; private set; }
+    public void IncrementSessionsStarted(string flowId) => SessionsStarted++;
+    public void IncrementSessionsCompleted(string flowId) { }
+    public void IncrementWebhookDeliveries(string status) { }
+    public void SetActiveSessions(int count) { }
+}
+
+public sealed class VirusScanWorkflowServiceTests
+{
+    [Fact]
+    public async Task UploadDocumentsAsync_ThrowsScanFailedException_WhenFileIsInfected()
+    {
+        var (db, uploadNode, session) = BuildUploadScenario();
+        var svc = BuildService(db, new InfectedDocumentStorageService());
+        var upload = new DocumentUploadItem(new MemoryStream(new byte[] { 1 }), "test.pdf", "application/pdf", 1);
+
+        await Assert.ThrowsAsync<ScanFailedException>(
+            () => svc.UploadDocumentsAsync(session.Id, uploadNode.Id, [upload], long.MaxValue));
+    }
+
+    [Fact]
+    public async Task UploadDocumentsAsync_ThrowsScanServiceUnavailableException_WhenScanTimesOut()
+    {
+        var (db, uploadNode, session) = BuildUploadScenario();
+        var svc = BuildService(db, new UnavailableScanDocumentStorageService());
+        var upload = new DocumentUploadItem(new MemoryStream(new byte[] { 1 }), "test.pdf", "application/pdf", 1);
+
+        await Assert.ThrowsAsync<ScanServiceUnavailableException>(
+            () => svc.UploadDocumentsAsync(session.Id, uploadNode.Id, [upload], long.MaxValue));
+    }
+
+    private static (OnboardingDbContext Db, Node UploadNode, Session Session) BuildUploadScenario()
+    {
+        var options = new DbContextOptionsBuilder<OnboardingDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        var db = new OnboardingDbContext(options);
+        var flowId = Guid.NewGuid();
+        var uploadNode = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = flowId,
+            Key = "upload",
+            Title = "Upload",
+            Type = NodeType.DocumentUpload,
+            IsStartNode = true
+        };
+        var flow = new Flow
+        {
+            Id = flowId,
+            Name = "Scan Test",
+            Nodes = new List<Node> { uploadNode }
+        };
+        db.Flows.Add(flow);
+        var session = new Session
+        {
+            Id = Guid.NewGuid(),
+            FlowId = flowId,
+            Flow = flow,
+            CurrentNodeId = uploadNode.Id,
+            Status = SessionStatus.Started
+        };
+        db.Sessions.Add(session);
+        db.SaveChanges();
+        return (db, uploadNode, session);
+    }
+
+    private static WorkflowService BuildService(OnboardingDbContext db, IDocumentStorageService documentStorage)
+    {
+        var customerService = new CustomerService(db,
+            new Application.Validators.CreateCustomerRequestValidator(),
+            new Application.Validators.UpdateCustomerRequestValidator());
+        return new WorkflowService(
+            db,
+            new Application.Validators.StartSessionRequestValidator(),
+            new Application.Validators.SubmitStepRequestValidator(),
+            customerService,
+            new ComplianceRuleEvaluator(),
+            NullLogger<WorkflowService>.Instance,
+            [],
+            new InMemorySessionEventEmitter(),
+            new NoOpWebhookService(),
+            null,
+            documentStorage,
+            new NoOpMetricsService());
+    }
+}
+
+public sealed class MetricsWorkflowServiceTests
+{
+    [Fact]
+    public async Task StartSessionAsync_CallsIncrementSessionsStarted()
+    {
+        var options = new DbContextOptionsBuilder<OnboardingDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var db = new OnboardingDbContext(options);
+        var flowId = Guid.NewGuid();
+        var startNode = new Node
+        {
+            Id = Guid.NewGuid(),
+            FlowId = flowId,
+            Key = "info",
+            Title = "Info",
+            Type = NodeType.Information,
+            IsStartNode = true
+        };
+        var flow = new Flow
+        {
+            Id = flowId,
+            Name = "Metrics Test",
+            Nodes = new List<Node> { startNode }
+        };
+        db.Flows.Add(flow);
+        await db.SaveChangesAsync();
+
+        var metrics = new RecordingMetricsService();
+        var customerService = new CustomerService(db,
+            new Application.Validators.CreateCustomerRequestValidator(),
+            new Application.Validators.UpdateCustomerRequestValidator());
+        var svc = new WorkflowService(
+            db,
+            new Application.Validators.StartSessionRequestValidator(),
+            new Application.Validators.SubmitStepRequestValidator(),
+            customerService,
+            new ComplianceRuleEvaluator(),
+            NullLogger<WorkflowService>.Instance,
+            [],
+            new InMemorySessionEventEmitter(),
+            new NoOpWebhookService(),
+            null,
+            new NoOpDocumentStorageService(),
+            metrics);
+
+        await svc.StartSessionAsync(new Application.Contracts.StartSessionRequest { FlowId = flow.Id });
+
+        Assert.Equal(1, metrics.SessionsStarted);
+    }
+}
+
+public sealed class MetricsEndpointAuthTests
+{
+    [Fact]
+    public async Task GetMetrics_Returns401_WithoutApiKey()
+    {
+        await using var factory = TestWebAppFactory.Create();
+        var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var response = await client.GetAsync("/metrics");
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

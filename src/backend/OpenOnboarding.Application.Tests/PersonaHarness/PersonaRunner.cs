@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Tests.TestHelpers;
@@ -144,6 +144,7 @@ public sealed class PersonaRunner
             new InMemorySessionEventEmitter(),
             new NoOpWebhookService(),
             serviceScopeFactory: null,
-            new NoOpDocumentStorageService());
+            new NoOpDocumentStorageService(),
+            new NoOpMetricsService());
     }
 }
