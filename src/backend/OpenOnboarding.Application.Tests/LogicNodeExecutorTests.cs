@@ -1,7 +1,9 @@
 ﻿using System.Net;
 using System.Net.Http;
 using System.Text.Json;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Interfaces;
@@ -514,26 +516,27 @@ public sealed class LogicNodeExecutorTests
 
     // ─── Helpers ──────────────────────────────────────────────────────
 
-    private static WorkflowService CreateService(OnboardingDbContext dbContext, IEnumerable<ILogicNodeExecutor>? executors = null)
+    private static IWorkflowService CreateService(OnboardingDbContext dbContext, IEnumerable<ILogicNodeExecutor>? executors = null)
     {
-        var customerService = new CustomerService(
-            dbContext,
-            new CreateCustomerRequestValidator(),
-            new UpdateCustomerRequestValidator());
-
-        return new WorkflowService(
-            dbContext,
-            new StartSessionRequestValidator(),
-            new SubmitStepRequestValidator(),
-            customerService,
-            new ComplianceRuleEvaluator(),
-            NullLogger<WorkflowService>.Instance,
-            executors ?? [],
-            new InMemorySessionEventEmitter(),
-            new NoOpWebhookService(),
-            null,
-            new NoOpDocumentStorageService(),
-            new NoOpMetricsService());
+        var services = new ServiceCollection();
+        services.AddSingleton(dbContext);
+        services.AddLogging();
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
+        services.AddScoped<IValidator<StartSessionRequest>, StartSessionRequestValidator>();
+        services.AddScoped<IValidator<SubmitStepRequest>, SubmitStepRequestValidator>();
+        services.AddScoped<ICustomerService>(_ => new CustomerService(dbContext, new CreateCustomerRequestValidator(), new UpdateCustomerRequestValidator()));
+        services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
+        services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+        services.AddSingleton<IWebhookService, NoOpWebhookService>();
+        services.AddSingleton<IDocumentStorageService, NoOpDocumentStorageService>();
+        services.AddSingleton<IMetricsService, NoOpMetricsService>();
+        services.AddSingleton<IVirusScanService, NullVirusScanService>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
+        if (executors is not null)
+            foreach (var executor in executors)
+                services.AddSingleton<ILogicNodeExecutor>(executor);
+        services.AddScoped<IWorkflowService, WorkflowService>();
+        return services.BuildServiceProvider().GetRequiredService<IWorkflowService>();
     }
 
     private static OnboardingDbContext BuildDbContext()

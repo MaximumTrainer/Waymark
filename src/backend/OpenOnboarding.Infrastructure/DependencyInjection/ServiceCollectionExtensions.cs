@@ -1,12 +1,15 @@
-﻿using FluentValidation;
+using FluentValidation;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Contracts.Flows;
 using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Application.Validators;
+using OpenOnboarding.Infrastructure.EventBus;
 using OpenOnboarding.Infrastructure.Persistence;
 using OpenOnboarding.Infrastructure.Services;
 
@@ -20,6 +23,9 @@ public static class ServiceCollectionExtensions
             ?? throw new InvalidOperationException("Connection string 'OnboardingDb' must be configured.");
 
         services.AddDbContext<OnboardingDbContext>(options => options.UseNpgsql(connectionString));
+
+        // Register MediatR (handlers are in Infrastructure assembly)
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ServiceCollectionExtensions).Assembly));
 
         services.AddScoped<IWorkflowService, WorkflowService>();
         services.AddScoped<ISessionAnalyticsService, SessionAnalyticsService>();
@@ -67,6 +73,20 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILogicNodeExecutor, SetProfileFieldExecutor>();
         services.AddScoped<ILogicNodeExecutor, HttpCallbackExecutor>();
         services.AddScoped<ILogicNodeExecutor, MockVerificationExecutor>();
+
+        // IEventBus: use InMemoryEventBus by default, RabbitMQ if configured
+        var eventBusType = configuration.GetValue<string>("EventBus:Type");
+        if (eventBusType?.Equals("rabbitmq", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            var rabbitUri = configuration.GetValue<string>("EventBus:RabbitMq:Uri") ?? "amqp://guest:guest@localhost:5672/";
+            var exchange = configuration.GetValue<string>("EventBus:RabbitMq:Exchange") ?? "waymark-events";
+            services.AddSingleton<IEventBus>(sp =>
+                RabbitMqEventBus.CreateAsync(rabbitUri, exchange, sp.GetRequiredService<ILogger<RabbitMqEventBus>>()).GetAwaiter().GetResult());
+        }
+        else
+        {
+            services.AddScoped<IEventBus, InMemoryEventBus>();
+        }
 
         return services;
     }

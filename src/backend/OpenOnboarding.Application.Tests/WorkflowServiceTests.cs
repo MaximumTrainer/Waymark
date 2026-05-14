@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -480,26 +481,34 @@ public sealed class WorkflowServiceTests
             serviceType == typeof(OnboardingDbContext) ? dbContext : null;
     }
 
-    private static WorkflowService CreateService(OnboardingDbContext dbContext, IEnumerable<ILogicNodeExecutor>? executors = null)
+    private static IWorkflowService CreateService(OnboardingDbContext dbContext, IEnumerable<ILogicNodeExecutor>? executors = null)
     {
-        var customerService = new CustomerService(
-            dbContext,
-            new CreateCustomerRequestValidator(),
-            new UpdateCustomerRequestValidator());
+        var services = new ServiceCollection();
 
-        return new WorkflowService(
-            dbContext,
-            new StartSessionRequestValidator(),
-            new SubmitStepRequestValidator(),
-            customerService,
-            new ComplianceRuleEvaluator(),
-            NullLogger<WorkflowService>.Instance,
-            executors ?? [],
-            new InMemorySessionEventEmitter(),
-            new NoOpWebhookService(),
-            null,
-            new NoOpDocumentStorageService(),
-            new NoOpMetricsService());
+        services.AddSingleton(dbContext);
+        services.AddLogging();
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
+
+        services.AddScoped<IValidator<StartSessionRequest>, StartSessionRequestValidator>();
+        services.AddScoped<IValidator<SubmitStepRequest>, SubmitStepRequestValidator>();
+
+        services.AddScoped<ICustomerService>(_ => new CustomerService(dbContext, new CreateCustomerRequestValidator(), new UpdateCustomerRequestValidator()));
+        services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
+        services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+        services.AddSingleton<IWebhookService, NoOpWebhookService>();
+        services.AddSingleton<IDocumentStorageService, NoOpDocumentStorageService>();
+        services.AddSingleton<IMetricsService, NoOpMetricsService>();
+        services.AddSingleton<IVirusScanService, NullVirusScanService>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
+
+        if (executors is not null)
+            foreach (var executor in executors)
+                services.AddSingleton<ILogicNodeExecutor>(executor);
+
+        services.AddScoped<IWorkflowService, WorkflowService>();
+
+        var sp = services.BuildServiceProvider();
+        return sp.GetRequiredService<IWorkflowService>();
     }
 
     private static OnboardingDbContext BuildDbContext()

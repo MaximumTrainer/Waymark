@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OpenOnboarding.Domain.Entities;
+using OpenOnboarding.Domain.ReadModels;
 
 namespace OpenOnboarding.Infrastructure.Persistence;
 
@@ -14,6 +15,7 @@ public sealed class OnboardingDbContext(DbContextOptions<OnboardingDbContext> op
     public DbSet<CustomerProfile> CustomerProfiles => Set<CustomerProfile>();
     public DbSet<Webhook> Webhooks => Set<Webhook>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+    public DbSet<SessionReadModel> SessionReadModels => Set<SessionReadModel>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -114,6 +116,23 @@ public sealed class OnboardingDbContext(DbContextOptions<OnboardingDbContext> op
                 .OnDelete(DeleteBehavior.Cascade);
             // Index for filtering deliveries by status (#59)
             b.HasIndex(x => new { x.WebhookId, x.Status });
+        });
+
+        // ── SessionReadModel (CQRS read side) ─────────────────────────────
+        modelBuilder.Entity<SessionReadModel>(b =>
+        {
+            b.ToTable("SessionReadModels");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.FlowName).HasMaxLength(200);
+            b.Property(x => x.CustomerEmail).HasMaxLength(320);
+            b.Property(x => x.CustomerCountry).HasMaxLength(10);
+            b.Property(x => x.ExternalCustomerId).HasMaxLength(200);
+            b.Property(x => x.CurrentNodeKey).HasMaxLength(100);
+            b.Property(x => x.CurrentNodeTitle).HasMaxLength(200);
+            b.Property(x => x.StatusName).HasMaxLength(20);
+            b.HasIndex(x => x.FlowId);
+            b.HasIndex(x => x.StatusName);
+            b.HasIndex(new[] { nameof(SessionReadModel.FlowId), nameof(SessionReadModel.StatusName) });
         });
     }
 }

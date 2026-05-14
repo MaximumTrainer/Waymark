@@ -1,6 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
+using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Application.Tests.TestHelpers;
 using OpenOnboarding.Application.Validators;
 using OpenOnboarding.Domain.Entities;
@@ -126,25 +129,23 @@ public sealed class PersonaRunner
         return new OnboardingDbContext(options);
     }
 
-    private static WorkflowService CreateWorkflowService(OnboardingDbContext db)
+    private static IWorkflowService CreateWorkflowService(OnboardingDbContext db)
     {
-        var customerService = new CustomerService(
-            db,
-            new CreateCustomerRequestValidator(),
-            new UpdateCustomerRequestValidator());
-
-        return new WorkflowService(
-            db,
-            new StartSessionRequestValidator(),
-            new SubmitStepRequestValidator(),
-            customerService,
-            new ComplianceRuleEvaluator(),
-            NullLogger<WorkflowService>.Instance,
-            logicNodeExecutors: [],
-            new InMemorySessionEventEmitter(),
-            new NoOpWebhookService(),
-            serviceScopeFactory: null,
-            new NoOpDocumentStorageService(),
-            new NoOpMetricsService());
+        var services = new ServiceCollection();
+        services.AddSingleton(db);
+        services.AddLogging();
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
+        services.AddScoped<IValidator<StartSessionRequest>, StartSessionRequestValidator>();
+        services.AddScoped<IValidator<SubmitStepRequest>, SubmitStepRequestValidator>();
+        services.AddScoped<ICustomerService>(_ => new CustomerService(db, new CreateCustomerRequestValidator(), new UpdateCustomerRequestValidator()));
+        services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
+        services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+        services.AddSingleton<IWebhookService, NoOpWebhookService>();
+        services.AddSingleton<IDocumentStorageService, NoOpDocumentStorageService>();
+        services.AddSingleton<IMetricsService, NoOpMetricsService>();
+        services.AddSingleton<IVirusScanService, NullVirusScanService>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddScoped<IWorkflowService, WorkflowService>();
+        return services.BuildServiceProvider().GetRequiredService<IWorkflowService>();
     }
 }

@@ -1,6 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
+using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Application.Tests.TestHelpers;
 using OpenOnboarding.Application.Validators;
 using OpenOnboarding.Domain.Entities;
@@ -23,7 +26,7 @@ public sealed class SessionAnalyticsServiceTests
         var workflowService = CreateWorkflowService(db);
         var started = await workflowService.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
 
-        var service = new SessionAnalyticsService(db);
+        var service = CreateAnalyticsService(db);
         var result = await service.GetSubmissionsAsync(started.SessionId);
 
         Assert.Empty(result);
@@ -46,7 +49,7 @@ public sealed class SessionAnalyticsServiceTests
         await workflowService.SubmitStepAsync(started.SessionId, step2.CurrentNode!.Id,
             new SubmitStepRequest { Payload = new Dictionary<string, object?> { ["email"] = "alice@example.com" } });
 
-        var service = new SessionAnalyticsService(db);
+        var service = CreateAnalyticsService(db);
         var submissions = await service.GetSubmissionsAsync(started.SessionId);
 
         Assert.Equal(2, submissions.Count);
@@ -66,7 +69,7 @@ public sealed class SessionAnalyticsServiceTests
         var workflowService = CreateWorkflowService(db);
         var started = await workflowService.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
 
-        var service = new SessionAnalyticsService(db);
+        var service = CreateAnalyticsService(db);
         var detail = await service.GetSessionAsync(started.SessionId);
 
         Assert.Equal(started.SessionId, detail.Id);
@@ -87,7 +90,7 @@ public sealed class SessionAnalyticsServiceTests
         await workflowService.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
         await workflowService.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
 
-        var service = new SessionAnalyticsService(db);
+        var service = CreateAnalyticsService(db);
         var result = await service.GetSessionsAsync(null, null, 1, 20);
 
         Assert.Equal(2, result.TotalCount);
@@ -110,7 +113,7 @@ public sealed class SessionAnalyticsServiceTests
         // Abandon session for flow1
         await workflowService.AbandonSessionAsync(s1.SessionId);
 
-        var service = new SessionAnalyticsService(db);
+        var service = CreateAnalyticsService(db);
         var result = await service.GetSessionsAsync(flow1.Id, SessionStatus.Abandoned, 1, 20);
 
         Assert.Equal(1, result.TotalCount);
@@ -122,7 +125,7 @@ public sealed class SessionAnalyticsServiceTests
     public async Task GetSessionsAsync_CapsPageSizeAt100()
     {
         var db = BuildDbContext();
-        var service = new SessionAnalyticsService(db);
+        var service = CreateAnalyticsService(db);
         var result = await service.GetSessionsAsync(null, null, 1, 500);
 
         Assert.Equal(100, result.PageSize);
@@ -132,7 +135,7 @@ public sealed class SessionAnalyticsServiceTests
     public async Task GetFlowStatsAsync_ReturnsZeroedStats_WhenNoSessionsExist()
     {
         var db = BuildDbContext();
-        var service = new SessionAnalyticsService(db);
+        var service = CreateAnalyticsService(db);
         var stats = await service.GetFlowStatsAsync(Guid.NewGuid());
 
         Assert.Equal(0, stats.TotalSessions);
@@ -166,7 +169,7 @@ public sealed class SessionAnalyticsServiceTests
         // Leave one session in progress
         await workflowService.StartSessionAsync(new StartSessionRequest { FlowId = flow.Id });
 
-        var service = new SessionAnalyticsService(db);
+        var service = CreateAnalyticsService(db);
         var stats = await service.GetFlowStatsAsync(flow.Id);
 
         Assert.Equal(3, stats.TotalSessions);
@@ -184,27 +187,32 @@ public sealed class SessionAnalyticsServiceTests
         return new OnboardingDbContext(options);
     }
 
-    private static WorkflowService CreateWorkflowService(OnboardingDbContext db)
+    private static IServiceProvider BuildServiceProvider(OnboardingDbContext db)
     {
-        var customerService = new CustomerService(
-            db,
-            new CreateCustomerRequestValidator(),
-            new UpdateCustomerRequestValidator());
-
-        return new WorkflowService(
-            db,
-            new StartSessionRequestValidator(),
-            new SubmitStepRequestValidator(),
-            customerService,
-            new ComplianceRuleEvaluator(),
-            NullLogger<WorkflowService>.Instance,
-            [],
-            new InMemorySessionEventEmitter(),
-            new NoOpWebhookService(),
-            null,
-            new NoOpDocumentStorageService(),
-            new NoOpMetricsService());
+        var services = new ServiceCollection();
+        services.AddSingleton(db);
+        services.AddLogging();
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
+        services.AddScoped<IValidator<StartSessionRequest>, StartSessionRequestValidator>();
+        services.AddScoped<IValidator<SubmitStepRequest>, SubmitStepRequestValidator>();
+        services.AddScoped<ICustomerService>(_ => new CustomerService(db, new CreateCustomerRequestValidator(), new UpdateCustomerRequestValidator()));
+        services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
+        services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+        services.AddSingleton<IWebhookService, NoOpWebhookService>();
+        services.AddSingleton<IDocumentStorageService, NoOpDocumentStorageService>();
+        services.AddSingleton<IMetricsService, NoOpMetricsService>();
+        services.AddSingleton<IVirusScanService, NullVirusScanService>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddScoped<IWorkflowService, WorkflowService>();
+        services.AddScoped<ISessionAnalyticsService, SessionAnalyticsService>();
+        return services.BuildServiceProvider();
     }
+
+    private static IWorkflowService CreateWorkflowService(OnboardingDbContext db)
+        => BuildServiceProvider(db).GetRequiredService<IWorkflowService>();
+
+    private static ISessionAnalyticsService CreateAnalyticsService(OnboardingDbContext db)
+        => BuildServiceProvider(db).GetRequiredService<ISessionAnalyticsService>();
 
     /// <summary>Single-step flow that has no outgoing connections so it completes immediately.</summary>
     private static Flow CreateMinimalFlow()

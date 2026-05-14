@@ -1,8 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Application.Tests.TestHelpers;
+using OpenOnboarding.Application.Validators;
 using OpenOnboarding.Domain.Entities;
 using OpenOnboarding.Domain.Enums;
 using OpenOnboarding.Infrastructure.Persistence;
@@ -216,6 +220,7 @@ public sealed class WorkflowServiceEmitsEventsTests
         var emitter = new InMemorySessionEventEmitter();
         var service = CreateService(dbContext, emitter);
         var started = await service.StartSessionAsync(new Application.Contracts.StartSessionRequest { FlowId = flow.Id });
+        await CollectOneEvent(emitter, started.SessionId); // drain session-started
 
         var eventsTask = CollectOneEvent(emitter, started.SessionId);
         await service.SubmitStepAsync(started.SessionId, started.CurrentNode!.Id,
@@ -236,6 +241,7 @@ public sealed class WorkflowServiceEmitsEventsTests
         var emitter = new InMemorySessionEventEmitter();
         var service = CreateService(dbContext, emitter);
         var started = await service.StartSessionAsync(new Application.Contracts.StartSessionRequest { FlowId = flow.Id });
+        await CollectOneEvent(emitter, started.SessionId); // drain session-started
 
         var eventsTask = CollectOneEvent(emitter, started.SessionId);
         await service.SubmitStepAsync(started.SessionId, started.CurrentNode!.Id,
@@ -256,6 +262,7 @@ public sealed class WorkflowServiceEmitsEventsTests
         var emitter = new InMemorySessionEventEmitter();
         var service = CreateService(dbContext, emitter);
         var started = await service.StartSessionAsync(new Application.Contracts.StartSessionRequest { FlowId = flow.Id });
+        await CollectOneEvent(emitter, started.SessionId); // drain session-started
 
         var eventsTask = CollectOneEvent(emitter, started.SessionId);
         await service.AbandonSessionAsync(started.SessionId);
@@ -274,26 +281,24 @@ public sealed class WorkflowServiceEmitsEventsTests
         return null;
     }
 
-    private static WorkflowService CreateService(OnboardingDbContext dbContext, ISessionEventEmitter emitter)
+    private static IWorkflowService CreateService(OnboardingDbContext dbContext, ISessionEventEmitter emitter)
     {
-        var customerService = new CustomerService(
-            dbContext,
-            new Application.Validators.CreateCustomerRequestValidator(),
-            new Application.Validators.UpdateCustomerRequestValidator());
-
-        return new WorkflowService(
-            dbContext,
-            new Application.Validators.StartSessionRequestValidator(),
-            new Application.Validators.SubmitStepRequestValidator(),
-            customerService,
-            new ComplianceRuleEvaluator(),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkflowService>.Instance,
-            [],
-            emitter,
-            new NoOpWebhookService(),
-            null,
-            new NoOpDocumentStorageService(),
-            new NoOpMetricsService());
+        var services = new ServiceCollection();
+        services.AddSingleton(dbContext);
+        services.AddLogging();
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
+        services.AddScoped<IValidator<StartSessionRequest>, StartSessionRequestValidator>();
+        services.AddScoped<IValidator<SubmitStepRequest>, SubmitStepRequestValidator>();
+        services.AddScoped<ICustomerService>(_ => new CustomerService(dbContext, new CreateCustomerRequestValidator(), new UpdateCustomerRequestValidator()));
+        services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
+        services.AddSingleton<ISessionEventEmitter>(_ => emitter);
+        services.AddSingleton<IWebhookService, NoOpWebhookService>();
+        services.AddSingleton<IDocumentStorageService, NoOpDocumentStorageService>();
+        services.AddSingleton<IMetricsService, NoOpMetricsService>();
+        services.AddSingleton<IVirusScanService, NullVirusScanService>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddScoped<IWorkflowService, WorkflowService>();
+        return services.BuildServiceProvider().GetRequiredService<IWorkflowService>();
     }
 
     private static OnboardingDbContext BuildDbContext()
@@ -481,24 +486,24 @@ public sealed class VirusScanWorkflowServiceTests
         return (db, uploadNode, session);
     }
 
-    private static WorkflowService BuildService(OnboardingDbContext db, IDocumentStorageService documentStorage)
+    private static IWorkflowService BuildService(OnboardingDbContext db, IDocumentStorageService documentStorage)
     {
-        var customerService = new CustomerService(db,
-            new Application.Validators.CreateCustomerRequestValidator(),
-            new Application.Validators.UpdateCustomerRequestValidator());
-        return new WorkflowService(
-            db,
-            new Application.Validators.StartSessionRequestValidator(),
-            new Application.Validators.SubmitStepRequestValidator(),
-            customerService,
-            new ComplianceRuleEvaluator(),
-            NullLogger<WorkflowService>.Instance,
-            [],
-            new InMemorySessionEventEmitter(),
-            new NoOpWebhookService(),
-            null,
-            documentStorage,
-            new NoOpMetricsService());
+        var services = new ServiceCollection();
+        services.AddSingleton(db);
+        services.AddLogging();
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
+        services.AddScoped<IValidator<StartSessionRequest>, StartSessionRequestValidator>();
+        services.AddScoped<IValidator<SubmitStepRequest>, SubmitStepRequestValidator>();
+        services.AddScoped<ICustomerService>(_ => new CustomerService(db, new CreateCustomerRequestValidator(), new UpdateCustomerRequestValidator()));
+        services.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
+        services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+        services.AddSingleton<IWebhookService, NoOpWebhookService>();
+        services.AddSingleton<IDocumentStorageService>(_ => documentStorage);
+        services.AddSingleton<IMetricsService, NoOpMetricsService>();
+        services.AddSingleton<IVirusScanService, NullVirusScanService>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddScoped<IWorkflowService, WorkflowService>();
+        return services.BuildServiceProvider().GetRequiredService<IWorkflowService>();
     }
 }
 
@@ -530,22 +535,22 @@ public sealed class MetricsWorkflowServiceTests
         await db.SaveChangesAsync();
 
         var metrics = new RecordingMetricsService();
-        var customerService = new CustomerService(db,
-            new Application.Validators.CreateCustomerRequestValidator(),
-            new Application.Validators.UpdateCustomerRequestValidator());
-        var svc = new WorkflowService(
-            db,
-            new Application.Validators.StartSessionRequestValidator(),
-            new Application.Validators.SubmitStepRequestValidator(),
-            customerService,
-            new ComplianceRuleEvaluator(),
-            NullLogger<WorkflowService>.Instance,
-            [],
-            new InMemorySessionEventEmitter(),
-            new NoOpWebhookService(),
-            null,
-            new NoOpDocumentStorageService(),
-            metrics);
+        var serviceCollection = new ServiceCollection();
+        serviceCollection.AddSingleton(db);
+        serviceCollection.AddLogging();
+        serviceCollection.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
+        serviceCollection.AddScoped<IValidator<StartSessionRequest>, StartSessionRequestValidator>();
+        serviceCollection.AddScoped<IValidator<SubmitStepRequest>, SubmitStepRequestValidator>();
+        serviceCollection.AddScoped<ICustomerService>(_ => new CustomerService(db, new CreateCustomerRequestValidator(), new UpdateCustomerRequestValidator()));
+        serviceCollection.AddScoped<IComplianceRuleEvaluator, ComplianceRuleEvaluator>();
+        serviceCollection.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+        serviceCollection.AddSingleton<IWebhookService, NoOpWebhookService>();
+        serviceCollection.AddSingleton<IDocumentStorageService, NoOpDocumentStorageService>();
+        serviceCollection.AddSingleton<IMetricsService>(_ => metrics);
+        serviceCollection.AddSingleton<IVirusScanService, NullVirusScanService>();
+        serviceCollection.AddSingleton<ITelemetryService, TelemetryService>();
+        serviceCollection.AddScoped<IWorkflowService, WorkflowService>();
+        var svc = serviceCollection.BuildServiceProvider().GetRequiredService<IWorkflowService>();
 
         await svc.StartSessionAsync(new Application.Contracts.StartSessionRequest { FlowId = flow.Id });
 
