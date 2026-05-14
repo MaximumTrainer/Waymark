@@ -40,7 +40,7 @@ export function FlowVersionHistory({ flowId, apiKey, onRestore, activePersonasBy
 
   const handleRestore = useCallback(async (versionNumber: number) => {
     setRestoring(versionNumber)
-      setConfirmVersion(null)
+    setConfirmVersion(null)
     try {
       const r = await fetch(`${API_BASE_URL}/api/flows/${flowId}/versions/${versionNumber}/restore`, {
         method: 'POST',

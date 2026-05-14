@@ -23,8 +23,11 @@ export function upsertPersonaAssignment(
 export function buildVersionToPersonaMap(assignments: readonly PersonaAssignment[]): Record<number, string[]> {
   return assignments.reduce<Record<number, string[]>>((acc, assignment) => {
     if (assignment.liveVersion === null) return acc
-    const existing = acc[assignment.liveVersion] ?? []
-    acc[assignment.liveVersion] = [...existing, assignment.personaKey]
+    if (!acc[assignment.liveVersion]) {
+      acc[assignment.liveVersion] = []
+    }
+    const existing = acc[assignment.liveVersion]
+    existing.push(assignment.personaKey)
     return acc
   }, {})
 }

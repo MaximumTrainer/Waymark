@@ -78,6 +78,7 @@ function App() {
   const [personaAssignments, setPersonaAssignments] = useState<PersonaAssignment[]>([])
   const [visitedNodeIds, setVisitedNodeIds] = useState<Set<string>>(new Set())
   const [builderFlowId, setBuilderFlowId] = useState<string | null>(defaultFlowId)
+  const [latestSelectedVersion, setLatestSelectedVersion] = useState<number | null>(null)
   const [selectedSession, setSelectedSession] = useState<SessionSummary | null>(null)
   const { flow: builderFlow } = useFlow(builderFlowId)
 
@@ -164,7 +165,7 @@ function App() {
                 upsertPersonaAssignment(prev, {
                   personaKey: selectedPersona,
                   flowId,
-                  liveVersion: builderFlow?.version ?? null,
+                  liveVersion: latestSelectedVersion ?? builderFlow?.version ?? null,
                 }),
               )
             }}
@@ -185,8 +186,9 @@ function App() {
       </section>
 
       <FlowAuthoringPanel
-        onFlowSelected={(flowId) => {
+        onFlowSelected={(flowId, version) => {
           setBuilderFlowId(flowId)
+          setLatestSelectedVersion(version)
         }}
       />
 

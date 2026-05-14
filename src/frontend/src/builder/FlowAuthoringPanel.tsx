@@ -13,7 +13,7 @@ const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const apiKey = import.meta.env.VITE_API_KEY
 
 type FlowAuthoringPanelProps = {
-  onFlowSelected: (flowId: string | null, version?: number | null) => void
+  onFlowSelected: (flowId: string | null, version: number | null) => void
 }
 
 type StatusState = {
@@ -49,6 +49,13 @@ function toEditorState(draft: FlowDraft) {
     nodesJson: JSON.stringify(draft.nodes, null, 2),
     connectionsJson: JSON.stringify(draft.connections, null, 2),
   }
+}
+
+function parsePersonaKeys(value: string): string[] {
+  return value
+    .split(',')
+    .map((personaKey) => personaKey.trim())
+    .filter((personaKey) => personaKey.length > 0)
 }
 
 export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) {
@@ -162,10 +169,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
         body: JSON.stringify({
           ...buildFlowWritePayload(draft),
           lifecycleState,
-          personaKeys: personaKeys
-            .split(',')
-            .map((value) => value.trim())
-            .filter((value) => value.length > 0),
+          personaKeys: parsePersonaKeys(personaKeys),
         }),
       })
 
@@ -216,7 +220,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
       setCurrentVersion(null)
       setDraft(reset)
       setStatus({ kind: 'success', message: 'Flow deleted.' })
-      onFlowSelected(null)
+      onFlowSelected(null, null)
       setLifecycleState('Draft')
       setPersonaKeys('')
     } catch (error) {
@@ -274,7 +278,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
     setCurrentVersion(null)
     setDraft(draft)
     setStatus({ kind: 'success', message: 'Started a new draft flow.' })
-    onFlowSelected(null)
+    onFlowSelected(null, null)
     setLifecycleState('Draft')
     setPersonaKeys('')
   }
