@@ -88,7 +88,7 @@ Waymark evaluates this graph at runtime to decide the next step for each session
 | `key` | Yes | Stable logical identifier (slug-like). |
 | `type` | Yes | `Form`, `DocumentUpload`, `Redirect`, `Information`, or `Logic`. |
 | `title` | Yes | Label/instruction rendered in the UI. |
-| `jsonContent` | Usually | Type-specific JSON serialized as a string. |
+| `jsonContent` | Yes | Type-specific JSON serialized as a string (use the JSON string `"{}"` when the node type does not need additional config). |
 | `complianceRuleJson` | No | Optional validation rules JSON (string). |
 | `isStartNode` | Yes | Exactly one node in a journey should be `true`. |
 
@@ -128,15 +128,15 @@ Conceptually, a journey is a directed graph:
 ```mermaid
 flowchart LR
   A[Start: country-form] -->|Country = USA| B[us-tax-form]
-  A -->|Country != USA| C[passport-upload]
+  A -->|"Country != USA"| C[passport-upload]
   B --> D[completed]
   C --> D
 ```
 
 ## Authoring tip
 
-For a canonical, end-to-end example, use:
+For a canonical, end-to-end example already in this repository, use:
 
-- `src/frontend/src/schemas/flow-definition.example.json`
+- [`flow-definition.example.json`](../src/frontend/src/schemas/flow-definition.example.json)
 
 When posting through the API, ensure each node's `jsonContent` and `complianceRuleJson` are valid JSON strings.
