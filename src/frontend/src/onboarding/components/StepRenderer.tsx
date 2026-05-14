@@ -1,7 +1,8 @@
-import { Component, type ReactNode, useState } from 'react'
+import { Component, useEffect, type ReactNode, useState } from 'react'
 import { Label } from '@radix-ui/react-label'
 import type { FlowNode } from '../types/flow'
 import { ComplianceError } from '../api/workflow-api-client'
+import { useJourneyAnalytics } from '../../analytics/JourneyAnalyticsContext'
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 type ErrorBoundaryState = { hasError: boolean }
@@ -130,6 +131,7 @@ function DynamicForm({
   onSubmit: (payload: Record<string, unknown>) => Promise<void>
 }) {
   const fields = schema.fields ?? []
+  const { track } = useJourneyAnalytics()
 
   const [values, setValues] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(fields.map((f) => [f.name, f.type === 'checkbox' ? false : ''])),
@@ -143,6 +145,7 @@ function DynamicForm({
     setGlobalErrors([])
     try {
       await onSubmit(values)
+      track('navigation_next', node.id, null, { stepKey: node.key, stepTitle: node.title })
     } catch (err) {
       if (err instanceof ComplianceError) {
         const fieldNames = new Set(fields.map((f) => f.name))
@@ -154,6 +157,13 @@ function DynamicForm({
           } else {
             nextGlobalErrors.push(v.message)
           }
+          // Track each validation error individually so it surfaces in analytics
+          track('validation_error', node.id, null, {
+            stepKey: node.key,
+            fieldName: v.field,
+            errorMessage: v.message,
+            ruleId: v.ruleId,
+          })
         }
         setFieldErrors(nextFieldErrors)
         setGlobalErrors(nextGlobalErrors)
@@ -405,6 +415,18 @@ function FormStep({
 }
 
 export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: StepRendererProps) {
+  const { track } = useJourneyAnalytics()
+
+  useEffect(() => {
+    if (node) {
+      track('step_view', node.id, null, { stepKey: node.key, stepTitle: node.title, stepType: node.type })
+    } else if (sessionId) {
+      // node is null only when the journey has completed
+      track('journey_complete', null, null, { sessionId })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node?.id, sessionId])
+
   if (!node) {
     return <div className={cardClassName}>Journey complete 🎉</div>
   }

@@ -49,6 +49,10 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IMetricsService, PrometheusMetricsService>();
 
+        // Analytics / telemetry: pluggable provider pattern
+        services.AddSingleton<IAnalyticsProvider, ConsoleAnalyticsProvider>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
+
         // Virus scanning: use real ClamAV adapter when enabled, otherwise no-op
         if (configuration.GetValue<bool>("VirusScan:Enabled"))
             services.AddSingleton<IVirusScanService, ClamAvScanService>();
