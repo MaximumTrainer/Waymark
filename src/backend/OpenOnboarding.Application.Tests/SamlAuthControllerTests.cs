@@ -79,6 +79,13 @@ public sealed class SamlAuthControllerTests
 
         Assert.Equal(HttpStatusCode.Redirect, callbackResponse.StatusCode);
         Assert.Equal("/admin/journey-builder", callbackResponse.Headers.Location?.ToString());
+        var setCookies = callbackResponse.Headers.TryGetValues("Set-Cookie", out var values)
+            ? values.ToArray()
+            : [];
+        var adminSessionCookie = Assert.Single(setCookies, value =>
+            value.StartsWith("__Secure-waymark-admin-session=", StringComparison.Ordinal));
+        Assert.Contains("samesite=none", adminSessionCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secure", adminSessionCookie, StringComparison.OrdinalIgnoreCase);
 
         var me = await client.GetFromJsonAsync<AuthMeResponse>("/api/auth/me");
         Assert.NotNull(me);

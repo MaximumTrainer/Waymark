@@ -91,7 +91,7 @@ builder.Services
     {
         options.Cookie.Name = AdminSessionAuthenticationDefaults.CookieName;
         options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SameSite = SameSiteMode.None;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/login";
@@ -131,12 +131,17 @@ builder.Services.AddCors(options =>
     options.AddPolicy("FrontendDev", policy =>
     {
         policy.WithOrigins(
+                "https://localhost:5173",
+                "https://127.0.0.1:5173",
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
+                "https://localhost:4173",
+                "https://127.0.0.1:4173",
                 "http://localhost:4173",
                 "http://127.0.0.1:4173")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
