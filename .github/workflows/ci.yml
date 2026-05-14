@@ -334,7 +334,7 @@ jobs:
 
       - name: Start API in background
         run: |
-          dotnet run --project src/backend/OpenOnboarding.Api --no-build -c Release &
+          dotnet ./src/backend/OpenOnboarding.Api/bin/Release/net10.0/OpenOnboarding.Api.dll &
           echo "API_PID=$!" >> "$GITHUB_ENV"
 
       - name: Wait for API to be ready
