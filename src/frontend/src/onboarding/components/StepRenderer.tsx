@@ -424,8 +424,7 @@ export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: Step
       // node is null only when the journey has completed
       track('journey_complete', null, null, { sessionId })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node?.id, sessionId])
+  }, [node, sessionId, track])
 
   if (!node) {
     return <div className={cardClassName}>Journey complete 🎉</div>

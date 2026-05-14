@@ -9,8 +9,10 @@ using OpenOnboarding.Application.Contracts;
 public interface IAnalyticsProvider
 {
     /// <summary>
-    /// Tracks a single analytics event.  Implementations must not throw —
-    /// any failures should be swallowed and logged internally.
+    /// Tracks a single analytics event.  The <see cref="ITelemetryService"/> orchestrator
+    /// catches any exceptions thrown by implementations and logs them as warnings, so
+    /// a faulting provider never blocks the journey engine.  Implementations should
+    /// still prefer to handle their own errors internally for maximum observability.
     /// </summary>
     Task TrackEventAsync(AnalyticsEvent @event, CancellationToken cancellationToken = default);
 }

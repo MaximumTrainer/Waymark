@@ -201,7 +201,8 @@ public sealed class WorkflowService(
                 EventType = analyticsEventType,
                 JourneyId = session.FlowId.ToString(),
                 SessionId = session.Id.ToString(),
-                StepId = nextNode?.Id.ToString() ?? currentNode.Id.ToString(),
+                // For journey_complete there is no "next" step; use null to match the frontend schema
+                StepId = nextNode?.Id.ToString(),
                 StepIndex = submissionIndex,
                 Payload = new Dictionary<string, object?>
                 {
