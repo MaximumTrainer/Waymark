@@ -4,7 +4,6 @@ export type NodeType =
   | 'Redirect'
   | 'Information'
   | 'Logic'
-  | 'VideoPlayback'
   | 'InformationModal'
   | 'ExternalIntegrationHook'
 

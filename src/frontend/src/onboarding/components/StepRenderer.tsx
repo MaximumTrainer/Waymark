@@ -503,24 +503,6 @@ export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: Step
             Processing…
           </div>
         )
-      case 'VideoPlayback':
-        return (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-700">{node.title}</p>
-            <video
-              controls
-              className="w-full rounded border border-slate-200"
-              src={typeof content.videoUrl === 'string' ? content.videoUrl : undefined}
-            />
-            <button
-              type="button"
-              onClick={() => void onSubmit({ watched: true })}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Continue
-            </button>
-          </div>
-        )
       case 'InformationModal':
         return (
           <div className="space-y-3">
