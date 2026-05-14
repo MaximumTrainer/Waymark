@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { FlowAuthoringPanel } from './builder/FlowAuthoringPanel'
 import { JourneyBuilder } from './builder/JourneyBuilder'
+import { buildVersionToPersonaMap, resolveFlowIdForPersona, upsertPersonaAssignment, type PersonaAssignment } from './builder/personaRouting'
 import { StepRenderer } from './onboarding/components/StepRenderer'
+import { useFlow } from './onboarding/hooks/useFlow'
 import { useOnboarding } from './onboarding/hooks/useOnboarding'
 import { FlowAnalytics } from './analytics/FlowAnalytics'
 import { JourneyAnalyticsProvider } from './analytics/JourneyAnalyticsContext'
@@ -10,11 +12,17 @@ import { WebhookDeliveries } from './webhooks/WebhookDeliveries'
 import { SessionList } from './sessions/SessionList'
 import { SessionDetail } from './sessions/SessionDetail'
 import type { SessionSummary } from './sessions/SessionList'
+import { FlowVersionHistory } from './flows/FlowVersionHistory'
 
 type JourneyOption = {
   id: string
   label: string
   description: string
+}
+
+type PersonaOption = {
+  key: string
+  label: string
 }
 
 const JOURNEYS: JourneyOption[] = [
@@ -56,17 +64,31 @@ const JOURNEYS: JourneyOption[] = [
   },
 ]
 const defaultFlowId = JOURNEYS[0].id
+const PERSONAS: PersonaOption[] = [
+  { key: 'new-user', label: 'New User' },
+  { key: 'enterprise-admin', label: 'Enterprise Admin' },
+  { key: 'legacy-migratee', label: 'Legacy Migratee' },
+]
 
 function App() {
   const { step, startSession, submitStep, isLoading, error } = useOnboarding()
   const apiKey = import.meta.env.VITE_API_KEY || undefined
   const [selectedFlowId, setSelectedFlowId] = useState<string>(JOURNEYS[0].id)
+  const [selectedPersona, setSelectedPersona] = useState<string>(PERSONAS[0].key)
+  const [personaAssignments, setPersonaAssignments] = useState<PersonaAssignment[]>([])
   const [visitedNodeIds, setVisitedNodeIds] = useState<Set<string>>(new Set())
   const [builderFlowId, setBuilderFlowId] = useState<string | null>(defaultFlowId)
+  const [latestSelectedVersion, setLatestSelectedVersion] = useState<number | null>(null)
   const [selectedSession, setSelectedSession] = useState<SessionSummary | null>(null)
+  const { flow: builderFlow } = useFlow(builderFlowId)
+
+  const effectiveFlowId = resolveFlowIdForPersona(personaAssignments, selectedPersona, selectedFlowId)
+  const activePersonasByVersion = buildVersionToPersonaMap(
+    personaAssignments.filter((a) => a.flowId === builderFlowId),
+  )
 
   useEffect(() => {
-    startSession({ flowId: selectedFlowId })
+    startSession({ flowId: effectiveFlowId })
       .then((result) => {
         if (result.currentNode?.id) {
           setVisitedNodeIds(new Set([result.currentNode.id]))
@@ -75,13 +97,15 @@ function App() {
         }
       })
       .catch(() => undefined)
-  }, [selectedFlowId, startSession])
+  }, [effectiveFlowId, startSession])
 
   const selectedJourney = JOURNEYS.find((j) => j.id === selectedFlowId) ?? JOURNEYS[0]
+  const assignedFlowIdForPersona = resolveFlowIdForPersona(personaAssignments, selectedPersona, selectedFlowId)
+  const selectedPersonaLabel = PERSONAS.find((persona) => persona.key === selectedPersona)?.label ?? selectedPersona
 
   return (
     <JourneyAnalyticsProvider
-      journeyId={selectedFlowId}
+      journeyId={effectiveFlowId}
       sessionId={step?.sessionId ?? null}
       initialSinks={[consoleAnalyticsSink]}
     >
@@ -91,31 +115,94 @@ function App() {
         <p className="text-sm text-slate-600">Schema-driven onboarding UI with workflow branching and compliance checks.</p>
       </header>
 
-      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Choose onboarding journey</h2>
-        <label htmlFor="journey-select" className="block text-sm font-medium text-slate-700">
-          Journey
-        </label>
-        <select
-          id="journey-select"
-          value={selectedFlowId}
-          onChange={(event) => {
-            const nextFlowId = event.target.value
-            setSelectedFlowId(nextFlowId)
-            setBuilderFlowId(nextFlowId)
-          }}
-          className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-500"
-        >
-          {JOURNEYS.map((journey) => (
-            <option key={journey.id} value={journey.id}>
-              {journey.label}
-            </option>
-          ))}
-        </select>
+      <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Journey Dashboard</h2>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label htmlFor="journey-select" className="block text-sm font-medium text-slate-700">
+            Journey
+            <select
+              id="journey-select"
+              value={selectedFlowId}
+              onChange={(event) => {
+                const nextFlowId = event.target.value
+                setSelectedFlowId(nextFlowId)
+                setBuilderFlowId(nextFlowId)
+                setLatestSelectedVersion(null)
+              }}
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-500"
+            >
+              {JOURNEYS.map((journey) => (
+                <option key={journey.id} value={journey.id}>
+                  {journey.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="persona-select" className="block text-sm font-medium text-slate-700">
+            Persona
+            <select
+              id="persona-select"
+              value={selectedPersona}
+              onChange={(event) => setSelectedPersona(event.target.value)}
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-500"
+            >
+              {PERSONAS.map((persona) => (
+                <option key={persona.key} value={persona.key}>
+                  {persona.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <p className="text-sm text-slate-600">{selectedJourney.description}</p>
+        <div className="space-y-2 rounded border border-indigo-100 bg-indigo-50 p-3 text-sm text-indigo-900">
+          <p>
+            Active persona route: <span className="font-semibold">{selectedPersonaLabel}</span> →{' '}
+            <span className="font-mono">{assignedFlowIdForPersona}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const flowId = builderFlowId ?? selectedFlowId
+              setPersonaAssignments((prev) =>
+                upsertPersonaAssignment(prev, {
+                  personaKey: selectedPersona,
+                  flowId,
+                  liveVersion: latestSelectedVersion ?? builderFlow?.version ?? null,
+                }),
+              )
+            }}
+            className="rounded border border-indigo-300 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+          >
+            Assign selected persona to builder flow
+          </button>
+        </div>
+        {personaAssignments.length > 0 && (
+          <ul className="space-y-1 text-xs text-slate-600">
+            {personaAssignments.map((assignment) => (
+              <li key={assignment.personaKey}>
+                {assignment.personaKey} → {assignment.flowId} (live v{assignment.liveVersion ?? 'n/a'})
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
-      <FlowAuthoringPanel onFlowSelected={setBuilderFlowId} />
+      <FlowAuthoringPanel
+        onFlowSelected={(flowId, version) => {
+          setBuilderFlowId(flowId)
+          setLatestSelectedVersion(version)
+        }}
+      />
+
+      {builderFlowId && (
+        <FlowVersionHistory
+          flowId={builderFlowId}
+          apiKey={apiKey}
+          activePersonasByVersion={activePersonasByVersion}
+          onRestore={() => undefined}
+        />
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">Visual Journey Builder (React Flow)</h2>

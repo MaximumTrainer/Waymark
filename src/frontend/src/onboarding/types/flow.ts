@@ -1,4 +1,9 @@
-export type NodeType = 'Form' | 'DocumentUpload' | 'Redirect' | 'Information' | 'Logic'
+export type NodeType =
+  | 'Form'
+  | 'DocumentUpload'
+  | 'Redirect'
+  | 'Information'
+  | 'Logic'
 
 export interface FlowNode {
   id: string
@@ -50,6 +55,8 @@ export interface FlowDefinition {
   name: string
   description?: string | null
   version: number
+  lifecycleState?: 'Draft' | 'Published'
+  personaKeys?: string[]
   nodes: FlowNodeDetail[]
   connections: FlowConnection[]
 }

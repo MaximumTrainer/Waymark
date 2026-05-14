@@ -510,4 +510,3 @@ export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: Step
 
   return <section className={cardClassName}>{renderContent()}</section>
 }
-

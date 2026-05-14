@@ -146,5 +146,6 @@ flowchart LR
 For a canonical, end-to-end example already in this repository, use:
 
 - [`flow-definition.example.json`](../src/frontend/src/schemas/flow-definition.example.json)
+- [`journey-builder.schema.json`](../src/frontend/src/schemas/journey-builder.schema.json) as the builder/renderer source-of-truth contract for nodes, edges, lifecycle state, and persona assignments.
 
 When posting through the API, ensure each node's `jsonContent` and `complianceRuleJson` are valid JSON strings.

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://waymark.dev/schemas/journey-builder.schema.json",
+  "title": "Waymark Journey Builder Schema",
+  "type": "object",
+  "required": ["id", "name", "version", "lifecycleState", "nodes", "edges", "personaAssignments"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": ["string", "null"], "maxLength": 2000 },
+    "version": { "type": "integer", "minimum": 1 },
+    "lifecycleState": { "type": "string", "enum": ["Draft", "Published"] },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "title", "position", "props"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "key": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Form",
+              "DocumentUpload",
+              "Redirect",
+              "Information",
+              "Logic"
+            ]
+          },
+          "title": { "type": "string", "minLength": 1 },
+          "isStartNode": { "type": "boolean" },
+          "position": {
+            "type": "object",
+            "required": ["x", "y"],
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" }
+            }
+          },
+          "props": { "type": "object" },
+          "metadata": { "type": "object" }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "target", "priority"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "source": { "type": "string", "format": "uuid" },
+          "target": { "type": "string", "format": "uuid" },
+          "priority": { "type": "integer", "minimum": 0 },
+          "condition": {
+            "type": ["object", "null"],
+            "properties": {
+              "field": { "type": "string" },
+              "operator": { "type": "string" },
+              "value": {}
+            }
+          }
+        }
+      }
+    },
+    "personaAssignments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["personaKey", "entryNodeId"],
+        "properties": {
+          "personaKey": { "type": "string", "minLength": 1 },
+          "entryNodeId": { "type": "string", "format": "uuid" }
+        }
+      }
+    }
+  }
+}
