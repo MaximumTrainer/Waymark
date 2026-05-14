@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { FlowAuthoringPanel } from './builder/FlowAuthoringPanel'
 import { JourneyBuilder } from './builder/JourneyBuilder'
 import { buildVersionToPersonaMap, resolveFlowIdForPersona, upsertPersonaAssignment, type PersonaAssignment } from './builder/personaRouting'
@@ -70,9 +70,43 @@ const PERSONAS: PersonaOption[] = [
   { key: 'legacy-migratee', label: 'Legacy Migratee' },
 ]
 
+type AuthMeResponse = {
+  authenticated: boolean
+  roles?: string[]
+}
+
+type AdminAuthState = 'checking' | 'authorized' | 'unauthorized'
+
+const LOGIN_ERROR_MESSAGES: Record<string, string> = {
+  saml_access_denied: 'Access Denied: User not authorized in IdP.',
+  saml_certificate_expired: 'SAML certificate expired.',
+  saml_invalid_assertion: 'Invalid SAML assertion.',
+  saml_assertion_not_encrypted: 'SAML assertion was not encrypted.',
+  saml_csrf_failed: 'SAML security validation failed. Please try again.',
+  auth_check_failed: 'Could not validate your admin session. Please try again.',
+}
+
+const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
+function buildApiUrl(path: string) {
+  return `${apiBase}${path}`
+}
+
+function shouldUseAbsoluteReturnUrl() {
+  const apiOrigin = new URL(buildApiUrl('/api/auth/me'), window.location.origin).origin
+  return apiOrigin !== window.location.origin
+}
+
+function buildReturnUrl(path: string) {
+  return shouldUseAbsoluteReturnUrl() ? `${window.location.origin}${path}` : path
+}
+
 function App() {
   const { step, startSession, submitStep, isLoading, error } = useOnboarding()
   const apiKey = import.meta.env.VITE_API_KEY || undefined
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname)
+  const [currentSearch, setCurrentSearch] = useState(() => window.location.search)
+  const [adminAuthState, setAdminAuthState] = useState<AdminAuthState>('checking')
   const [selectedFlowId, setSelectedFlowId] = useState<string>(JOURNEYS[0].id)
   const [selectedPersona, setSelectedPersona] = useState<string>(PERSONAS[0].key)
   const [personaAssignments, setPersonaAssignments] = useState<PersonaAssignment[]>([])
@@ -88,6 +122,14 @@ function App() {
   )
 
   useEffect(() => {
+    if (currentPath === '/login') {
+      return
+    }
+
+    if (currentPath.startsWith('/admin/journey-builder') && adminAuthState !== 'authorized') {
+      return
+    }
+
     startSession({ flowId: effectiveFlowId })
       .then((result) => {
         if (result.currentNode?.id) {
@@ -97,11 +139,93 @@ function App() {
         }
       })
       .catch(() => undefined)
-  }, [effectiveFlowId, startSession])
+  }, [adminAuthState, currentPath, effectiveFlowId, startSession])
 
   const selectedJourney = JOURNEYS.find((j) => j.id === selectedFlowId) ?? JOURNEYS[0]
   const assignedFlowIdForPersona = resolveFlowIdForPersona(personaAssignments, selectedPersona, selectedFlowId)
   const selectedPersonaLabel = PERSONAS.find((persona) => persona.key === selectedPersona)?.label ?? selectedPersona
+  const isAdminJourneyBuilderRoute = currentPath.startsWith('/admin/journey-builder')
+  const isLoginRoute = currentPath === '/login'
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname)
+      setCurrentSearch(window.location.search)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  const navigate = useCallback((path: string, replace = false) => {
+    if (replace) {
+      window.history.replaceState({}, '', path)
+    } else {
+      window.history.pushState({}, '', path)
+    }
+    if (path.startsWith('/admin/journey-builder')) {
+      setAdminAuthState('checking')
+    }
+    setCurrentPath(window.location.pathname)
+    setCurrentSearch(window.location.search)
+  }, [])
+
+  useEffect(() => {
+    if (!isAdminJourneyBuilderRoute) return
+
+    fetch(buildApiUrl('/api/auth/me'), { credentials: 'include' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('auth_check_failed')
+        return (await response.json()) as AuthMeResponse
+      })
+      .then((identity) => {
+        const isAuthorized = identity.authenticated && (identity.roles ?? []).includes('Operator')
+        if (!isAuthorized) {
+          setAdminAuthState('unauthorized')
+          navigate(`/login?returnUrl=${encodeURIComponent(buildReturnUrl(currentPath))}`, true)
+          return
+        }
+
+        setAdminAuthState('authorized')
+      })
+      .catch(() => {
+        setAdminAuthState('unauthorized')
+        navigate(`/login?error=auth_check_failed&returnUrl=${encodeURIComponent(buildReturnUrl(currentPath))}`, true)
+      })
+  }, [currentPath, isAdminJourneyBuilderRoute, navigate])
+
+  if (isLoginRoute) {
+    const params = new URLSearchParams(currentSearch)
+    const errorCode = params.get('error')
+    const returnUrl = params.get('returnUrl') ?? buildReturnUrl('/admin/journey-builder')
+    const message = errorCode ? (LOGIN_ERROR_MESSAGES[errorCode] ?? 'Authentication failed.') : null
+    const loginUrl = `${buildApiUrl('/auth/saml/login')}?${new URLSearchParams({ returnUrl }).toString()}`
+
+    return (
+      <main className="mx-auto flex min-h-screen max-w-xl items-center p-6">
+        <section className="w-full space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-bold text-slate-900">Admin Login</h1>
+          <p className="text-sm text-slate-600">Sign in to access the Journey Builder admin experience.</p>
+          {message ? <p role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{message}</p> : null}
+          <button
+            type="button"
+            onClick={() => window.location.assign(loginUrl)}
+            className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+          >
+            Login with SSO
+          </button>
+        </section>
+      </main>
+    )
+  }
+
+  if (isAdminJourneyBuilderRoute && adminAuthState !== 'authorized') {
+    return (
+      <main className="mx-auto max-w-xl p-6">
+        <p className="text-sm text-slate-600">Checking admin session…</p>
+      </main>
+    )
+  }
 
   return (
     <JourneyAnalyticsProvider

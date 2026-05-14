@@ -1,5 +1,6 @@
 using FluentValidation.AspNetCore;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
@@ -71,6 +72,9 @@ builder.Services.AddSwaggerGen(c =>
 
 // Authentication: policy scheme that routes to JWT or ApiKey depending on which header is present.
 var jwtAuthority = builder.Configuration["Authentication:JwtAuthority"];
+var allowCrossOriginAdminSessionCookie =
+    builder.Environment.IsDevelopment() ||
+    builder.Environment.IsEnvironment("Testing");
 builder.Services
     .AddAuthentication(options =>
     {
@@ -82,7 +86,20 @@ builder.Services
         options.ForwardDefaultSelector = context =>
             context.Request.Headers.ContainsKey("X-Api-Key")
                 ? ApiKeyAuthenticationHandler.SchemeName
+                : context.Request.Cookies.ContainsKey(AdminSessionAuthenticationDefaults.CookieName)
+                    ? AdminSessionAuthenticationDefaults.SchemeName
                 : JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddCookie(AdminSessionAuthenticationDefaults.SchemeName, options =>
+    {
+        options.Cookie.Name = AdminSessionAuthenticationDefaults.CookieName;
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = allowCrossOriginAdminSessionCookie
+            ? SameSiteMode.None
+            : SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.LoginPath = "/login";
+        options.AccessDeniedPath = "/login";
     })
     .AddJwtBearer(options =>
     {
@@ -116,15 +133,36 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddProblemDetails();
 builder.Services.AddCors(options =>
 {
+    var frontendOrigins = allowCrossOriginAdminSessionCookie
+        ? new[]
+        {
+            "https://localhost:5173",
+            "https://127.0.0.1:5173",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://localhost:4173",
+            "https://127.0.0.1:4173",
+            "http://localhost:4173",
+            "http://127.0.0.1:4173"
+        }
+        : new[]
+        {
+            "https://localhost:5173",
+            "https://127.0.0.1:5173",
+            "https://localhost:4173",
+            "https://127.0.0.1:4173"
+        };
+
     options.AddPolicy("FrontendDev", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-                "http://localhost:4173",
-                "http://127.0.0.1:4173")
+        policy.WithOrigins(frontendOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
+
+        if (allowCrossOriginAdminSessionCookie)
+        {
+            policy.AllowCredentials();
+        }
     });
 });
 

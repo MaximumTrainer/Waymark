@@ -340,7 +340,12 @@ jobs:
 
       - name: Start API in background
         run: |
-          dotnet run --project src/backend/OpenOnboarding.Api --no-build -c Release &
+          API_DLL="$(find ./src/backend/OpenOnboarding.Api/bin/Release -type f -path '*/OpenOnboarding.Api.dll' | head -n 1)"
+          if [ -z "$API_DLL" ]; then
+            echo "Could not locate OpenOnboarding.Api.dll under Release output." >&2
+            exit 1
+          fi
+          dotnet "$API_DLL" &
           echo "API_PID=$!" >> "$GITHUB_ENV"
 
       - name: Wait for API to be ready
