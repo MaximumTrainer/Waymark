@@ -59,7 +59,189 @@ The frontend is a Vite React application:
 
 ---
 
-## Schema-driven customer journeys
+## Database design
+
+Waymark uses PostgreSQL (via EF Core) with the following schema. Migrations live in `src/backend/OpenOnboarding.Infrastructure/Migrations/` and are applied automatically on startup.
+
+### Entity–relationship overview
+
+```mermaid
+erDiagram
+    Flows ||--o{ Nodes : "has"
+    Flows ||--o{ Connections : "has"
+    Flows ||--o{ Sessions : "drives"
+    Flows ||--o{ Webhooks : "notifies via"
+    Flows ||--o{ FlowVersions : "versioned by"
+    Sessions }o--o| CustomerProfiles : "linked to"
+    Sessions ||--o{ Submissions : "records"
+    Webhooks ||--o{ WebhookDeliveries : "tracks"
+```
+
+### Table reference
+
+#### `Flows`
+
+Versioned container for nodes and connections.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Flow identifier |
+| `Name` | `varchar(200)` | NOT NULL | Display name |
+| `Description` | `varchar(2000)` | nullable | Optional description |
+| `Version` | `integer` | NOT NULL | Current working version number |
+| `CreatedAt` | `timestamptz` | NOT NULL | Row creation timestamp |
+| `UpdatedAt` | `timestamptz` | NOT NULL | Last modification timestamp |
+
+#### `Nodes`
+
+A single step in a flow. `JsonContent` carries type-specific configuration; `ComplianceRuleJson` carries validation rules applied at submission time.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Node identifier |
+| `FlowId` | `uuid` | FK → `Flows.Id` CASCADE | Owning flow |
+| `Key` | `varchar(100)` | NOT NULL, UNIQUE per flow | Stable string identifier (used in routing logic and URL interpolation) |
+| `Type` | `integer` | NOT NULL | Enum: `Form=0`, `Information=1`, `Logic=2`, `Redirect=3`, `DocumentUpload=4` |
+| `Title` | `varchar(200)` | NOT NULL | Display title shown to the end user |
+| `JsonContent` | `text` | NOT NULL | Type-specific configuration JSON (field definitions, upload constraints, redirect URL, etc.) |
+| `ComplianceRuleJson` | `text` | nullable | Server-side validation rules (see [ComplianceRuleJson reference](#compliancerulejson-reference)) |
+| `IsStartNode` | `boolean` | NOT NULL | Exactly one node per flow must be `true`; validated on flow creation |
+| `ExecutionErrorJson` | `text` | nullable | Populated when a Logic node with `failOnError: true` throws; contains error detail |
+| `CreatedAt` | `timestamptz` | NOT NULL | Row creation timestamp |
+| `UpdatedAt` | `timestamptz` | NOT NULL | Last modification timestamp |
+
+**Indexes:** `(FlowId, Key)` UNIQUE · `(FlowId, IsStartNode)`
+
+#### `Connections`
+
+Directed edges between nodes. An absent `ConditionField` means the connection is unconditional (fallback).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Connection identifier |
+| `FlowId` | `uuid` | FK → `Flows.Id` CASCADE | Owning flow |
+| `SourceNodeId` | `uuid` | NOT NULL | Outgoing node |
+| `TargetNodeId` | `uuid` | NOT NULL | Incoming node |
+| `ConditionField` | `text` | nullable | Payload field name to evaluate; if null the connection always matches |
+| `ConditionOperator` | `integer` | nullable | Enum: `Equals=0`, `NotEquals=1`, `Exists=2`, `Contains=3`, `NotContains=4`, `StartsWith=5`, `EndsWith=6`, `GreaterThan=7`, `LessThan=8`, `GreaterThanOrEqual=9`, `LessThanOrEqual=10`, `MatchesRegex=11` |
+| `ConditionValue` | `text` | nullable | Right-hand side of the condition |
+| `Priority` | `integer` | NOT NULL | Lower values evaluated first; fallback connections (no `ConditionField`) sorted last within the same priority |
+
+**Indexes:** `FlowId`
+
+#### `CustomerProfiles`
+
+Optional customer record, upserted by `ExternalCustomerId` when supplied with a session start request. Condition evaluation falls back to `Country` and `Email` from the profile when those fields are absent from the submitted payload.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Internal identifier |
+| `ExternalCustomerId` | `varchar(200)` | NOT NULL, UNIQUE | Caller-supplied identifier (e.g., CRM ID) |
+| `Country` | `varchar(10)` | NOT NULL | ISO country code or short string |
+| `Email` | `varchar(320)` | NOT NULL | Customer email |
+| `MetadataJson` | `text` | NOT NULL | Arbitrary key-value map written by `SetProfileField` Logic node actions |
+| `CreatedAt` | `timestamptz` | NOT NULL | Row creation timestamp |
+| `UpdatedAt` | `timestamptz` | NOT NULL | Last modification timestamp |
+
+**Indexes:** `ExternalCustomerId` UNIQUE
+
+#### `Sessions`
+
+Runtime instance of a flow for a customer. `CurrentNodeId` advances with each step; `null` indicates a completed or abandoned session.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Session identifier |
+| `FlowId` | `uuid` | FK → `Flows.Id` RESTRICT | The flow being executed (restricted to prevent accidental flow deletion) |
+| `CurrentNodeId` | `uuid` | nullable | ID of the node awaiting submission; `null` when completed |
+| `CustomerProfileId` | `uuid` | nullable, FK → `CustomerProfiles.Id` SET NULL | Associated customer profile; SET NULL on profile deletion |
+| `Status` | `integer` | NOT NULL | Enum: `Started=0`, `Completed=1`, `Abandoned=2`, `Error=3` |
+| `CreatedAt` | `timestamptz` | NOT NULL | Session start timestamp |
+| `UpdatedAt` | `timestamptz` | NOT NULL | Last state-change timestamp |
+
+**Indexes:** `CustomerProfileId` · `(FlowId, Status)` · `Status`
+
+#### `Submissions`
+
+One row per step submission. The full payload is stored as JSON and used by cross-field compliance rules in later steps and by Logic node variable interpolation.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Submission identifier |
+| `SessionId` | `uuid` | FK → `Sessions.Id` CASCADE | Owning session |
+| `NodeId` | `uuid` | NOT NULL | Node that was submitted |
+| `DataJson` | `text` | NOT NULL | Submitted payload serialised as a flat JSON object |
+| `SubmittedAt` | `timestamptz` | NOT NULL | Submission timestamp |
+
+**Indexes:** `SessionId`
+
+#### `Webhooks`
+
+Endpoint registration for a flow. Multiple webhooks can be registered per flow. The HMAC-SHA256 `Secret` is used to sign delivery payloads.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Webhook identifier |
+| `FlowId` | `uuid` | FK → `Flows.Id` CASCADE | Flow this webhook belongs to |
+| `Url` | `varchar(2048)` | NOT NULL | Delivery URL |
+| `Secret` | `varchar(512)` | NOT NULL | HMAC-SHA256 signing secret |
+| `CreatedAt` | `timestamptz` | NOT NULL | Registration timestamp |
+| `UpdatedAt` | `timestamptz` | NOT NULL | Last modification timestamp |
+
+**Indexes:** `FlowId`
+
+#### `WebhookDeliveries`
+
+Delivery log for each webhook attempt. Retried up to three times with exponential back-off; `Status` transitions `Pending → Delivered | Failed`.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Delivery record identifier |
+| `WebhookId` | `uuid` | FK → `Webhooks.Id` CASCADE | Target webhook |
+| `SessionId` | `uuid` | NOT NULL | Session that triggered the event |
+| `EventType` | `text` | NOT NULL | Event name (e.g., `step-advanced`, `session-completed`) |
+| `PayloadJson` | `text` | NOT NULL | Signed JSON body sent to the endpoint |
+| `AttemptCount` | `integer` | NOT NULL | Number of delivery attempts made |
+| `Status` | `text` | NOT NULL | `Pending`, `Delivered`, or `Failed` |
+| `LastResponseBody` | `text` | nullable | Response body from the most recent attempt |
+| `LastStatusCode` | `integer` | nullable | HTTP status code from the most recent attempt |
+| `CreatedAt` | `timestamptz` | NOT NULL | Record creation timestamp |
+| `DeliveredAt` | `timestamptz` | nullable | Timestamp of successful delivery |
+
+**Indexes:** `(WebhookId, Status)`
+
+#### `FlowVersions`
+
+Immutable snapshots of a flow graph captured on each publish. Enables rollback and diff inspection via `GET /api/flows/{flowId}/versions`.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Version record identifier |
+| `FlowId` | `uuid` | FK → `Flows.Id` CASCADE | Versioned flow |
+| `VersionNumber` | `integer` | NOT NULL | Monotonically increasing version number per flow |
+| `SnapshotJson` | `text` | NOT NULL | Full flow graph serialised as JSON at the time of publish |
+| `CreatedAt` | `timestamptz` | NOT NULL | Snapshot creation timestamp |
+| `CreatedBy` | `text` | nullable | Identity of the user who published the version |
+
+**Indexes:** `(FlowId, VersionNumber)` UNIQUE
+
+### Design notes
+
+**All primary keys are UUIDs** — generated by the caller for flows and nodes (to support offline graph construction in the builder), generated server-side for runtime records (sessions, submissions, deliveries).
+
+**JSON columns** (`JsonContent`, `ComplianceRuleJson`, `DataJson`, `MetadataJson`, `PayloadJson`, `SnapshotJson`) are stored as `text`. EF Core does not map these to structured PostgreSQL `jsonb` columns; the application layer deserialises them as needed. This avoids schema coupling to the contents of individual node types.
+
+**Referential integrity rules:**
+- Deleting a `Flow` cascades to `Nodes`, `Connections`, `Webhooks` (and their `WebhookDeliveries`), and `FlowVersions`.
+- Deleting a `Flow` is **restricted** if any `Session` references it, preventing accidental loss of active session context.
+- Deleting a `CustomerProfile` sets `Sessions.CustomerProfileId` to `NULL` rather than cascading, preserving session history.
+- Deleting a `Session` cascades to `Submissions`.
+
+**`NodeType` and `ConditionOperator` enums** are stored as integers. The integer-to-name mapping is defined in `OpenOnboarding.Domain/Enums/` and is stable across migrations.
+
+---
+
+
 
 Waymark journeys are defined as data, not code. A **flow** is a directed graph of **nodes** (steps) connected by **connections** (conditional edges). The engine evaluates connections at runtime to determine the next node for each session, allowing entirely different journeys for different customer profiles without any code changes.
 
