@@ -26,10 +26,7 @@
               "DocumentUpload",
               "Redirect",
               "Information",
-              "Logic",
-              "VideoPlayback",
-              "InformationModal",
-              "ExternalIntegrationHook"
+              "Logic"
             ]
           },
           "title": { "type": "string", "minLength": 1 },

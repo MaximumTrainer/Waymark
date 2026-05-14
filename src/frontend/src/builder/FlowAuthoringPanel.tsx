@@ -51,13 +51,6 @@ function toEditorState(draft: FlowDraft) {
   }
 }
 
-function parsePersonaKeys(value: string): string[] {
-  return value
-    .split(',')
-    .map((personaKey) => personaKey.trim())
-    .filter((personaKey) => personaKey.length > 0)
-}
-
 export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) {
   const [flowIdInput, setFlowIdInput] = useState('')
   const [name, setName] = useState(createDefaultFlowDraft().name)
@@ -166,11 +159,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
       const response = await fetch(url, {
         method,
         headers: buildHeaders(true),
-        body: JSON.stringify({
-          ...buildFlowWritePayload(draft),
-          lifecycleState,
-          personaKeys: parsePersonaKeys(personaKeys),
-        }),
+        body: JSON.stringify(buildFlowWritePayload(draft)),
       })
 
       if (!response.ok) {

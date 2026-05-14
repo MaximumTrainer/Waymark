@@ -83,7 +83,9 @@ function App() {
   const { flow: builderFlow } = useFlow(builderFlowId)
 
   const effectiveFlowId = resolveFlowIdForPersona(personaAssignments, selectedPersona, selectedFlowId)
-  const activePersonasByVersion = buildVersionToPersonaMap(personaAssignments)
+  const activePersonasByVersion = buildVersionToPersonaMap(
+    personaAssignments.filter((a) => a.flowId === builderFlowId),
+  )
 
   useEffect(() => {
     startSession({ flowId: effectiveFlowId })
@@ -125,6 +127,7 @@ function App() {
                 const nextFlowId = event.target.value
                 setSelectedFlowId(nextFlowId)
                 setBuilderFlowId(nextFlowId)
+                setLatestSelectedVersion(null)
               }}
               className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-500"
             >

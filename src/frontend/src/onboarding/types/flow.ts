@@ -4,8 +4,6 @@ export type NodeType =
   | 'Redirect'
   | 'Information'
   | 'Logic'
-  | 'InformationModal'
-  | 'ExternalIntegrationHook'
 
 export interface FlowNode {
   id: string

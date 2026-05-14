@@ -503,36 +503,6 @@ export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: Step
             Processing…
           </div>
         )
-      case 'InformationModal':
-        return (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-700">{node.title}</p>
-            {typeof content.message === 'string' ? (
-              <p className="rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">{content.message}</p>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void onSubmit({ acknowledged: true })}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Acknowledge
-            </button>
-          </div>
-        )
-      case 'ExternalIntegrationHook':
-        return (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-700">{node.title}</p>
-            <p className="text-xs text-slate-500">External integration hooks execute server-side and then continue automatically.</p>
-            <button
-              type="button"
-              onClick={() => void onSubmit({ trigger: true })}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Trigger and continue
-            </button>
-          </div>
-        )
       default:
         return <p className="text-sm text-slate-700">{node.title}</p>
     }
