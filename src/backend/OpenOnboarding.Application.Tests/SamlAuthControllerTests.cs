@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
+using OpenOnboarding.Api.Authentication;
 
 namespace OpenOnboarding.Application.Tests;
 
@@ -83,7 +84,7 @@ public sealed class SamlAuthControllerTests
             ? values.ToArray()
             : [];
         var adminSessionCookie = Assert.Single(setCookies, value =>
-            value.StartsWith("__Secure-waymark-admin-session=", StringComparison.Ordinal));
+            value.StartsWith($"{AdminSessionAuthenticationDefaults.CookieName}=", StringComparison.Ordinal));
         Assert.Contains("samesite=none", adminSessionCookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("secure", adminSessionCookie, StringComparison.OrdinalIgnoreCase);
 
