@@ -13,7 +13,7 @@ const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const apiKey = import.meta.env.VITE_API_KEY
 
 type FlowAuthoringPanelProps = {
-  onFlowSelected: (flowId: string | null) => void
+  onFlowSelected: (flowId: string | null, version?: number | null) => void
 }
 
 type StatusState = {
@@ -58,6 +58,8 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
   const [nodesJson, setNodesJson] = useState(JSON.stringify(createDefaultFlowDraft().nodes, null, 2))
   const [connectionsJson, setConnectionsJson] = useState(JSON.stringify(createDefaultFlowDraft().connections, null, 2))
   const [currentVersion, setCurrentVersion] = useState<number | null>(null)
+  const [lifecycleState, setLifecycleState] = useState<'Draft' | 'Published'>('Draft')
+  const [personaKeys, setPersonaKeys] = useState('')
   const [status, setStatus] = useState<StatusState>({ kind: 'idle', message: '' })
   const [isBusy, setIsBusy] = useState(false)
 
@@ -119,7 +121,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
       setDraft(draft)
       setCurrentVersion(flow.version)
       setStatus({ kind: 'success', message: `Loaded flow ${flow.id} (version ${flow.version}).` })
-      onFlowSelected(flow.id)
+      onFlowSelected(flow.id, flow.version)
     } catch (error) {
       setStatus({ kind: 'error', message: error instanceof Error ? error.message : 'Failed to load flow.' })
     } finally {
@@ -157,7 +159,14 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
       const response = await fetch(url, {
         method,
         headers: buildHeaders(true),
-        body: JSON.stringify(buildFlowWritePayload(draft)),
+        body: JSON.stringify({
+          ...buildFlowWritePayload(draft),
+          lifecycleState,
+          personaKeys: personaKeys
+            .split(',')
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0),
+        }),
       })
 
       if (!response.ok) {
@@ -176,7 +185,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
             ? `Created flow ${savedFlow.id} (version ${savedFlow.version}).`
             : `Saved flow ${savedFlow.id} as version ${savedFlow.version}.`,
       })
-      onFlowSelected(savedFlow.id)
+      onFlowSelected(savedFlow.id, savedFlow.version)
     } catch (error) {
       setStatus({ kind: 'error', message: error instanceof Error ? error.message : 'Failed to save flow.' })
     } finally {
@@ -208,6 +217,8 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
       setDraft(reset)
       setStatus({ kind: 'success', message: 'Flow deleted.' })
       onFlowSelected(null)
+      setLifecycleState('Draft')
+      setPersonaKeys('')
     } catch (error) {
       setStatus({ kind: 'error', message: error instanceof Error ? error.message : 'Failed to delete flow.' })
     } finally {
@@ -249,7 +260,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
           ? 'Reload verification passed: API graph matches the saved graph.'
           : 'Reload verification failed: API graph differs from the local graph.',
       })
-      onFlowSelected(reloaded.id)
+      onFlowSelected(reloaded.id, reloaded.version)
     } catch (error) {
       setStatus({ kind: 'error', message: error instanceof Error ? error.message : 'Failed to reload flow.' })
     } finally {
@@ -264,6 +275,8 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
     setDraft(draft)
     setStatus({ kind: 'success', message: 'Started a new draft flow.' })
     onFlowSelected(null)
+    setLifecycleState('Draft')
+    setPersonaKeys('')
   }
 
   return (
@@ -289,6 +302,29 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
             className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
             value={name}
             onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="space-y-1 text-sm text-slate-700">
+          Lifecycle state
+          <select
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            value={lifecycleState}
+            onChange={(event) => setLifecycleState(event.target.value as 'Draft' | 'Published')}
+          >
+            <option value="Draft">Draft</option>
+            <option value="Published">Published</option>
+          </select>
+        </label>
+        <label className="space-y-1 text-sm text-slate-700">
+          Persona keys (comma-separated)
+          <input
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            value={personaKeys}
+            onChange={(event) => setPersonaKeys(event.target.value)}
+            placeholder="new-user, enterprise-admin"
           />
         </label>
       </div>

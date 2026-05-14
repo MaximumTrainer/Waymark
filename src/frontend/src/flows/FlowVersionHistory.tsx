@@ -10,9 +10,12 @@ interface FlowVersionHistoryProps {
   flowId: string
   apiKey?: string
   onRestore?: (versionNumber: number) => void
+  activePersonasByVersion?: Record<number, string[]>
 }
 
-export function FlowVersionHistory({ flowId, apiKey, onRestore }: FlowVersionHistoryProps) {
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
+export function FlowVersionHistory({ flowId, apiKey, onRestore, activePersonasByVersion = {} }: FlowVersionHistoryProps) {
   const [versions, setVersions] = useState<VersionSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [restoring, setRestoring] = useState<number | null>(null)
@@ -25,7 +28,7 @@ export function FlowVersionHistory({ flowId, apiKey, onRestore }: FlowVersionHis
 
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/flows/${flowId}/versions`, { headers })
+    fetch(`${API_BASE_URL}/api/flows/${flowId}/versions`, { headers })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json() as Promise<VersionSummary[]>
@@ -37,9 +40,9 @@ export function FlowVersionHistory({ flowId, apiKey, onRestore }: FlowVersionHis
 
   const handleRestore = useCallback(async (versionNumber: number) => {
     setRestoring(versionNumber)
-    setConfirmVersion(null)
+      setConfirmVersion(null)
     try {
-      const r = await fetch(`/api/flows/${flowId}/versions/${versionNumber}/restore`, {
+      const r = await fetch(`${API_BASE_URL}/api/flows/${flowId}/versions/${versionNumber}/restore`, {
         method: 'POST',
         headers,
       })
@@ -66,6 +69,11 @@ export function FlowVersionHistory({ flowId, apiKey, onRestore }: FlowVersionHis
               <span className="text-sm font-medium text-slate-900">Version {v.versionNumber}</span>
               <span className="ml-3 text-xs text-slate-500">{new Date(v.createdAt).toLocaleString()}</span>
               {v.createdBy && <span className="ml-2 text-xs text-slate-400">by {v.createdBy}</span>}
+              {(activePersonasByVersion[v.versionNumber]?.length ?? 0) > 0 && (
+                <span className="ml-2 rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">
+                  Live for: {activePersonasByVersion[v.versionNumber].join(', ')}
+                </span>
+              )}
             </div>
             <button
               onClick={() => setConfirmVersion(v.versionNumber)}
