@@ -33,7 +33,7 @@ test.describe('Journey B – Conditional Branch (API)', () => {
 
     const res = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
-      { headers: authHeaders, data: { Country: 'France' } },
+      { headers: authHeaders, data: { payload: { Country: 'France' } } },
     )
     expect(res.status()).toBe(200)
     const next = await res.json() as { currentNode: { key: string; type: string } }
@@ -47,7 +47,7 @@ test.describe('Journey B – Conditional Branch (API)', () => {
 
     const res = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
-      { headers: authHeaders, data: { Country: 'Germany' } },
+      { headers: authHeaders, data: { payload: { Country: 'Germany' } } },
     )
     expect(res.status()).toBe(200)
     const next = await res.json() as { currentNode: { key: string; type: string } }
@@ -61,7 +61,7 @@ test.describe('Journey B – Conditional Branch (API)', () => {
 
     const res = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
-      { headers: authHeaders, data: { Country: 'USA' } },
+      { headers: authHeaders, data: { payload: { Country: 'USA' } } },
     )
     expect(res.status()).toBe(200)
     const next = await res.json() as { currentNode: { key: string; type: string } }
@@ -75,7 +75,7 @@ test.describe('Journey B – Conditional Branch (API)', () => {
 
     const res = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
-      { headers: authHeaders, data: { Country: 'Other' } },
+      { headers: authHeaders, data: { payload: { Country: 'Other' } } },
     )
     expect(res.status()).toBe(200)
     const next = await res.json() as { currentNode: { key: string; type: string } }
@@ -89,7 +89,7 @@ test.describe('Journey B – Conditional Branch (API)', () => {
 
     const res = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
-      { headers: authHeaders, data: {} },
+      { headers: authHeaders, data: { payload: {} } },
     )
     expect(res.status()).toBe(422)
     const body = await res.json() as { violations: Array<{ field: string }> }

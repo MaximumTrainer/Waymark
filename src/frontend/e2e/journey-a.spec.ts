@@ -37,7 +37,7 @@ test.describe('Journey A – Linear Basic (API)', () => {
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${formNodeId}/submit`,
       {
         headers: authHeaders,
-        data: { FullName: 'Alice Example', Email: 'alice@example.com' },
+        data: { payload: { FullName: 'Alice Example', Email: 'alice@example.com' } },
       },
     )
     expect(submitRes.status()).toBe(200)
@@ -56,7 +56,7 @@ test.describe('Journey A – Linear Basic (API)', () => {
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${infoNodeId}/submit`,
       {
         headers: authHeaders,
-        data: {},
+        data: { payload: {} },
       },
     )
     expect(infoRes.status()).toBe(200)
@@ -78,7 +78,7 @@ test.describe('Journey A – Linear Basic (API)', () => {
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
       {
         headers: authHeaders,
-        data: {},
+        data: { payload: {} },
       },
     )
     expect(res.status()).toBe(422)
@@ -103,7 +103,7 @@ test.describe('Journey A – Linear Basic (API)', () => {
       `${API_BASE}/api/workflow/sessions/${start.sessionId}/steps/${start.currentNode.id}/submit`,
       {
         headers: authHeaders,
-        data: { FullName: 'Bob Smith', Email: 'not-an-email' },
+        data: { payload: { FullName: 'Bob Smith', Email: 'not-an-email' } },
       },
     )
     expect(res.status()).toBe(422)

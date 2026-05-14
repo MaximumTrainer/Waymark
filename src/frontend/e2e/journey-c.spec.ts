@@ -33,7 +33,7 @@ test.describe('Journey C – Compliance Heavy (API)', () => {
 
     const res = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
-      { headers: authHeaders, data: { NationalId: 'INVALID' } },
+      { headers: authHeaders, data: { payload: { NationalId: 'INVALID' } } },
     )
     expect(res.status()).toBe(422)
     const body = await res.json() as { violations: Array<{ field: string; message: string }> }
@@ -47,7 +47,7 @@ test.describe('Journey C – Compliance Heavy (API)', () => {
 
     const res = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
-      { headers: authHeaders, data: {} },
+      { headers: authHeaders, data: { payload: {} } },
     )
     expect(res.status()).toBe(422)
     const body = await res.json() as { violations: Array<{ field: string }> }
@@ -61,7 +61,7 @@ test.describe('Journey C – Compliance Heavy (API)', () => {
     // Format: 2 uppercase letters + 6 digits
     const res = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${currentNode.id}/submit`,
-      { headers: authHeaders, data: { NationalId: 'AB123456' } },
+      { headers: authHeaders, data: { payload: { NationalId: 'AB123456' } } },
     )
     expect(res.status()).toBe(200)
     const next = await res.json() as { currentNode: { type: string; key: string } }
@@ -76,7 +76,7 @@ test.describe('Journey C – Compliance Heavy (API)', () => {
     // Step 1: submit valid identity
     const step1 = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${identityNode.id}/submit`,
-      { headers: authHeaders, data: { NationalId: 'CD789012' } },
+      { headers: authHeaders, data: { payload: { NationalId: 'CD789012' } } },
     )
     expect(step1.status()).toBe(200)
     const afterIdentity = await step1.json() as { currentNode: { id: string; type: string } }
@@ -85,7 +85,7 @@ test.describe('Journey C – Compliance Heavy (API)', () => {
     // Step 2: submit DocumentUpload with empty payload (no file scanning in test mode)
     const step2 = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${afterIdentity.currentNode.id}/submit`,
-      { headers: authHeaders, data: {} },
+      { headers: authHeaders, data: { payload: {} } },
     )
     expect(step2.status()).toBe(200)
     const afterUpload = await step2.json() as { currentNode: { type: string; key: string } }
@@ -100,13 +100,13 @@ test.describe('Journey C – Compliance Heavy (API)', () => {
     // Advance through identity + document upload steps
     const step1 = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${identityNode.id}/submit`,
-      { headers: authHeaders, data: { NationalId: 'EF345678' } },
+      { headers: authHeaders, data: { payload: { NationalId: 'EF345678' } } },
     )
     const afterIdentity = await step1.json() as { currentNode: { id: string } }
 
     const step2 = await request.post(
       `${API_BASE}/api/workflow/sessions/${sessionId}/steps/${afterIdentity.currentNode.id}/submit`,
-      { headers: authHeaders, data: {} },
+      { headers: authHeaders, data: { payload: {} } },
     )
     const afterUpload = await step2.json() as {
       currentNode: { type: string; jsonContent: string }

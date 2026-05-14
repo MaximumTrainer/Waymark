@@ -32,6 +32,12 @@ function mockFlowList(page: Page) {
   )
 }
 
+function mockSSE(page: Page) {
+  return page.route('**/api/workflow/sessions/*/events', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' }),
+  )
+}
+
 test.describe('StepRenderer – Information node', () => {
   test('renders title, message, and Continue button', async ({ page }) => {
     await mockFlowList(page)
@@ -56,8 +62,8 @@ test.describe('StepRenderer – Information node', () => {
       }),
     )
 
+    await mockSSE(page)
     await page.goto('/')
-    await page.getByRole('button', { name: /start/i }).click()
 
     await expect(page.getByText('Application received')).toBeVisible()
     await expect(page.getByText('Thank you for applying.')).toBeVisible()
@@ -97,13 +103,13 @@ test.describe('StepRenderer – Information node', () => {
       })
     })
 
+    await mockSSE(page)
     await page.goto('/')
-    await page.getByRole('button', { name: /start/i }).click()
     await page.getByRole('button', { name: /continue/i }).click()
 
     await expect(page.getByText(/journey complete/i)).toBeVisible()
     const parsed = JSON.parse(submitBody ?? '{}') as Record<string, unknown>
-    expect(parsed).toEqual({})
+    expect(parsed).toEqual({ payload: {} })
   })
 })
 
@@ -135,8 +141,8 @@ test.describe('StepRenderer – Redirect node', () => {
       }),
     )
 
+    await mockSSE(page)
     await page.goto('/')
-    await page.getByRole('button', { name: /start/i }).click()
 
     const link = page.getByRole('link', { name: /continue to external provider/i })
     await expect(link).toBeVisible()
@@ -178,8 +184,8 @@ test.describe('StepRenderer – Form node with select field', () => {
       }),
     )
 
+    await mockSSE(page)
     await page.goto('/')
-    await page.getByRole('button', { name: /start/i }).click()
 
     await expect(page.getByRole('combobox')).toBeVisible()
     await expect(page.getByRole('option', { name: 'France' })).toBeAttached()
@@ -216,8 +222,8 @@ test.describe('StepRenderer – DocumentUpload node', () => {
       }),
     )
 
+    await mockSSE(page)
     await page.goto('/')
-    await page.getByRole('button', { name: /start/i }).click()
 
     await expect(page.locator('input[type="file"]')).toBeVisible()
     await expect(page.getByText('Upload identity document')).toBeVisible()
@@ -248,8 +254,8 @@ test.describe('StepRenderer – Logic node', () => {
       }),
     )
 
+    await mockSSE(page)
     await page.goto('/')
-    await page.getByRole('button', { name: /start/i }).click()
 
     await expect(page.getByText(/processing/i)).toBeVisible()
     await expect(page.locator('svg.animate-spin')).toBeVisible()
