@@ -79,6 +79,7 @@
           <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">Core Concepts</p>
           <ul class="space-y-0.5">
             <li><a href="#schema"      class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Journey Schema</a></li>
+            <li><a href="#journey-json" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">journey.json Reference</a></li>
             <li><a href="#nodes"       class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Node Types</a></li>
             <li><a href="#connections" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Connections &amp; Routing</a></li>
             <li><a href="#compliance"  class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Compliance Rules</a></li>
@@ -291,6 +292,63 @@ X-Api-Key: dev-api-key-change-in-production
               <tr><td><code>priority</code></td><td>int</td><td>Lower = evaluated first. Fallback edges (no condition) are always sorted to the end within the same priority.</td></tr>
             </tbody>
           </table>
+        </section>
+
+        <section id="journey-json">
+          <h2>journey.json Reference</h2>
+          <p>
+            In Waymark, <code>journey.json</code> is a flow definition with top-level metadata, <code>nodes</code>, and
+            <code>connections</code>. The engine evaluates this graph at runtime for each session.
+          </p>
+
+          <h3>Notation</h3>
+          <ul>
+            <li>IDs are GUID strings for flow and node identity.</li>
+            <li><code>nodes[].jsonContent</code> is JSON serialized as a string in the API contract.</li>
+            <li><code>nodes[].complianceRuleJson</code> is optional JSON serialized as a string.</li>
+            <li><code>connections[].priority</code> is evaluated ascending (lower first).</li>
+            <li><code>condition*</code> fields can be omitted/null for fallback edges.</li>
+          </ul>
+
+          <h3>Minimal structure</h3>
+          <div class="code-block rounded-lg overflow-hidden">
+            <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">journey.json</div>
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>{
+  "name": "Journey name",
+  "description": "Optional description",
+  "nodes": [],
+  "connections": []
+}</code></pre>
+          </div>
+
+          <h3>Frontend linkage</h3>
+          <table>
+            <thead><tr><th>Journey JSON field</th><th>Frontend usage</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td><code>id</code> (selected flow)</td><td><code>App.tsx</code> + <code>useOnboarding</code></td><td>Passed as <code>StartSessionRequest.flowId</code> to start a session.</td></tr>
+              <tr><td><code>nodes[].type</code></td><td><code>StepRenderer.tsx</code></td><td>Selects rendered step UI (Form, DocumentUpload, Redirect, Information, Logic).</td></tr>
+              <tr><td><code>nodes[].jsonContent</code></td><td><code>StepRenderer.tsx</code></td><td>Parsed into dynamic form/upload/redirect configuration.</td></tr>
+              <tr><td><code>connections[]</code></td><td>Engine + <code>JourneyBuilder.tsx</code></td><td>Controls branching and edge labels in the graph.</td></tr>
+              <tr><td><code>nodes[]</code> / <code>connections[]</code></td><td><code>FlowAuthoringPanel.tsx</code></td><td>Editable and validated as JSON in the authoring UI.</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Journey visualization</h3>
+          <p>
+            The frontend visualizes journeys in two ways: runtime step rendering (<code>StepRenderer</code>) and
+            graph rendering (<code>JourneyBuilder</code> via React Flow).
+          </p>
+          <div class="code-block rounded-lg p-6 my-4">
+            <pre class="text-xs font-mono text-slate-400 leading-loose"><code>[country-form]
+      ├── Country = USA ─────► [us-tax-form] ─────► [completed]
+      └── Country != USA ────► [passport-upload] ─► [completed]</code></pre>
+          </div>
+          <p>
+            For a complete real example already included in this repository, see
+            <a href="https://github.com/MaximumTrainer/Waymark/blob/main/src/frontend/src/schemas/flow-definition.example.json" class="text-brand-400 hover:text-brand-300">
+              <code>src/frontend/src/schemas/flow-definition.example.json</code>
+            </a>.
+          </p>
         </section>
 
         <!-- ─── NODES ─── -->

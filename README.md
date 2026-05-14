@@ -9,6 +9,7 @@ Waymark is a schema-driven journey orchestration engine for onboarding and compl
 
 - [`getting-started.md`](./getting-started.md) — prerequisites, local setup, and contribution workflow
 - [`user-guide.md`](./user-guide.md) — persona model, session lifecycle, and webhook integration
+- [`docs/journey-json.md`](./docs/journey-json.md) — journey JSON notation, structure, frontend linkage, and visualization
 - [`feature-gaps.md`](./feature-gaps.md) — known gaps tracked as GitHub issues
 
 ## Repository structure
