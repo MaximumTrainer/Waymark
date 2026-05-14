@@ -336,7 +336,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Apply database migrations
-        run: dotnet ef database update --project src/backend/OpenOnboarding.Infrastructure --startup-project src/backend/OpenOnboarding.Api --no-build
+        run: dotnet ef database update --project src/backend/OpenOnboarding.Infrastructure --startup-project src/backend/OpenOnboarding.Api --configuration Release --no-build
 
       - name: Start API in background
         run: |
