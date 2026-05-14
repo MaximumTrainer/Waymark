@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 interface VersionSummary {
   versionNumber: number
@@ -13,25 +13,27 @@ interface FlowVersionHistoryProps {
 }
 
 export function FlowVersionHistory({ flowId, apiKey, onRestore }: FlowVersionHistoryProps) {
-  const [versions, setVersions] = useState<VersionSummary[]>([])
-  const [loading, setLoading] = useState(true)
+  const [versions, setVersions] = useState<VersionSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [restoring, setRestoring] = useState<number | null>(null)
   const [confirmVersion, setConfirmVersion] = useState<number | null>(null)
 
-  const headers: Record<string, string> = apiKey ? { 'X-Api-Key': apiKey } : {}
+  const headers = useMemo<Record<string, string>>(
+    () => (apiKey ? { 'X-Api-Key': apiKey } : {}),
+    [apiKey],
+  )
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
     fetch(`/api/flows/${flowId}/versions`, { headers })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json() as Promise<VersionSummary[]>
       })
-      .then(setVersions)
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [flowId])
+      .then(data => { if (!cancelled) setVersions(data) })
+      .catch(e => { if (!cancelled) setError((e as Error).message) })
+    return () => { cancelled = true }
+  }, [flowId, headers])
 
   const handleRestore = useCallback(async (versionNumber: number) => {
     setRestoring(versionNumber)
@@ -50,9 +52,9 @@ export function FlowVersionHistory({ flowId, apiKey, onRestore }: FlowVersionHis
     }
   }, [flowId, headers, onRestore])
 
-  if (loading) return <div className="p-4 text-slate-500">Loading version history…</div>
+  if (versions === null && error === null) return <div className="p-4 text-slate-500">Loading version history…</div>
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>
-  if (versions.length === 0) return <div className="p-4 text-slate-400">No version history yet.</div>
+  if (!versions || versions.length === 0) return <div className="p-4 text-slate-400">No version history yet.</div>
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
