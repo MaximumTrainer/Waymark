@@ -92,9 +92,13 @@ export function JourneyAnalyticsProvider({
       stepIndex: number | null,
       payload: Record<string, unknown> = {},
     ) => {
+      if (!journeyId || !journeyId.trim()) {
+        return
+      }
+
       const event = buildAnalyticsEvent(
         eventType,
-        journeyId ?? '',
+        journeyId,
         sessionId,
         stepId,
         stepIndex,

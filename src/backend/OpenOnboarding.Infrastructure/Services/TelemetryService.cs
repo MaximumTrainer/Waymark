@@ -30,6 +30,10 @@ public sealed class TelemetryService(
         {
             await provider.TrackEventAsync(@event, cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Normal cancellation path; do not log as provider failure.
+        }
         catch (Exception ex)
         {
             logger.LogWarning(ex,

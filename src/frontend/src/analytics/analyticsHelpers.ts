@@ -34,7 +34,9 @@ export function dispatchToSinks(
 ): void {
   for (const sink of sinks) {
     try {
-      void sink.track(event)
+      Promise.resolve(sink.track(event)).catch(() => {
+        // Sinks must not disrupt the journey engine
+      })
     } catch {
       // Sinks must not disrupt the journey engine
     }

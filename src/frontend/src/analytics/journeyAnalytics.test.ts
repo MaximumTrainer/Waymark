@@ -1,7 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { buildAnalyticsEvent, dispatchToSinks } from './analyticsHelpers'
 import { consoleAnalyticsSink } from './consoleAnalyticsSink'
-import type { JourneyAnalyticsSink, JourneyAnalyticsEvent } from './JourneyAnalyticsContext'
+import {
+  JourneyAnalyticsProvider,
+  useJourneyAnalytics,
+  type JourneyAnalyticsSink,
+  type JourneyAnalyticsEvent,
+} from './JourneyAnalyticsContext'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 describe('buildAnalyticsEvent', () => {
   it('sets all required fields', () => {
@@ -92,6 +99,16 @@ describe('dispatchToSinks', () => {
   it('does nothing when the sink list is empty', () => {
     expect(() => dispatchToSinks([], makeEvent())).not.toThrow()
   })
+
+  it('does not leak rejected promises from async sinks', async () => {
+    const asyncFaultySink: JourneyAnalyticsSink = {
+      name: 'async-faulty',
+      track: async () => Promise.reject(new Error('async boom')),
+    }
+
+    expect(() => dispatchToSinks([asyncFaultySink], makeEvent())).not.toThrow()
+    await Promise.resolve()
+  })
 })
 
 describe('consoleAnalyticsSink', () => {
@@ -106,5 +123,32 @@ describe('consoleAnalyticsSink', () => {
     expect(eventType).toBe('step_view')
 
     spy.mockRestore()
+  })
+})
+
+describe('JourneyAnalyticsProvider', () => {
+  it('does not emit events when journeyId is missing', () => {
+    const track = vi.fn()
+    const sink: JourneyAnalyticsSink = {
+      name: 'spy',
+      track,
+    }
+
+    function TrackOnRender() {
+      const analytics = useJourneyAnalytics()
+      analytics.track('step_view', 'node-1', 0)
+      return null
+    }
+
+    renderToStaticMarkup(
+      createElement(JourneyAnalyticsProvider, {
+        journeyId: null,
+        sessionId: 'session-1',
+        initialSinks: [sink],
+        children: createElement(TrackOnRender),
+      }),
+    )
+
+    expect(track).not.toHaveBeenCalled()
   })
 })

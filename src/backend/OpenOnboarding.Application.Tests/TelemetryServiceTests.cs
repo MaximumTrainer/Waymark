@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Interfaces;
@@ -86,6 +87,22 @@ public sealed class TelemetryServiceTests
         Assert.Equal("value", received.Payload["key"]);
     }
 
+    [Fact]
+    public async Task TrackAsync_DoesNotLogWarning_WhenProviderIsCancelledByRequestToken()
+    {
+        using var cancellationTokenSource = new CancellationTokenSource();
+        await cancellationTokenSource.CancelAsync();
+
+        var logger = new SpyLogger<TelemetryService>();
+        var provider = new CancelledAnalyticsProvider();
+        var service = new TelemetryService([provider], logger);
+
+        var @event = BuildEvent("navigation_next");
+        await service.TrackAsync(@event, cancellationTokenSource.Token);
+
+        Assert.Equal(0, logger.WarningCount);
+    }
+
     private static AnalyticsEvent BuildEvent(string eventType) => new()
     {
         EventType = eventType,
@@ -109,6 +126,35 @@ public sealed class TelemetryServiceTests
         public Task TrackEventAsync(AnalyticsEvent @event, CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Simulated provider failure");
+        }
+    }
+
+    private sealed class CancelledAnalyticsProvider : IAnalyticsProvider
+    {
+        public Task TrackEventAsync(AnalyticsEvent @event, CancellationToken cancellationToken = default)
+        {
+            return Task.FromCanceled(cancellationToken);
+        }
+    }
+
+    private sealed class SpyLogger<T> : ILogger<T>
+    {
+        public int WarningCount { get; private set; }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning)
+            {
+                WarningCount++;
+            }
         }
     }
 }
