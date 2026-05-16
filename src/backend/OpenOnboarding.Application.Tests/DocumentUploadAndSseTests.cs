@@ -514,6 +514,12 @@ internal sealed class NoOpDocumentStorageService : IDocumentStorageService
 
     public Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
         => Task.FromResult(new ScanResult(true, null));
+
+    public Task DeleteAsync(string fileId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task<IReadOnlyList<StoredFileInfo>> ListOlderThanAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<StoredFileInfo>>(Array.Empty<StoredFileInfo>());
 }
 /// <summary>Test stub: always returns infected scan result.</summary>
 internal sealed class InfectedDocumentStorageService : IDocumentStorageService
@@ -530,6 +536,12 @@ internal sealed class InfectedDocumentStorageService : IDocumentStorageService
 
     public Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
         => Task.FromResult(new ScanResult(false, "Eicar.Test.Virus"));
+
+    public Task DeleteAsync(string fileId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task<IReadOnlyList<StoredFileInfo>> ListOlderThanAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<StoredFileInfo>>(Array.Empty<StoredFileInfo>());
 }
 
 /// <summary>Test stub: scan always throws TimeoutException (simulates ClamAV unavailable).</summary>
@@ -547,6 +559,12 @@ internal sealed class UnavailableScanDocumentStorageService : IDocumentStorageSe
 
     public Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
         => Task.FromException<ScanResult>(new TimeoutException("ClamAV timed out"));
+
+    public Task DeleteAsync(string fileId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task<IReadOnlyList<StoredFileInfo>> ListOlderThanAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<StoredFileInfo>>(Array.Empty<StoredFileInfo>());
 }
 
 /// <summary>Test stub: records calls to IncrementSessionsStarted.</summary>
@@ -557,6 +575,7 @@ internal sealed class RecordingMetricsService : IMetricsService
     public void IncrementSessionsCompleted(string flowId) { }
     public void IncrementWebhookDeliveries(string status) { }
     public void SetActiveSessions(int count) { }
+    public void IncrementVirusScanBypassed() { }
 }
 
 public sealed class VirusScanWorkflowServiceTests

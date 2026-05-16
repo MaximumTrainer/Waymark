@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Application.Tests.TestHelpers;
 using OpenOnboarding.Infrastructure.Services;
 

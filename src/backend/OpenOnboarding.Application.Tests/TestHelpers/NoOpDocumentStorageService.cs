@@ -12,4 +12,10 @@ internal sealed class NoOpDocumentStorageService : IDocumentStorageService
 
     public Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
         => Task.FromResult(new ScanResult(true, null));
+
+    public Task DeleteAsync(string fileId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task<IReadOnlyList<StoredFileInfo>> ListOlderThanAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<StoredFileInfo>>(Array.Empty<StoredFileInfo>());
 }

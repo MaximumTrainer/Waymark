@@ -14,4 +14,6 @@ public interface IDocumentStorageService
     Task<StoredFileInfo> StoreAsync(Stream stream, string fileName, string contentType, CancellationToken cancellationToken = default);
     Task<(Stream Stream, StoredFileInfo Info)> GetStreamAsync(string fileId, CancellationToken cancellationToken = default);
     Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default);
+    Task DeleteAsync(string fileId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<StoredFileInfo>> ListOlderThanAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default);
 }

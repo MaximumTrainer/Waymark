@@ -70,4 +70,45 @@ public sealed class LocalDocumentStorageService : IDocumentStorageService
         await using var stream = File.OpenRead(filePath);
         return await _virusScanService.ScanAsync(stream, cancellationToken);
     }
+
+    public Task DeleteAsync(string fileId, CancellationToken cancellationToken = default)
+    {
+        if (fileId.Length >= 2)
+        {
+            var dir = Path.Combine(_basePath, fileId[..2]);
+            var filePath = Path.Combine(dir, fileId);
+            var metaPath = filePath + ".meta.json";
+
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+            if (File.Exists(metaPath))
+                File.Delete(metaPath);
+        }
+        return Task.CompletedTask;
+    }
+
+    public async Task<IReadOnlyList<StoredFileInfo>> ListOlderThanAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default)
+    {
+        var results = new List<StoredFileInfo>();
+
+        if (!Directory.Exists(_basePath))
+            return results;
+
+        foreach (var metaPath in Directory.EnumerateFiles(_basePath, "*.meta.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(metaPath, cancellationToken);
+                var info = JsonSerializer.Deserialize<StoredFileInfo>(json);
+                if (info is not null && info.StoredAt < threshold)
+                    results.Add(info);
+            }
+            catch
+            {
+                // skip malformed metadata
+            }
+        }
+
+        return results;
+    }
 }

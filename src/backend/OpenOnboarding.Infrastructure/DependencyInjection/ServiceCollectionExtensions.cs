@@ -1,3 +1,4 @@
+using Azure.Storage.Blobs;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -42,7 +43,26 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IValidator<CreateFlowRequest>, CreateFlowRequestValidator>();
         services.AddScoped<IValidator<UpdateFlowRequest>, UpdateFlowRequestValidator>();
 
-        services.AddScoped<IDocumentStorageService, LocalDocumentStorageService>();
+        var storageProvider = configuration.GetValue<string>("DocumentStorage:Provider") ?? "local";
+        switch (storageProvider.ToLowerInvariant())
+        {
+            case "azureblob":
+            {
+                var blobConnectionString = configuration["DocumentStorage:AzureBlob:ConnectionString"]
+                    ?? throw new InvalidOperationException("DocumentStorage:AzureBlob:ConnectionString must be configured when DocumentStorage:Provider is 'azureblob'.");
+                var containerName = configuration["DocumentStorage:ContainerName"] ?? "documents";
+                var containerClient = new BlobContainerClient(blobConnectionString, containerName);
+                services.AddSingleton<IBlobContainerAdapter>(new AzureBlobContainerAdapter(containerClient));
+                services.AddSingleton<IDocumentStorageService, BlobDocumentStorageService>();
+                break;
+            }
+            default:
+                services.AddScoped<IDocumentStorageService, LocalDocumentStorageService>();
+                break;
+        }
+
+        if (configuration.GetValue("DocumentStorage:EnableCleanup", true))
+            services.AddHostedService<CleanupExpiredDocumentsService>();
 
         services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
 
