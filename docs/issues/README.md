@@ -4,11 +4,16 @@ This directory contains the detailed requirements for identified functional gaps
 
 ## Creating the issues
 
-```bash
-gh auth login          # if not already authenticated
-chmod +x docs/issues/create-issues.sh
-./docs/issues/create-issues.sh
-```
+Issues are created via the **Create Backlog Issues** GitHub Actions workflow.
+
+1. Navigate to **Actions → Create Backlog Issues** in the repository.
+2. Click **Run workflow**.
+3. Optionally enable **Dry run** to preview what would be created without touching the issue tracker.
+4. Click **Run workflow** to confirm.
+
+The workflow is idempotent: it checks for an existing issue with the same title (open or closed) before creating a new one, so re-running it is safe.
+
+The workflow also fires automatically whenever a numbered issue markdown file (`docs/issues/[0-9]*.md`) is pushed to `main`.
 
 ## Issue index
 
