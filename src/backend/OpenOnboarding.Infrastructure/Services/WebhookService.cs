@@ -87,11 +87,11 @@ public sealed class WebhookService(
 
         foreach (var webhook in webhooks)
         {
-            await DeliverToWebhookAsync(webhook, sessionId, eventType, payloadJson);
+            await DeliverToWebhookAsync(webhook, sessionId, eventType, payloadJson, cancellationToken);
         }
     }
 
-    private async Task DeliverToWebhookAsync(Webhook webhook, Guid sessionId, string eventType, string payloadJson)
+    private async Task DeliverToWebhookAsync(Webhook webhook, Guid sessionId, string eventType, string payloadJson, CancellationToken cancellationToken)
     {
         var delivery = new WebhookDelivery
         {
@@ -102,34 +102,43 @@ public sealed class WebhookService(
         };
 
         dbContext.WebhookDeliveries.Add(delivery);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         var delays = new[] { 1000, 2000, 4000 };
         var signature = ComputeSignature(payloadJson, webhook.Secret);
 
-        for (var attempt = 0; attempt <= 2; attempt++)
+        try
         {
-            if (attempt > 0)
-                await _delay(delays[attempt - 1], CancellationToken.None);
-
-            var result = await webhookHttpClient.SendAsync(webhook.Url, payloadJson, signature);
-            delivery.AttemptCount++;
-            delivery.LastStatusCode = result.StatusCode == 0 ? null : result.StatusCode;
-            delivery.LastResponseBody = result.Body;
-
-            if (result.IsSuccess)
+            for (var attempt = 0; attempt <= 2; attempt++)
             {
-                delivery.Status = "delivered";
-                delivery.DeliveredAt = DateTimeOffset.UtcNow;
-                await dbContext.SaveChangesAsync();
-                _metricsService.IncrementWebhookDeliveries("delivered");
-                return;
-            }
-        }
+                if (attempt > 0)
+                    await _delay(delays[attempt - 1], cancellationToken);
 
-        delivery.Status = "failed";
-        await dbContext.SaveChangesAsync();
+                var result = await webhookHttpClient.SendAsync(webhook.Url, payloadJson, signature, cancellationToken);
+                delivery.AttemptCount++;
+                delivery.LastStatusCode = result.StatusCode == 0 ? null : result.StatusCode;
+                delivery.LastResponseBody = result.Body;
+
+                if (result.IsSuccess)
+                {
+                    delivery.Status = "delivered";
+                    delivery.DeliveredAt = DateTimeOffset.UtcNow;
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                    _metricsService.IncrementWebhookDeliveries("delivered");
+                    return;
+                }
+            }
+
+            delivery.Status = "failed";
+            await dbContext.SaveChangesAsync(cancellationToken);
             _metricsService.IncrementWebhookDeliveries("failed");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            delivery.Status = "cancelled";
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+            throw;
+        }
     }
 
     private static string ComputeSignature(string payload, string secret)

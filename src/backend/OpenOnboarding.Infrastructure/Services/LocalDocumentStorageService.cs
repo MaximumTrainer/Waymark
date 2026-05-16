@@ -60,15 +60,14 @@ public sealed class LocalDocumentStorageService : IDocumentStorageService
 
     public async Task<ScanResult> ScanAsync(string fileId, CancellationToken cancellationToken = default)
     {
-        if (fileId.Length >= 2)
-        {
-            var filePath = Path.Combine(_basePath, fileId[..2], fileId);
-            if (File.Exists(filePath))
-            {
-                await using var stream = File.OpenRead(filePath);
-                return await _virusScanService.ScanAsync(stream, cancellationToken);
-            }
-        }
-        return await _virusScanService.ScanAsync(Stream.Null, cancellationToken);
+        if (fileId.Length < 2)
+            throw new NotFoundException($"File '{fileId}' not found.");
+
+        var filePath = Path.Combine(_basePath, fileId[..2], fileId);
+        if (!File.Exists(filePath))
+            throw new NotFoundException($"File '{fileId}' not found.");
+
+        await using var stream = File.OpenRead(filePath);
+        return await _virusScanService.ScanAsync(stream, cancellationToken);
     }
 }

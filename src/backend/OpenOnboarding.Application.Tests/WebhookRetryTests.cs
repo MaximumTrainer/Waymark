@@ -155,4 +155,66 @@ public sealed class WebhookRetryTests
         Assert.Equal(2, delayCallCount); // delays only occur between attempts
         Assert.True(elapsed.TotalMilliseconds < 1000, $"Expected fast completion but took {elapsed.TotalMilliseconds}ms");
     }
+
+    [Fact]
+    public async Task DeliverAsync_CancelledBeforeFirstAttempt_SavesCancelledStatus()
+    {
+        var db = BuildDbContext();
+        var (flow, _) = await SeedFlowAndWebhookAsync(db);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel(); // already cancelled
+
+        // Client that throws OperationCanceledException to simulate pre-cancelled send
+        var fakeClient = new CancellingWebhookHttpClient();
+        Func<int, CancellationToken, Task> delay = (_, ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
+        var service = new WebhookService(db, fakeClient, new NoOpMetricsService(), delay);
+
+        await service.DeliverAsync(Guid.NewGuid(), flow.Id, "session.completed", new { }, cts.Token);
+
+        var delivery = await db.WebhookDeliveries.SingleAsync();
+        Assert.Equal("cancelled", delivery.Status);
+    }
+
+    [Fact]
+    public async Task DeliverAsync_CancelledDuringRetryDelay_SavesCancelledStatus()
+    {
+        var db = BuildDbContext();
+        var (flow, _) = await SeedFlowAndWebhookAsync(db);
+
+        using var cts = new CancellationTokenSource();
+
+        var firstAttempt = true;
+        Func<int, CancellationToken, Task> delay = (_, ct) =>
+        {
+            if (firstAttempt)
+            {
+                firstAttempt = false;
+                cts.Cancel(); // cancel during the first retry delay
+                ct.ThrowIfCancellationRequested();
+            }
+            return Task.CompletedTask;
+        };
+
+        var fakeClient = new FakeWebhookHttpClient(new WebhookHttpResponse(500, "error", false));
+        var service = new WebhookService(db, fakeClient, new NoOpMetricsService(), delay);
+
+        await service.DeliverAsync(Guid.NewGuid(), flow.Id, "session.completed", new { }, cts.Token);
+
+        var delivery = await db.WebhookDeliveries.SingleAsync();
+        Assert.Equal("cancelled", delivery.Status);
+    }
+
+    private sealed class CancellingWebhookHttpClient : IWebhookHttpClient
+    {
+        public Task<WebhookHttpResponse> SendAsync(string url, string payloadJson, string signature, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(new WebhookHttpResponse(200, "ok", true));
+        }
+    }
 }

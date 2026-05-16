@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -97,7 +97,7 @@ public sealed class DocumentUploadServiceTests
     }
 
     [Fact]
-    public async Task ScanAsync_ReturnsIsSafe_ByDefault()
+    public async Task ScanAsync_ThrowsNotFoundException_WhenFileDoesNotExist()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
@@ -107,13 +107,91 @@ public sealed class DocumentUploadServiceTests
             var env = new TestWebHostEnvironment(tempDir);
             var service = new LocalDocumentStorageService(env, new NullVirusScanService());
 
-            var result = await service.ScanAsync("anyfileid");
-            Assert.True(result.IsSafe);
-            Assert.Null(result.ThreatName);
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                service.ScanAsync("nonexistentfileid00000000000000"));
         }
         finally
         {
             Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ScanAsync_ThrowsNotFoundException_WhenFileIdTooShort()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var env = new TestWebHostEnvironment(tempDir);
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
+
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                service.ScanAsync("x"));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ScanAsync_ReturnsCleanResult_WhenFileExists()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var env = new TestWebHostEnvironment(tempDir);
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
+
+            using var ms = new MemoryStream("hello"u8.ToArray());
+            var stored = await service.StoreAsync(ms, "scan.txt", "text/plain");
+
+            var result = await service.ScanAsync(stored.FileId);
+            Assert.True(result.IsSafe);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ScanAsync_NeverCallsVirusScan_WithStreamNull()
+    {
+        // Verifies the fix: Stream.Null is never passed to the virus scanner
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var env = new TestWebHostEnvironment(tempDir);
+            var trackingScanner = new TrackingVirusScanService();
+            var service = new LocalDocumentStorageService(env, trackingScanner);
+
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                service.ScanAsync("nonexistentfileid00000000000000"));
+
+            Assert.False(trackingScanner.WasCalledWithStreamNull,
+                "ScanAsync must not call IVirusScanService with Stream.Null");
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    private sealed class TrackingVirusScanService : IVirusScanService
+    {
+        public bool WasCalledWithStreamNull { get; private set; }
+        public Task<ScanResult> ScanAsync(Stream stream, CancellationToken ct = default)
+        {
+            if (ReferenceEquals(stream, Stream.Null))
+                WasCalledWithStreamNull = true;
+            return Task.FromResult(new ScanResult(true, null));
         }
     }
 
@@ -133,7 +211,7 @@ public sealed class InMemorySessionEventEmitterTests
     [Fact]
     public async Task EmitAsync_CanBeReceivedBySubscriber()
     {
-        var emitter = new InMemorySessionEventEmitter();
+        var emitter = new InMemorySessionEventEmitter(NullLogger<InMemorySessionEventEmitter>.Instance);
         var sessionId = Guid.NewGuid();
 
         // Subscribe first, then emit (subscriber picks up from channel)
@@ -159,7 +237,7 @@ public sealed class InMemorySessionEventEmitterTests
     [Fact]
     public async Task EmitAsync_SessionCompleted_CompletesChannel()
     {
-        var emitter = new InMemorySessionEventEmitter();
+        var emitter = new InMemorySessionEventEmitter(NullLogger<InMemorySessionEventEmitter>.Instance);
         var sessionId = Guid.NewGuid();
 
         var events = new List<SessionEvent>();
@@ -184,7 +262,7 @@ public sealed class InMemorySessionEventEmitterTests
     [Fact]
     public async Task EmitAsync_SessionAbandoned_CompletesChannel()
     {
-        var emitter = new InMemorySessionEventEmitter();
+        var emitter = new InMemorySessionEventEmitter(NullLogger<InMemorySessionEventEmitter>.Instance);
         var sessionId = Guid.NewGuid();
 
         var events = new List<SessionEvent>();
@@ -205,6 +283,60 @@ public sealed class InMemorySessionEventEmitterTests
         Assert.Single(events);
         Assert.Equal("session-abandoned", events[0].EventType);
     }
+
+    [Fact]
+    public async Task EmitAsync_AfterSessionCompleted_EntryRemovedFromDictionary()
+    {
+        // Scenario 4: After session-completed, TryRemove is called; second EmitAsync creates a fresh channel
+        var emitter = new InMemorySessionEventEmitter(NullLogger<InMemorySessionEventEmitter>.Instance);
+        var sessionId = Guid.NewGuid();
+
+        // Complete the session
+        await emitter.EmitAsync(sessionId, "session-completed", new { });
+
+        // Now emit again for the same session ID — should create a fresh channel and not throw
+        await emitter.EmitAsync(sessionId, "step-advanced", new { });
+
+        // Subscribe to the fresh channel and verify the new event is received
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await emitter.EmitAsync(sessionId, "session-completed", new { }); // complete fresh channel
+        var events = new List<SessionEvent>();
+        await foreach (var evt in emitter.SubscribeAsync(sessionId, cts.Token))
+            events.Add(evt);
+
+        // step-advanced + session-completed both on fresh channel
+        Assert.Contains(events, e => e.EventType == "step-advanced");
+    }
+
+    [Fact]
+    public async Task SubscribeAsync_BeforeEmit_ReceivesEventEmittedAfterSubscription()
+    {
+        // Scenario 5: Subscribe before any events; events emitted later are still received
+        var emitter = new InMemorySessionEventEmitter(NullLogger<InMemorySessionEventEmitter>.Instance);
+        var sessionId = Guid.NewGuid();
+
+        // Start subscription before any emit
+        var receivedEvents = new List<SessionEvent>();
+        var subscribeTask = Task.Run(async () =>
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await foreach (var evt in emitter.SubscribeAsync(sessionId, cts.Token))
+                receivedEvents.Add(evt);
+        });
+
+        await Task.Delay(50); // ensure subscription is listening
+
+        await emitter.EmitAsync(sessionId, "step-advanced", new { order = 1 });
+        await emitter.EmitAsync(sessionId, "step-advanced", new { order = 2 });
+        await emitter.EmitAsync(sessionId, "session-completed", new { });
+
+        await subscribeTask;
+
+        Assert.Equal(3, receivedEvents.Count);
+        Assert.Equal("step-advanced", receivedEvents[0].EventType);
+        Assert.Equal("step-advanced", receivedEvents[1].EventType);
+        Assert.Equal("session-completed", receivedEvents[2].EventType);
+    }
 }
 
 public sealed class WorkflowServiceEmitsEventsTests
@@ -217,7 +349,7 @@ public sealed class WorkflowServiceEmitsEventsTests
         dbContext.Flows.Add(flow);
         await dbContext.SaveChangesAsync();
 
-        var emitter = new InMemorySessionEventEmitter();
+        var emitter = new InMemorySessionEventEmitter(NullLogger<InMemorySessionEventEmitter>.Instance);
         var service = CreateService(dbContext, emitter);
         var started = await service.StartSessionAsync(new Application.Contracts.StartSessionRequest { FlowId = flow.Id });
         await CollectOneEvent(emitter, started.SessionId); // drain session-started
@@ -238,7 +370,7 @@ public sealed class WorkflowServiceEmitsEventsTests
         dbContext.Flows.Add(flow);
         await dbContext.SaveChangesAsync();
 
-        var emitter = new InMemorySessionEventEmitter();
+        var emitter = new InMemorySessionEventEmitter(NullLogger<InMemorySessionEventEmitter>.Instance);
         var service = CreateService(dbContext, emitter);
         var started = await service.StartSessionAsync(new Application.Contracts.StartSessionRequest { FlowId = flow.Id });
         await CollectOneEvent(emitter, started.SessionId); // drain session-started
@@ -259,7 +391,7 @@ public sealed class WorkflowServiceEmitsEventsTests
         dbContext.Flows.Add(flow);
         await dbContext.SaveChangesAsync();
 
-        var emitter = new InMemorySessionEventEmitter();
+        var emitter = new InMemorySessionEventEmitter(NullLogger<InMemorySessionEventEmitter>.Instance);
         var service = CreateService(dbContext, emitter);
         var started = await service.StartSessionAsync(new Application.Contracts.StartSessionRequest { FlowId = flow.Id });
         await CollectOneEvent(emitter, started.SessionId); // drain session-started
