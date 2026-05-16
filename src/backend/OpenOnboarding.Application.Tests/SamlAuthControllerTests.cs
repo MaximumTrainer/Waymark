@@ -10,6 +10,7 @@ using ITfoxtec.Identity.Saml2.MvcCore;
 using ITfoxtec.Identity.Saml2.Schemas;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.IdentityModel.Tokens.Saml2;
 using OpenOnboarding.Api.Authentication;
 
 namespace OpenOnboarding.Application.Tests;
@@ -103,7 +104,7 @@ public sealed class SamlAuthControllerTests
                 new Claim(ClaimTypes.Email,          nameId)
             })
         };
-        authnResponse.NameId             = new Saml2NameIdentifier(nameId, NameIdentifierFormats.EmailAddress);
+        authnResponse.NameId             = new Saml2NameIdentifier(nameId, NameIdentifierFormats.Email);
         authnResponse.InResponseToAsString = inResponseTo;
 
         var binding = new Saml2PostBinding();
