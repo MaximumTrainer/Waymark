@@ -77,9 +77,11 @@ public sealed class WebhookService(
 
     public async Task DeliverAsync(Guid sessionId, Guid flowId, string eventType, object payload, CancellationToken cancellationToken = default)
     {
+        // Use CancellationToken.None for the lookup so that a pre-cancelled token doesn't
+        // prevent us from finding webhooks and recording a 'cancelled' delivery.
         var webhooks = await dbContext.Webhooks
             .Where(w => w.FlowId == flowId)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(CancellationToken.None);
 
         if (webhooks.Count == 0) return;
 
@@ -102,7 +104,8 @@ public sealed class WebhookService(
         };
 
         dbContext.WebhookDeliveries.Add(delivery);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        // Save the delivery record unconditionally so a cancellation still produces a record.
+        await dbContext.SaveChangesAsync(CancellationToken.None);
 
         var delays = new[] { 1000, 2000, 4000 };
         var signature = ComputeSignature(payloadJson, webhook.Secret);
