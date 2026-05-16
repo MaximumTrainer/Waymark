@@ -76,7 +76,7 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
 
         var authnRequest = new Saml2AuthnRequest(config);
         var redirectBinding = new Saml2RedirectBinding();
-        redirectBinding.SetRelayState(relayState);
+        redirectBinding.RelayState = relayState;
         redirectBinding.Bind(authnRequest);
 
         Response.Cookies.Append(AuthnIdCookie, authnRequest.Id.Value, new CookieOptions
@@ -118,8 +118,8 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         {
             var config = BuildSamlConfiguration();
             var authnResponse = new Saml2AuthnResponse(config);
-            var postBinding = new Saml2PostBinding();
-            postBinding.ReadSamlResponse(Request, authnResponse);
+            var httpRequest = Request.ToGenericHttpRequest(validate: true);
+            httpRequest.Binding.ReadSamlResponse(httpRequest, authnResponse);
 
             if (!string.IsNullOrWhiteSpace(expectedAuthnId) &&
                 !string.Equals(authnResponse.InResponseToAsString, expectedAuthnId, StringComparison.Ordinal))
@@ -127,8 +127,10 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
                 return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
             }
 
-            if (authnResponse.Status.SamlStatusEnum != Saml2StatusEnum.Success)
+            if (authnResponse.Status != Saml2StatusCodes.Success)
                 return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
+
+            httpRequest.Binding.Unbind(httpRequest, authnResponse);
 
             var nameId = authnResponse.NameId?.Value?.Trim();
             if (string.IsNullOrWhiteSpace(nameId))

@@ -91,11 +91,11 @@ public sealed class SamlAuthControllerTests
         string inResponseTo,
         string nameId           = "admin@example.com",
         string acsUrl           = "https://localhost/auth/saml/callback",
-        Saml2StatusEnum status  = Saml2StatusEnum.Success)
+        Saml2StatusCodes status  = Saml2StatusCodes.Success)
     {
         var authnResponse = new Saml2AuthnResponse(idpCfg)
         {
-            Status      = new Saml2Status { SamlStatusEnum = status },
+            Status      = status,
             Destination = new Uri(acsUrl),
             ClaimsIdentity = new ClaimsIdentity(new[]
             {
