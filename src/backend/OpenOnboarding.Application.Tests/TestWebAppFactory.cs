@@ -33,7 +33,6 @@ internal static class TestWebAppFactory
                     ["ConnectionStrings:OnboardingDb"] = "Host=localhost;Database=testdb;",
                     ["Authentication:ApiKey"] = "test-api-key",
                     ["Authentication:JwtAuthority"] = "",
-                    ["Authentication:Saml:EnablePlaceholderProvider"] = "true",
                     ["Authentication:Saml:IdpSsoUrl"] = "https://example-idp.local/sso",
                     ["Authentication:Saml:AllowedNameIds:0"] = "admin@example.com",
                     ["SessionTimeoutMinutes"] = "1440",
