@@ -107,6 +107,9 @@ public sealed class SamlAuthControllerTests
         authnResponse.NameId             = new Saml2NameIdentifier(nameId, NameIdentifierFormats.Email);
         authnResponse.InResponseToAsString = inResponseTo;
 
+        if (status == Saml2StatusCodes.Success)
+            authnResponse.CreateSecurityToken(idpCfg.AllowedAudienceUris.FirstOrDefault() ?? "test-sp");
+
         var binding = new Saml2PostBinding();
         binding.Bind(authnResponse);
 

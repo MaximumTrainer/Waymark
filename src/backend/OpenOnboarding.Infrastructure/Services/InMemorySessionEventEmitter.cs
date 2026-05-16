@@ -27,12 +27,20 @@ public sealed class InMemorySessionEventEmitter : ISessionEventEmitter
         if (channel.Reader.Count >= ChannelCapacity)
             _logger.LogWarning("Session event channel for {SessionId} is full; oldest event dropped.", sessionId);
 
-        channel.Writer.TryWrite(evt);
+        // If the existing channel is already completed, replace it with a fresh one
+        if (!channel.Writer.TryWrite(evt))
+        {
+            var fresh = CreateChannel();
+            _channels[sessionId] = fresh;
+            fresh.Writer.TryWrite(evt);
+            channel = fresh;
+        }
 
         if (eventType is "session-completed" or "session-abandoned")
         {
             channel.Writer.TryComplete();
-            _channels.TryRemove(sessionId, out _);
+            // Channel stays in dict until SubscribeAsync drains it, preventing a new empty channel
+            // being returned to a subscriber that arrives just after completion.
         }
 
         return Task.CompletedTask;
@@ -46,6 +54,9 @@ public sealed class InMemorySessionEventEmitter : ISessionEventEmitter
         {
             yield return evt;
         }
+
+        // Remove the entry after the subscriber has drained it so no stale channels accumulate.
+        _channels.TryRemove(sessionId, out _);
     }
 
     private static Channel<SessionEvent> CreateChannel() =>

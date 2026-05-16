@@ -137,7 +137,6 @@ public sealed class WebhookService(
         {
             delivery.Status = "cancelled";
             await dbContext.SaveChangesAsync(CancellationToken.None);
-            throw;
         }
     }
 
