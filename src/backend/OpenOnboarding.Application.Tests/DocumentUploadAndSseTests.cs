@@ -25,7 +25,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService(NullLogger<NullVirusScanService>.Instance, new NoOpMetricsService()));
 
             var content = "hello world"u8.ToArray();
             using var stream = new MemoryStream(content);
@@ -53,7 +53,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService(NullLogger<NullVirusScanService>.Instance, new NoOpMetricsService()));
 
             var content = "test content"u8.ToArray();
             using var storeStream = new MemoryStream(content);
@@ -85,7 +85,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService(NullLogger<NullVirusScanService>.Instance, new NoOpMetricsService()));
 
             await Assert.ThrowsAsync<NotFoundException>(() =>
                 service.GetStreamAsync("nonexistentfileid00000000000000"));
@@ -105,7 +105,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService(NullLogger<NullVirusScanService>.Instance, new NoOpMetricsService()));
 
             await Assert.ThrowsAsync<NotFoundException>(() =>
                 service.ScanAsync("nonexistentfileid00000000000000"));
@@ -125,7 +125,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService(NullLogger<NullVirusScanService>.Instance, new NoOpMetricsService()));
 
             await Assert.ThrowsAsync<NotFoundException>(() =>
                 service.ScanAsync("x"));
@@ -145,7 +145,7 @@ public sealed class DocumentUploadServiceTests
         try
         {
             var env = new TestWebHostEnvironment(tempDir);
-            var service = new LocalDocumentStorageService(env, new NullVirusScanService());
+            var service = new LocalDocumentStorageService(env, new NullVirusScanService(NullLogger<NullVirusScanService>.Instance, new NoOpMetricsService()));
 
             using var ms = new MemoryStream("hello"u8.ToArray());
             var stored = await service.StoreAsync(ms, "scan.txt", "text/plain");

@@ -17,8 +17,12 @@ public sealed class PrometheusMetricsService : IMetricsService
     private static readonly Gauge ActiveSessions = Metrics.CreateGauge(
         "onboarding_active_sessions", "Number of currently active onboarding sessions.");
 
+    private static readonly Counter VirusScanBypassed = Metrics.CreateCounter(
+        "waymark_virus_scan_bypassed_total", "Total document scans bypassed by NullVirusScanService.");
+
     public void IncrementSessionsStarted(string flowId) => SessionsStarted.WithLabels(flowId).Inc();
     public void IncrementSessionsCompleted(string flowId) => SessionsCompleted.WithLabels(flowId).Inc();
     public void IncrementWebhookDeliveries(string status) => WebhookDeliveries.WithLabels(status).Inc();
     public void SetActiveSessions(int count) => ActiveSessions.Set(count);
+    public void IncrementVirusScanBypassed() => VirusScanBypassed.Inc();
 }

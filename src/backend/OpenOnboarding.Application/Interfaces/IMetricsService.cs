@@ -6,4 +6,5 @@ public interface IMetricsService
     void IncrementSessionsCompleted(string flowId);
     void IncrementWebhookDeliveries(string status);
     void SetActiveSessions(int count);
+    void IncrementVirusScanBypassed();
 }

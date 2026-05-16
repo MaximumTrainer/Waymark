@@ -8,4 +8,5 @@ internal sealed class NoOpMetricsService : IMetricsService
     public void IncrementSessionsCompleted(string flowId) { }
     public void IncrementWebhookDeliveries(string status) { }
     public void SetActiveSessions(int count) { }
+    public void IncrementVirusScanBypassed() { }
 }
