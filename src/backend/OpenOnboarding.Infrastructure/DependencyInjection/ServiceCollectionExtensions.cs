@@ -80,8 +80,18 @@ public static class ServiceCollectionExtensions
         {
             var rabbitUri = configuration.GetValue<string>("EventBus:RabbitMq:Uri") ?? "amqp://guest:guest@localhost:5672/";
             var exchange = configuration.GetValue<string>("EventBus:RabbitMq:Exchange") ?? "waymark-events";
-            services.AddSingleton<IEventBus>(sp =>
-                RabbitMqEventBus.CreateAsync(rabbitUri, exchange, sp.GetRequiredService<ILogger<RabbitMqEventBus>>()).GetAwaiter().GetResult());
+
+            // DeferredEventBus is the IEventBus singleton; the real connection is
+            // established asynchronously in RabbitMqEventBusInitializer.StartAsync,
+            // removing the previous sync-over-async GetAwaiter().GetResult() call.
+            var deferredBus = new DeferredEventBus();
+            services.AddSingleton<IEventBus>(deferredBus);
+            services.AddSingleton<IHostedService>(sp =>
+                new RabbitMqEventBusInitializer(
+                    rabbitUri,
+                    exchange,
+                    deferredBus,
+                    sp.GetRequiredService<ILogger<RabbitMqEventBus>>()));
         }
         else
         {

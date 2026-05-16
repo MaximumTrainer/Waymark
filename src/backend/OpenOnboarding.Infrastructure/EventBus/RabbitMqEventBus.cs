@@ -35,21 +35,61 @@ public sealed class RabbitMqEventBus : IEventBus, IAsyncDisposable
         return new RabbitMqEventBus(connection, channel, exchangeName, logger);
     }
 
+    private const int MaxPublishAttempts = 3;
+
     public async Task PublishAsync(INotification notification, CancellationToken cancellationToken = default)
     {
         var routingKey = notification.GetType().Name;
         var payload = JsonSerializer.SerializeToUtf8Bytes(notification, notification.GetType(), _jsonOptions);
         var props = new BasicProperties { Persistent = true, ContentType = "application/json" };
 
-        try
+        await PublishWithRetryAsync(
+            () => _channel.BasicPublishAsync(_exchangeName, routingKey, false, props, payload, cancellationToken).AsTask(),
+            _logger,
+            routingKey,
+            MaxPublishAttempts,
+            attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)),
+            cancellationToken);
+
+        _logger.LogDebug("Published {EventType} to RabbitMQ exchange {Exchange}.", routingKey, _exchangeName);
+    }
+
+    /// <summary>
+    /// Executes <paramref name="send"/> with exponential-backoff retry up to
+    /// <paramref name="maxAttempts"/> times. Public for unit-testability.
+    /// </summary>
+    public static async Task PublishWithRetryAsync(
+        Func<Task> send,
+        ILogger logger,
+        string routingKey,
+        int maxAttempts,
+        Func<int, TimeSpan> backoff,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            await _channel.BasicPublishAsync(_exchangeName, routingKey, false, props, payload, cancellationToken);
-            _logger.LogDebug("Published {EventType} to RabbitMQ exchange {Exchange}.", routingKey, _exchangeName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to publish {EventType} to RabbitMQ.", routingKey);
-            throw;
+            try
+            {
+                await send();
+                return;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                var delay = backoff(attempt);
+                logger.LogWarning(ex,
+                    "Failed to publish {EventType} to RabbitMQ (attempt {Attempt}/{Max}). Retrying in {Delay}s.",
+                    routingKey, attempt, maxAttempts, delay.TotalSeconds);
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to publish {EventType} to RabbitMQ after {Max} attempts.", routingKey, maxAttempts);
+                throw;
+            }
         }
     }
 
