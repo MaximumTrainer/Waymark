@@ -251,6 +251,8 @@ X-Api-Key: dev-api-key-change-in-production
           <p>
             The frontend is a Vite + React application. <code>StepRenderer</code> reads <code>NodeDto.JsonContent</code> and renders
             type-appropriate UI. <code>JourneyBuilder</code> provides a React Flow graph for visual path inspection.
+            The <strong class="text-white">Visual Journey Builder</strong> at <code>/admin/journey-builder</code> provides a
+            drag-and-drop canvas for authoring flows without writing JSON.
           </p>
         </section>
 
@@ -343,9 +345,21 @@ X-Api-Key: dev-api-key-change-in-production
 
           <h3>Journey visualization</h3>
           <p>
-            The frontend visualizes journeys in two ways: runtime step rendering (<code>StepRenderer</code>) and
-            graph rendering (<code>JourneyBuilder</code> via React Flow).
+            The frontend visualizes journeys in three ways:
           </p>
+          <ul>
+            <li><strong class="text-white">Runtime step rendering</strong> (<code>StepRenderer</code>) — the live UI a user sees during an onboarding session</li>
+            <li><strong class="text-white">Read-only graph</strong> (<code>JourneyBuilder</code> via React Flow) — monitors active session path progress</li>
+            <li><strong class="text-white">Visual Journey Builder canvas</strong> — interactive authoring UI at <code>/admin/journey-builder</code></li>
+          </ul>
+          <figure class="my-6">
+            <img src="images/ui-step-renderer.png"
+                 alt="Step Renderer — schema-driven runtime UI for an active onboarding session"
+                 class="rounded-xl border border-slate-700 w-full shadow-lg shadow-black/40" />
+            <figcaption class="mt-2 text-center text-xs text-slate-500">
+              StepRenderer: schema-driven runtime UI rendered from <code>jsonContent</code> for a Form node
+            </figcaption>
+          </figure>
           <div class="code-block rounded-lg p-6 my-4">
             <pre class="text-xs font-mono text-slate-400 leading-loose"><code>[country-form]
       ├── Country = USA ─────► [us-tax-form] ─────► [completed]
@@ -586,6 +600,15 @@ X-Api-Key: dev-api-key-change-in-production
             without editing raw JSON. It is available at <code>/admin/journey-builder</code> and requires an authenticated
             session with the <strong class="text-white">Operator</strong> role.
           </p>
+
+          <figure class="my-6">
+            <img src="images/journey-builder-admin-ui.png"
+                 alt="Visual Journey Builder — interactive canvas with node palette and properties panel"
+                 class="rounded-xl border border-slate-700 w-full shadow-lg shadow-black/40" />
+            <figcaption class="mt-2 text-center text-xs text-slate-500">
+              Visual Journey Builder: drag-and-drop canvas, node palette (top), and Properties Panel (right)
+            </figcaption>
+          </figure>
 
           <div class="callout">
             <p>
