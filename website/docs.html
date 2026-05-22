@@ -89,6 +89,14 @@
         </div>
 
         <div>
+          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">Admin Tooling</p>
+          <ul class="space-y-0.5">
+            <li><a href="#visual-builder" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Visual Journey Builder</a></li>
+            <li><a href="#flow-authoring" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Flow Authoring Panel</a></li>
+          </ul>
+        </div>
+
+        <div>
           <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">API Reference</p>
           <ul class="space-y-0.5">
             <li><a href="#api"         class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Authentication</a></li>
@@ -568,6 +576,100 @@ X-Api-Key: dev-api-key-change-in-production
             <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>GET /api/workflow/sessions/{sessionId}/next</code></pre>
           </div>
           <p>This returns the current node the session is waiting on, allowing seamless resumption.</p>
+        </section>
+
+        <!-- ─── VISUAL JOURNEY BUILDER ─── -->
+        <section id="visual-builder">
+          <h2>Visual Journey Builder</h2>
+          <p>
+            The Visual Journey Builder is a drag-and-drop admin interface for designing and publishing onboarding flows
+            without editing raw JSON. It is available at <code>/admin/journey-builder</code> and requires an authenticated
+            session with the <strong class="text-white">Operator</strong> role.
+          </p>
+
+          <div class="callout">
+            <p>
+              <strong class="text-white">SSO required.</strong> Navigating to <code>/admin/journey-builder</code> while unauthenticated
+              redirects to <code>/login?returnUrl=…</code>. After SSO, the original URL is restored automatically.
+            </p>
+          </div>
+
+          <h3>Canvas interactions</h3>
+          <table>
+            <thead><tr><th>Action</th><th>How</th></tr></thead>
+            <tbody>
+              <tr><td>Move a node</td><td>Drag it to a new position on the canvas</td></tr>
+              <tr><td>Create a connection</td><td>Drag from a node's bottom handle to another node's top handle</td></tr>
+              <tr><td>Select a node or edge</td><td>Click it — the Properties Panel opens on the right</td></tr>
+              <tr><td>Delete a node or edge</td><td>Press <code>Delete</code> / <code>Backspace</code>, or click <em>Delete node</em> in the Properties Panel</td></tr>
+              <tr><td>Zoom / pan</td><td>Scroll to zoom; drag the background to pan; use the Controls toolbar</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Adding nodes</h3>
+          <p>
+            The palette above the canvas contains one button per node type. Clicking a button adds a new node at a default
+            position with a generated GUID. Nodes are color-coded by type:
+          </p>
+          <table>
+            <thead><tr><th>Type</th><th>Color</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>Form</code></td><td>Blue</td><td>Dynamic form rendered from <code>jsonContent</code> field definitions</td></tr>
+              <tr><td><code>DocumentUpload</code></td><td>Purple</td><td>File picker with accepted types and <code>maxFiles</code> constraints</td></tr>
+              <tr><td><code>Redirect</code></td><td>Amber</td><td>External URL navigation with <code>{{token}}</code> interpolation</td></tr>
+              <tr><td><code>Information</code></td><td>Green</td><td>Read-only message; no submission required</td></tr>
+              <tr><td><code>Logic</code></td><td>Orange</td><td>Automatic server-side action (<code>SetProfileField</code>, <code>HttpCallback</code>, …)</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Properties Panel</h3>
+          <p>
+            Selecting a node exposes its editable fields in a fixed right-hand panel:
+          </p>
+          <ul>
+            <li><strong class="text-white">Title</strong> — display label shown to the end user</li>
+            <li><strong class="text-white">Key</strong> — stable slug used in routing conditions and URL token interpolation</li>
+            <li><strong class="text-white">Type</strong> — dropdown; changing type does not clear <code>jsonContent</code></li>
+            <li><strong class="text-white">Start node</strong> — checking this automatically clears the flag on every other node, enforcing exactly one start node per flow</li>
+            <li><strong class="text-white">jsonContent</strong> — type-specific configuration JSON (field list, upload constraints, redirect URL, Logic action)</li>
+            <li><strong class="text-white">Compliance rules</strong> — optional <code>complianceRuleJson</code> for server-side validation at submission time</li>
+          </ul>
+          <p>
+            Selecting an edge reveals its condition properties: <strong class="text-white">conditionField</strong>,
+            <strong class="text-white">conditionOperator</strong>, <strong class="text-white">conditionValue</strong>, and
+            <strong class="text-white">priority</strong>. Leave <code>conditionField</code> empty for a fallback (unconditional) edge.
+          </p>
+
+          <h3>Save actions</h3>
+          <table>
+            <thead><tr><th>Button</th><th>API call</th><th>Effect</th></tr></thead>
+            <tbody>
+              <tr><td>Load flow</td><td><span class="badge badge-get">GET</span> <code>/api/flows/{id}</code></td><td>Fetches an existing flow and hydrates the canvas</td></tr>
+              <tr><td>Create new</td><td><span class="badge badge-post">POST</span> <code>/api/flows</code></td><td>Creates the draft as a new flow; sets the returned ID in the panel</td></tr>
+              <tr><td>Save new version</td><td><span class="badge badge-put">PUT</span> <code>/api/flows/{id}</code></td><td>Publishes the current canvas as the next version of the flow</td></tr>
+              <tr><td>Reset</td><td>—</td><td>Clears the canvas back to a single empty start node</td></tr>
+            </tbody>
+          </table>
+          <p>
+            Validation errors (missing flow name, invalid GUIDs, zero nodes, no start node, dangling connection references)
+            are displayed inline before any network request is made.
+          </p>
+        </section>
+
+        <!-- ─── FLOW AUTHORING PANEL ─── -->
+        <section id="flow-authoring">
+          <h2>Flow Authoring Panel</h2>
+          <p>
+            The <strong class="text-white">Flow Authoring Panel</strong> is a power-user JSON authoring interface embedded in the developer dashboard.
+            It exposes the same load / create / save / delete / verify operations as the Visual Journey Builder but works directly
+            with raw JSON text areas for <code>nodes</code> and <code>connections</code> — useful for scripted testing and
+            batch imports.
+          </p>
+          <p>
+            Both the Visual Journey Builder and the Flow Authoring Panel share the same underlying
+            <code>flowAuthoring.ts</code> domain logic for validation (<code>validateFlowDraft</code>) and payload
+            construction (<code>buildFlowWritePayload</code>), so validation rules are identical across both authoring surfaces.
+          </p>
         </section>
 
         <!-- ─── API ─── -->

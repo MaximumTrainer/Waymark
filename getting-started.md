@@ -53,6 +53,12 @@ Recommended `.env.local` values:
 - `VITE_API_BASE_URL=http://localhost:5072`
 - `VITE_API_KEY=dev-api-key-change-in-production`
 
+Frontend dev server: `http://localhost:5173`
+
+Available routes:
+- `/` — developer dashboard (journey selector, step renderer, analytics, session history)
+- `/admin/journey-builder` — Visual Journey Builder admin UI (requires Operator SSO — see [`user-guide.md`](./user-guide.md) section 8 for usage)
+
 ## 6. Run validation commands
 
 ### Frontend

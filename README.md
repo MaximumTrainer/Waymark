@@ -29,8 +29,12 @@ Waymark/
 │   │   └── OpenOnboarding.slnx
 │   └── frontend/
 │       ├── src/
-│       │   ├── builder/       # JourneyBuilder — React Flow graph visualization
+│       │   ├── builder/       # Visual Journey Builder: interactive canvas, properties panel, flow authoring
 │       │   ├── onboarding/    # StepRenderer, hooks, API client, types
+│       │   ├── analytics/     # JourneyAnalyticsProvider, event helpers, console sink
+│       │   ├── flows/         # FlowVersionHistory
+│       │   ├── sessions/      # SessionList, SessionDetail
+│       │   ├── webhooks/      # WebhookDeliveries
 │       │   ├── pact/          # Pact consumer tests
 │       │   └── schemas/       # Example flow definition JSON
 │       ├── package.json
@@ -53,9 +57,23 @@ The backend follows a Ports & Adapters (Hexagonal) structure. Dependency directi
 | API | `OpenOnboarding.Api` | ASP.NET Core controllers, JWT + API key authentication, RBAC policies, OpenAPI |
 
 The frontend is a Vite React application:
+- `AdminJourneyBuilderPage` / `VisualJourneyBuilder` — interactive drag-and-drop journey builder at `/admin/journey-builder` (requires Operator SSO); nodes are draggable, connections are drawn by dragging between handles, and a properties panel lets operators edit every node and edge field without touching JSON
+- `VisualJourneyCanvas` — ReactFlow-powered editable canvas; color-codes nodes by type and highlights the start node
+- `NodePropertiesPanel` — contextual side panel for editing the selected node (title, key, type, `jsonContent`, compliance rules, start-node flag) or edge (condition field/operator/value, priority)
 - `StepRenderer` — reads `NodeDto.JsonContent` and renders type-appropriate UI (`Form`, `DocumentUpload`, `Redirect`, `Information`, `Logic`)
-- `JourneyBuilder` — React Flow graph for visual flow editing and branch-path inspection
+- `JourneyBuilder` — read-only ReactFlow graph for monitoring branch-path progress during an active onboarding session
+- `FlowAuthoringPanel` — power-user JSON authoring panel for creating and versioning flows directly via the API
 - `useOnboarding` hook — manages session state and consumes Server-Sent Events
+
+### Screenshots
+
+**Visual Journey Builder** — drag-and-drop admin canvas with node palette and properties panel:
+
+![Visual Journey Builder](./src/frontend/journey-builder-admin-ui.png)
+
+**Step Renderer** — schema-driven runtime UI for the active onboarding session:
+
+![Step Renderer](./ui-step-renderer.png)
 
 ---
 

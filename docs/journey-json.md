@@ -121,15 +121,19 @@ The journey JSON links directly to frontend behavior:
 | `nodes[].type` | `StepRenderer.tsx` | Chooses which UI is rendered for the current step. |
 | `nodes[].jsonContent` | `StepRenderer.tsx` | Parsed to build dynamic form fields, upload config, redirect URL, etc. |
 | `nodes[].complianceRuleJson` | API + `ComplianceError` handling in `StepRenderer.tsx` | Server validates payload and returns field/global errors. |
-| `connections[]` | Runtime engine + `JourneyBuilder.tsx` | Drives routing and shows labeled graph edges. |
-| `nodes[]`/`connections[]` | `FlowAuthoringPanel.tsx` + `flowAuthoring.ts` | Edited/validated as JSON in the flow authoring UI. |
+| `connections[]` | Runtime engine + `JourneyBuilder.tsx` | Drives routing and shows labeled graph edges in the read-only session monitor. |
+| `nodes[]`/`connections[]` | `VisualJourneyBuilder.tsx` + `VisualJourneyCanvas.tsx` | Edited visually via drag-and-drop in the admin builder at `/admin/journey-builder`. |
+| `nodes[]`/`connections[]` | `FlowAuthoringPanel.tsx` + `flowAuthoring.ts` | Alternative JSON authoring panel for power users; runs alongside the visual builder. |
+| `nodes[].type` | `VisualJourneyCanvas.tsx` (`NODE_TYPE_STYLES`) | Determines the color scheme of each node on the canvas (Form=blue, DocumentUpload=purple, Redirect=amber, Information=green, Logic=orange). |
+| `nodes[].isStartNode` | `VisualJourneyCanvas.tsx` + `NodePropertiesPanel.tsx` | Start node receives a bold outline; Properties Panel enforces at most one start node. |
 
 ## Journey visualization
 
-Waymark provides two complementary visualizations:
+Waymark provides three complementary views:
 
-1. **Runtime step UI** via `StepRenderer` (current node content).
-2. **Graph view** via `JourneyBuilder` (React Flow diagram of nodes and edges).
+1. **Runtime step UI** via `StepRenderer` — renders the current node's content to the end user.
+2. **Session graph monitor** via `JourneyBuilder` — read-only React Flow diagram; highlights the current and visited nodes during an active session.
+3. **Interactive admin canvas** via `VisualJourneyCanvas` inside `VisualJourneyBuilder` — the drag-and-drop authoring surface at `/admin/journey-builder` where operators create and edit flows.
 
 Conceptually, a journey is a directed graph:
 
@@ -143,9 +147,11 @@ flowchart LR
 
 ## Authoring tip
 
-For a canonical, end-to-end example already in this repository, use:
+The easiest way to create a flow is via the **Visual Journey Builder** at `/admin/journey-builder` (Operator SSO required). You can drag nodes onto the canvas, draw connections between them, and edit every property through the side panel — no JSON required. Saving from the builder posts the serialized draft to the API automatically.
+
+For scripted or batch scenarios, the underlying JSON schema is documented above. Canonical examples in this repository:
 
 - [`flow-definition.example.json`](../src/frontend/src/schemas/flow-definition.example.json)
 - [`journey-builder.schema.json`](../src/frontend/src/schemas/journey-builder.schema.json) as the builder/renderer source-of-truth contract for nodes, edges, lifecycle state, and persona assignments.
 
-When posting through the API, ensure each node's `jsonContent` and `complianceRuleJson` are valid JSON strings.
+When posting through the API directly, ensure each node's `jsonContent` and `complianceRuleJson` are valid JSON strings.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { AdminJourneyBuilderPage } from './builder/AdminJourneyBuilderPage'
 import { FlowAuthoringPanel } from './builder/FlowAuthoringPanel'
 import { JourneyBuilder } from './builder/JourneyBuilder'
 import { buildVersionToPersonaMap, resolveFlowIdForPersona, upsertPersonaAssignment, type PersonaAssignment } from './builder/personaRouting'
@@ -225,6 +226,10 @@ function App() {
         <p className="text-sm text-slate-600">Checking admin session…</p>
       </main>
     )
+  }
+
+  if (isAdminJourneyBuilderRoute && adminAuthState === 'authorized') {
+    return <AdminJourneyBuilderPage />
   }
 
   return (

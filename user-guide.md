@@ -94,7 +94,65 @@ In the frontend `.env.local` file:
 - `VITE_API_KEY` should match backend API key for local operator testing
 
 The frontend includes:
-- JourneyBuilder (visual branch path)
-- StepRenderer (schema-driven form/doc upload/redirect/info/logic rendering)
+- **Visual Journey Builder** (admin UI for creating and editing flows — see section 8)
+- **JourneyBuilder** (read-only React Flow graph showing branch-path progress during an active session)
+- **StepRenderer** (schema-driven form/doc upload/redirect/info/logic rendering)
 
 Use these components for manual exploratory testing and branch-path verification.
+
+## 8. Visual Journey Builder (admin UI)
+
+The Visual Journey Builder is a drag-and-drop admin interface for designing and publishing onboarding flows without touching raw JSON.
+
+### Accessing the builder
+
+Navigate to `/admin/journey-builder`. The route is protected by SSO: users must authenticate with the `Operator` role. Unauthenticated requests are redirected to `/login` with a `returnUrl` parameter.
+
+### Canvas interactions
+
+| Action | How |
+|--------|-----|
+| Move a node | Drag it to the desired position |
+| Create a connection | Drag from a node's bottom handle to another node's top handle |
+| Select a node or edge | Click it — the Properties Panel opens on the right |
+| Delete a selected node or edge | Press `Delete` or `Backspace`, or use the Delete button in the Properties Panel |
+| Zoom / pan | Scroll to zoom; drag the background to pan; use the Controls toolbar |
+
+### Adding nodes
+
+Use the **node palette** above the canvas. Each button adds a new node of the corresponding type at a default position:
+
+| Type | Description |
+|------|-------------|
+| **Form** | Renders a dynamic form from `jsonContent` field definitions |
+| **DocumentUpload** | Renders a file picker with type/size constraints |
+| **Redirect** | Navigates the customer to an external URL (supports `{{token}}` interpolation) |
+| **Information** | Displays a message; no submission required |
+| **Logic** | Executes a server-side action automatically (e.g., `SetProfileField`, `HttpCallback`) |
+
+### Properties Panel
+
+Clicking a node opens the Properties Panel with editable fields:
+
+- **Title** — display label shown to the end user
+- **Key** — stable slug identifier used in routing and URL interpolation
+- **Type** — dropdown selector; changing type does not clear `jsonContent`
+- **Start node** — only one node per flow can be the start node; checking this box automatically clears the flag on any other node
+- **`jsonContent`** — JSON string carrying type-specific configuration (fields, upload config, redirect URL, action definition)
+- **Compliance rules** — optional `complianceRuleJson` for server-side validation at submission time
+
+Clicking an edge opens the edge's condition fields:
+
+- **Condition field**, **operator**, **value** — define the routing predicate evaluated against the step payload
+- **Priority** — lower values are evaluated first; leave `conditionField` empty for a fallback (unconditional) edge
+
+### Saving and versioning
+
+| Button | Effect |
+|--------|--------|
+| **Load flow** | Fetches an existing flow by ID and hydrates the canvas |
+| **Create new** | POSTs the current draft to `/api/flows` and assigns the returned ID |
+| **Save new version** | PUTs the current draft to `/api/flows/{id}`, incrementing the version counter |
+| **Reset** | Clears the canvas back to a single empty start node |
+
+Validation errors (missing flow name, invalid GUIDs, no start node, broken connection references) are shown inline before any save is attempted.
