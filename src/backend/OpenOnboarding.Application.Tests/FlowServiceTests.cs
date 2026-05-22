@@ -289,6 +289,31 @@ public sealed class FlowServiceTests
         Assert.Equal("start-v1", restored.Nodes[0].Key);
     }
 
+    [Fact]
+    public async Task UpdateFlow_SetsUpdatedAt()
+    {
+        var dbContext = BuildDbContext();
+        var before = DateTimeOffset.UtcNow.AddSeconds(-1);
+        var flow = new Flow { Name = "Old Flow", Version = 1, UpdatedAt = before };
+        var oldNode = new Node { FlowId = flow.Id, Key = "old", Title = "Old", Type = NodeType.Form, IsStartNode = true };
+        flow.Nodes.Add(oldNode);
+        dbContext.Flows.Add(flow);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+
+        await service.UpdateFlowAsync(flow.Id, new UpdateFlowRequest
+        {
+            Name = "New Flow",
+            Nodes = [new NodeWriteDto { Key = "new", Type = NodeType.Form, Title = "New", IsStartNode = true }],
+            Connections = []
+        });
+
+        var updated = await dbContext.Flows.FindAsync(flow.Id);
+        Assert.NotNull(updated);
+        Assert.True(updated.UpdatedAt > before);
+    }
+
     private static FlowService CreateService(OnboardingDbContext dbContext) =>
         new(dbContext, new CreateFlowRequestValidator(), new UpdateFlowRequestValidator());
 

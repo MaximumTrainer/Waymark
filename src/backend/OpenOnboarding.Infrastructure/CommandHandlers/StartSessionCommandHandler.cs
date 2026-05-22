@@ -75,7 +75,7 @@ internal sealed class StartSessionCommandHandler(
         {
             await publisher.Publish(new SessionStartedEvent(session.Id, flow.Id, session.CreatedAt), cancellationToken);
         }
-        catch (Exception) { /* Projector failure must not fail the command */ }
+        catch (Exception ex) when (ex is not OperationCanceledException) { /* Projector failure must not fail the command */ }
 
         return new SessionStepResponse
         {

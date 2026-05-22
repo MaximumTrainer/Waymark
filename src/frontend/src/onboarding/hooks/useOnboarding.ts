@@ -64,7 +64,7 @@ export function useOnboarding() {
           onStepAdvanced: (data) => setStep(data),
           onCompleted: () => {
             setIsCompleted(true)
-            setStep(null)
+            setStep((prev) => prev ? { ...prev, isCompleted: true, currentNode: null } : null)
             eventSourceRef.current = null
           },
           onAbandoned: () => {

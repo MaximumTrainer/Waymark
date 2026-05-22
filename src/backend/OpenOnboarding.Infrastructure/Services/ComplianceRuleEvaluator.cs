@@ -186,7 +186,8 @@ public sealed class ComplianceRuleEvaluator : IComplianceRuleEvaluator
             return;
         }
 
-        if (fieldValue is null || !decimal.TryParse(fieldValue, out var numericValue) || numericValue < minimum)
+        if (fieldValue is null) return;
+        if (!decimal.TryParse(fieldValue, out var numericValue) || numericValue < minimum)
         {
             violations.Add(new ComplianceViolation
             {
@@ -203,7 +204,8 @@ public sealed class ComplianceRuleEvaluator : IComplianceRuleEvaluator
             return;
         }
 
-        if (fieldValue is null || !decimal.TryParse(fieldValue, out var numericValue) || numericValue > maximum)
+        if (fieldValue is null) return;
+        if (!decimal.TryParse(fieldValue, out var numericValue) || numericValue > maximum)
         {
             violations.Add(new ComplianceViolation
             {

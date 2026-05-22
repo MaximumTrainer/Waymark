@@ -55,11 +55,19 @@ function FieldInput({
   field,
   value,
   onChange,
+  hasError,
+  errorId,
 }: {
   field: FieldSchema
   value: unknown
   onChange: (val: unknown) => void
+  hasError?: boolean
+  errorId?: string
 }) {
+  const ariaProps = {
+    'aria-invalid': hasError || undefined,
+    'aria-describedby': errorId || undefined,
+  }
   switch (field.type) {
     case 'select':
       return (
@@ -70,6 +78,7 @@ function FieldInput({
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           className={inputClass}
+          {...ariaProps}
         >
           <option value="">— select —</option>
           {(field.options ?? []).map((opt) => (
@@ -88,6 +97,7 @@ function FieldInput({
           checked={Boolean(value)}
           onChange={(e) => onChange(e.target.checked)}
           className="h-4 w-4 rounded border-slate-300"
+          {...ariaProps}
         />
       )
     case 'textarea':
@@ -99,6 +109,7 @@ function FieldInput({
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           className={`${inputClass} min-h-[80px] resize-y`}
+          {...ariaProps}
         />
       )
     default: {
@@ -114,6 +125,7 @@ function FieldInput({
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           className={inputClass}
+          {...ariaProps}
         />
       )
     }
@@ -197,9 +209,11 @@ function DynamicForm({
             field={field}
             value={values[field.name]}
             onChange={(val) => setValues((prev) => ({ ...prev, [field.name]: val }))}
+            hasError={!!fieldErrors[field.name]}
+            errorId={fieldErrors[field.name] ? `error-${field.name}` : undefined}
           />
           {fieldErrors[field.name] && (
-            <p className="text-xs text-red-600">{fieldErrors[field.name]}</p>
+            <p id={`error-${field.name}`} role="alert" className="text-xs text-red-600">{fieldErrors[field.name]}</p>
           )}
         </div>
       ))}

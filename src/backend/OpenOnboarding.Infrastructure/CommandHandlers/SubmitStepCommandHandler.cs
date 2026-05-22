@@ -169,7 +169,7 @@ internal sealed class SubmitStepCommandHandler(
             else
                 await publisher.Publish(new StepAdvancedEvent(session.Id, session.FlowId, nextNode.Id, nextNode.Key, session.UpdatedAt), cancellationToken);
         }
-        catch (Exception) { /* Projector failure must not fail the command */ }
+        catch (Exception ex) when (ex is not OperationCanceledException) { /* Projector failure must not fail the command */ }
 
         return response;
     }

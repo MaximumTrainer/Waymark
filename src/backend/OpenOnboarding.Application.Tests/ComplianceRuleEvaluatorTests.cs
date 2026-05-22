@@ -133,6 +133,24 @@ public sealed class ComplianceRuleEvaluatorTests
         Assert.Empty(violations);
     }
 
+    [Fact]
+    public void Evaluate_ReturnsNoViolations_WhenOptionalFieldWithMinimumIsAbsent()
+    {
+        // minimum rule applies only when the field is present; absent optional fields are not a range violation
+        var node = MakeNode(complianceRuleJson: """{"rules":[{"field":"Revenue","minimum":1000}]}""");
+        var violations = _evaluator.Evaluate(node, EmptyPayload(), []);
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsNoViolations_WhenOptionalFieldWithMaximumIsAbsent()
+    {
+        // maximum rule applies only when the field is present; absent optional fields are not a range violation
+        var node = MakeNode(complianceRuleJson: """{"rules":[{"field":"Revenue","maximum":1000000}]}""");
+        var violations = _evaluator.Evaluate(node, EmptyPayload(), []);
+        Assert.Empty(violations);
+    }
+
     // ─── allowedValues ───────────────────────────────────────────────
 
     [Fact]

@@ -20,6 +20,8 @@ export function useFlow(flowId: string | null) {
 
   useEffect(() => {
     if (!flowId) return
+    setIsLoading(true)
+    setError(null)
     const controller = new AbortController()
     fetchFlowDefinition(flowId)
       .then((data) => {

@@ -64,4 +64,35 @@ describe('useFlow', () => {
     expect(result.current.flow).toBeNull()
     expect(result.current.isLoading).toBe(false)
   })
+
+  it('resets isLoading and error when flowId changes', async () => {
+    const firstFlow = { id: 'flow-1', name: 'First Flow', nodes: [], edges: [] }
+    const secondFlow = { id: 'flow-2', name: 'Second Flow', nodes: [], edges: [] }
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => firstFlow })
+        .mockResolvedValueOnce({ ok: true, json: async () => secondFlow }),
+    )
+
+    const { result, rerender } = renderHook(({ id }: { id: string | null }) => useFlow(id), {
+      initialProps: { id: 'flow-1' },
+    })
+
+    await waitFor(() => {
+      expect(result.current.flow).toEqual(firstFlow)
+    })
+    expect(result.current.isLoading).toBe(false)
+
+    rerender({ id: 'flow-2' })
+
+    expect(result.current.isLoading).toBe(true)
+    expect(result.current.error).toBeNull()
+
+    await waitFor(() => {
+      expect(result.current.flow).toEqual(secondFlow)
+    })
+    expect(result.current.isLoading).toBe(false)
+  })
 })

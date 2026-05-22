@@ -89,6 +89,8 @@ export function SessionList({ apiKey, onSelectSession }: SessionListProps) {
                 <tr
                   key={s.id}
                   onClick={() => onSelectSession(s)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSession(s) } }}
+                  tabIndex={0}
                   className="bg-white cursor-pointer hover:bg-slate-50"
                 >
                   <td className="px-3 py-2 text-slate-800">{s.flowName ?? s.flowId}</td>

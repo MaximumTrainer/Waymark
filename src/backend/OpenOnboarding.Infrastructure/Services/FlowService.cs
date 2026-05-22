@@ -127,6 +127,7 @@ public sealed class FlowService(
         flow.Name = request.Name;
         flow.Description = request.Description;
         flow.Version++;
+        flow.UpdatedAt = DateTimeOffset.UtcNow;
 
         var newNodes = request.Nodes.Select(n => new Node
         {
