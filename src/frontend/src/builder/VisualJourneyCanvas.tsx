@@ -1,11 +1,8 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import ReactFlow, {
   Background,
   Controls,
   MiniMap,
-  applyNodeChanges,
-  applyEdgeChanges,
-  addEdge,
   type Node,
   type Edge,
   type NodeChange,
@@ -14,52 +11,11 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import type { FlowDraft, FlowDraftNode, FlowDraftConnection } from './flowAuthoring'
-import type { NodeType } from '../onboarding/types/flow'
-
-export const NODE_TYPE_STYLES: Record<
-  NodeType,
-  { background: string; borderColor: string; color: string }
-> = {
-  Form: { background: '#dbeafe', borderColor: '#3b82f6', color: '#1e3a8a' },
-  DocumentUpload: { background: '#ede9fe', borderColor: '#8b5cf6', color: '#4c1d95' },
-  Redirect: { background: '#fef3c7', borderColor: '#f59e0b', color: '#78350f' },
-  Information: { background: '#d1fae5', borderColor: '#10b981', color: '#064e3b' },
-  Logic: { background: '#ffedd5', borderColor: '#f97316', color: '#7c2d12' },
-}
-
-export function getNodeStyle(
-  node: Pick<FlowDraftNode, 'type' | 'isStartNode'>,
-): React.CSSProperties {
-  const colors = NODE_TYPE_STYLES[node.type]
-  return {
-    background: colors.background,
-    borderColor: colors.borderColor,
-    color: colors.color,
-    fontWeight: node.isStartNode ? 700 : 400,
-    border: `2px solid ${colors.borderColor}`,
-    borderRadius: 8,
-    padding: '6px 10px',
-    fontSize: 12,
-    outline: node.isStartNode ? `3px solid ${colors.borderColor}` : undefined,
-    outlineOffset: node.isStartNode ? 3 : undefined,
-  }
-}
-
-export function connectionToEdgeId(conn: FlowDraftConnection): string {
-  return `${conn.sourceNodeId}__${conn.targetNodeId}__${conn.priority}`
-}
-
-export function draftConnectionsToEdges(connections: FlowDraftConnection[]): Edge[] {
-  return connections.map((conn) => {
-    const parts = [conn.conditionField, conn.conditionOperator, conn.conditionValue].filter(Boolean)
-    return {
-      id: connectionToEdgeId(conn),
-      source: conn.sourceNodeId,
-      target: conn.targetNodeId,
-      label: parts.length > 0 ? (parts.join(' ') as string) : undefined,
-    }
-  })
-}
+import {
+  connectionToEdgeId,
+  draftConnectionsToEdges,
+  getNodeStyle,
+} from './visualJourneyCanvasUtils'
 
 function computeInitialPositions(
   nodes: FlowDraftNode[],
@@ -106,27 +62,6 @@ function buildNodeLabel(node: FlowDraftNode): string {
   return `${node.isStartNode ? '⭐ ' : ''}${node.title} [${node.type}]`
 }
 
-function draftNodesToRfNodes(
-  nodes: FlowDraftNode[],
-  positions: Map<string, { x: number; y: number }>,
-  existingById: Map<string, Node>,
-): Node[] {
-  return nodes.map((node, index) => {
-    const existing = existingById.get(node.id)
-    const position =
-      existing?.position ??
-      positions.get(node.id) ??
-      { x: (index % 4) * 240, y: 50 + Math.floor(index / 4) * 120 }
-    return {
-      id: node.id,
-      data: { label: buildNodeLabel(node) },
-      position,
-      style: getNodeStyle(node),
-      selected: existing?.selected ?? false,
-    }
-  })
-}
-
 type VisualJourneyCanvasProps = {
   draft: FlowDraft
   onChange: (draft: FlowDraft) => void
@@ -144,62 +79,68 @@ export function VisualJourneyCanvas({
   onSelectNode,
   onSelectEdge,
 }: VisualJourneyCanvasProps) {
-  const positionsRef = useRef<Map<string, { x: number; y: number }>>(
-    computeInitialPositions(draft.nodes, draft.connections),
+  // Persisted user-driven positions only (updated via drag in onNodesChange).
+  const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(
+    () => new Map(),
   )
 
-  const [rfNodes, setRfNodes] = useState<Node[]>(() =>
-    draftNodesToRfNodes(draft.nodes, positionsRef.current, new Map()),
-  )
-  const [rfEdges, setRfEdges] = useState<Edge[]>(() =>
-    draftConnectionsToEdges(draft.connections),
+  // Computed layout positions for any node that doesn't have a persisted position.
+  const layoutPositions = useMemo(
+    () => computeInitialPositions(draft.nodes, draft.connections),
+    [draft.nodes, draft.connections],
   )
 
-  // Sync when draft changes (e.g., from properties panel updates or node additions)
-  const prevDraftRef = useRef(draft)
-  useEffect(() => {
-    if (draft === prevDraftRef.current) return
-    prevDraftRef.current = draft
-
-    setRfNodes((prev) => {
-      const existingById = new Map(prev.map((n) => [n.id, n]))
-      return draftNodesToRfNodes(draft.nodes, positionsRef.current, existingById)
+  const rfNodes = useMemo<Node[]>(() => {
+    return draft.nodes.map((node, index) => {
+      const persisted = positions.get(node.id)
+      const layout = layoutPositions.get(node.id)
+      const position =
+        persisted ??
+        layout ?? { x: (index % 4) * 240, y: 50 + Math.floor(index / 4) * 120 }
+      return {
+        id: node.id,
+        data: { label: buildNodeLabel(node) },
+        position,
+        style: getNodeStyle(node),
+        selected: node.id === selectedNodeId,
+      }
     })
-    setRfEdges(
+  }, [draft.nodes, layoutPositions, positions, selectedNodeId])
+
+  const rfEdges = useMemo<Edge[]>(
+    () =>
       draftConnectionsToEdges(draft.connections).map((edge) => ({
         ...edge,
         selected: edge.id === selectedEdgeId,
       })),
-    )
-  }, [draft, selectedEdgeId])
-
-  // Keep selected state in sync with external selection
-  useEffect(() => {
-    setRfNodes((prev) =>
-      prev.map((n) => ({ ...n, selected: n.id === selectedNodeId })),
-    )
-  }, [selectedNodeId])
-
-  useEffect(() => {
-    setRfEdges((prev) =>
-      prev.map((e) => ({ ...e, selected: e.id === selectedEdgeId })),
-    )
-  }, [selectedEdgeId])
+    [draft.connections, selectedEdgeId],
+  )
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      // Track position updates persistently
-      for (const change of changes) {
-        if (change.type === 'position' && change.position) {
-          positionsRef.current.set(change.id, change.position)
-        }
-      }
-
-      setRfNodes((nds) => applyNodeChanges(changes, nds))
+      // Track position updates persistently so they survive re-renders.
+      const positionUpdates = changes.filter(
+        (c): c is NodeChange & { type: 'position'; id: string; position: { x: number; y: number } } =>
+          c.type === 'position' && !!c.position,
+      )
 
       const removedIds = new Set(
         changes.filter((c) => c.type === 'remove').map((c) => c.id),
       )
+
+      if (positionUpdates.length > 0 || removedIds.size > 0) {
+        setPositions((prev) => {
+          const next = new Map(prev)
+          for (const change of positionUpdates) {
+            next.set(change.id, change.position)
+          }
+          for (const id of removedIds) {
+            next.delete(id)
+          }
+          return next
+        })
+      }
+
       if (removedIds.size > 0) {
         onChange({
           ...draft,
@@ -215,8 +156,6 @@ export function VisualJourneyCanvas({
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
-      setRfEdges((eds) => applyEdgeChanges(changes, eds))
-
       const removedIds = new Set(
         changes.filter((c) => c.type === 'remove').map((c) => c.id),
       )
@@ -242,25 +181,16 @@ export function VisualJourneyCanvas({
           (c) => c.sourceNodeId === connection.source && c.targetNodeId === connection.target,
         ).length,
       }
-      const newEdge = {
-        id: connectionToEdgeId(newConn),
-        source: newConn.sourceNodeId,
-        target: newConn.targetNodeId,
-      }
-      setRfEdges((eds) => addEdge(newEdge, eds))
       onChange({ ...draft, connections: [...draft.connections, newConn] })
     },
     [draft, onChange],
   )
 
-  const stableNodes = useMemo(() => rfNodes, [rfNodes])
-  const stableEdges = useMemo(() => rfEdges, [rfEdges])
-
   return (
     <div className="h-full w-full">
       <ReactFlow
-        nodes={stableNodes}
-        edges={stableEdges}
+        nodes={rfNodes}
+        edges={rfEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}

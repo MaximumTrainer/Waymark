@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useReducer } from 'react'
 import type { FlowDefinition } from '../types/flow'
 
 const API_KEY = import.meta.env.VITE_API_KEY as string | undefined
@@ -13,31 +13,61 @@ async function fetchFlowDefinition(flowId: string): Promise<FlowDefinition> {
   return response.json() as Promise<FlowDefinition>
 }
 
+type FlowState = {
+  flow: FlowDefinition | null
+  isLoading: boolean
+  error: string | null
+}
+
+type FlowAction =
+  | { type: 'reset'; isLoading: boolean }
+  | { type: 'success'; flow: FlowDefinition }
+  | { type: 'failure'; error: string }
+
+function flowReducer(_state: FlowState, action: FlowAction): FlowState {
+  switch (action.type) {
+    case 'reset':
+      return { flow: null, isLoading: action.isLoading, error: null }
+    case 'success':
+      return { flow: action.flow, isLoading: false, error: null }
+    case 'failure':
+      return { flow: null, isLoading: false, error: action.error }
+  }
+}
+
+function initFlowState(flowId: string | null): FlowState {
+  return { flow: null, isLoading: flowId !== null, error: null }
+}
+
 export function useFlow(flowId: string | null) {
-  const [flow, setFlow] = useState<FlowDefinition | null>(null)
-  const [isLoading, setIsLoading] = useState(flowId !== null)
-  const [error, setError] = useState<string | null>(null)
+  const [state, dispatch] = useReducer(flowReducer, flowId, initFlowState)
 
   useEffect(() => {
-    if (!flowId) return
-    setIsLoading(true)
-    setError(null)
-    const controller = new AbortController()
+    if (!flowId) {
+      dispatch({ type: 'reset', isLoading: false })
+      return
+    }
+
+    let cancelled = false
+    dispatch({ type: 'reset', isLoading: true })
+
     fetchFlowDefinition(flowId)
       .then((data) => {
-        if (!controller.signal.aborted) {
-          setFlow(data)
-          setIsLoading(false)
-        }
+        if (!cancelled) dispatch({ type: 'success', flow: data })
       })
       .catch((err: unknown) => {
-        if (!controller.signal.aborted) {
-          setError(err instanceof Error ? err.message : 'Failed to load flow')
-          setIsLoading(false)
+        if (!cancelled) {
+          dispatch({
+            type: 'failure',
+            error: err instanceof Error ? err.message : 'Failed to load flow',
+          })
         }
       })
-    return () => controller.abort()
+
+    return () => {
+      cancelled = true
+    }
   }, [flowId])
 
-  return { flow, isLoading, error }
+  return state
 }

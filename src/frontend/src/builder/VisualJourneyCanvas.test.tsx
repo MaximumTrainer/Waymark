@@ -6,7 +6,7 @@ import {
   getNodeStyle,
   connectionToEdgeId,
   draftConnectionsToEdges,
-} from './VisualJourneyCanvas'
+} from './visualJourneyCanvasUtils'
 
 describe('NODE_TYPE_STYLES', () => {
   const types: NodeType[] = ['Form', 'DocumentUpload', 'Redirect', 'Information', 'Logic']
