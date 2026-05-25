@@ -1,6 +1,6 @@
 import type { NodeType } from '../onboarding/types/flow'
 import type { FlowDraft, FlowDraftConnection, FlowDraftNode } from './flowAuthoring'
-import { connectionToEdgeId } from './VisualJourneyCanvas'
+import { connectionToEdgeId } from './visualJourneyCanvasUtils'
 
 const NODE_TYPES: NodeType[] = ['Form', 'DocumentUpload', 'Redirect', 'Information', 'Logic']
 
