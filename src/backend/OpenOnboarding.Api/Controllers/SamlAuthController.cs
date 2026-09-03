@@ -114,6 +114,11 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         var expectedAuthnId = Request.Cookies[AuthnIdCookie];
         Response.Cookies.Delete(AuthnIdCookie, new CookieOptions { Path = "/auth/saml/callback" });
 
+        // Without the AuthnRequest ID we cannot prove the response answers a request we issued,
+        // so an unsolicited or replayed response must be rejected rather than silently accepted.
+        if (string.IsNullOrWhiteSpace(expectedAuthnId))
+            return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
+
         try
         {
             var config = BuildSamlConfiguration();
@@ -121,11 +126,12 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             var httpRequest = Request.ToGenericHttpRequest(validate: true);
             httpRequest.Binding.ReadSamlResponse(httpRequest, authnResponse);
 
-            if (!string.IsNullOrWhiteSpace(expectedAuthnId) &&
-                !string.Equals(authnResponse.InResponseToAsString, expectedAuthnId, StringComparison.Ordinal))
-            {
+            if (!string.Equals(authnResponse.InResponseToAsString, expectedAuthnId, StringComparison.Ordinal))
                 return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
-            }
+
+            // The response must be addressed to this SP's assertion consumer service.
+            if (!DestinationMatchesAcsUrl(authnResponse.Destination))
+                return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
 
             if (authnResponse.Status != Saml2StatusCodes.Success)
                 return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
@@ -240,6 +246,19 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             throw new InvalidOperationException("Authentication:Saml:IdpCertificate must be configured.");
 
         return X509Certificate2.CreateFromPem(certPem);
+    }
+
+    private bool DestinationMatchesAcsUrl(Uri? destination)
+    {
+        // Destination is optional in SAML 2.0, but when the IdP supplies it, it must
+        // name our ACS endpoint - otherwise the response was minted for another SP.
+        if (destination is null)
+            return true;
+
+        return string.Equals(
+            destination.OriginalString.TrimEnd('/'),
+            ResolveAcsUrl().TrimEnd('/'),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private string ResolveAcsUrl()

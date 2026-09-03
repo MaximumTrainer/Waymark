@@ -107,11 +107,30 @@ All configuration can be set via environment variables or `appsettings.json`.
 | `Logging__LogLevel__Default` | optional | `Information` | Log verbosity. |
 | `ASPNETCORE_ENVIRONMENT` | optional | `Production` | `Development`, `Staging`, or `Production`. |
 
+### SAML Single Sign-On (Admin UI)
+
+The admin UI signs operators in over SAML 2.0 (`GET /auth/saml/login` → IdP → `POST /auth/saml/callback`).
+Import `GET /auth/saml/metadata` into the IdP to register Waymark as a service provider.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `Authentication__Saml__Issuer` | ✅ | `waymark-service-provider` | SP entity ID. Must match the IdP's configured audience. |
+| `Authentication__Saml__IdpSsoUrl` | ✅ | — | IdP single sign-on endpoint the `AuthnRequest` is redirected to. |
+| `Authentication__Saml__IdpCertificate` | ✅ | — | PEM of the IdP signing certificate used to verify assertions. |
+| `Authentication__Saml__SpCertificate` | ✅ | — | PEM of the SP signing certificate published in metadata. |
+| `Authentication__Saml__SpPrivateKey` | ✅ | — | PEM of the SP private key. **Store as a secret**, never in `appsettings.json`. |
+| `Authentication__Saml__AllowedNameIds__0` | ✅ | — | Allowlist of NameIDs permitted to sign in. An empty list denies everyone. |
+| `Authentication__Saml__AcsUrl` | optional | request origin + `/auth/saml/callback` | Override when the public URL differs from the request host (e.g. behind a proxy). |
+| `Authentication__Saml__AllowedReturnOrigins__0` | optional | — | Absolute origins accepted for `returnUrl`; anything else falls back to a relative path. |
+| `Authentication__Saml__RelayStateTimeoutMinutes` | optional | `5` | Lifetime of the relay-state and AuthnRequest-ID cookies. |
+| `Authentication__Saml__SessionDurationHours` | optional | `8` | Admin session lifetime after a successful assertion. |
+
 ### Security Notes
 
 - In non-Development environments, `Authentication__JwtAuthority` must be set — the API will fail startup if absent.
 - Never log JWT tokens, API keys, or session submission content.
 - File uploads are scanned before storage; rejected files return HTTP 422.
+- SAML responses are rejected unless the XML signature verifies against `Authentication__Saml__IdpCertificate`, `InResponseTo` matches the AuthnRequest this server issued, the `Destination` names our ACS URL, and the assertion is within its validity window.
 
 ---
 

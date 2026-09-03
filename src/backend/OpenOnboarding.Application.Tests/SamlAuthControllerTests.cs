@@ -144,6 +144,43 @@ public sealed class SamlAuthControllerTests
     }
 
     // -----------------------------------------------------------------------
+    // Helper: POST a SAMLResponse to the callback endpoint with manual cookies
+    // -----------------------------------------------------------------------
+    private static Task<HttpResponseMessage> PostCallbackAsync(
+        HttpClient client,
+        string samlResponse,
+        string relayState,
+        string? relayStateCookie,
+        string? authnIdCookie,
+        string? returnUrl = null)
+    {
+        var form = new Dictionary<string, string>
+        {
+            ["SAMLResponse"] = samlResponse,
+            ["RelayState"]   = relayState
+        };
+
+        if (returnUrl is not null)
+            form["returnUrl"] = returnUrl;
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/auth/saml/callback")
+        {
+            Content = new FormUrlEncodedContent(form)
+        };
+
+        var cookies = new List<string>();
+        if (relayStateCookie is not null)
+            cookies.Add($"__Secure-waymark-saml-relay-state={relayStateCookie}");
+        if (authnIdCookie is not null)
+            cookies.Add($"__Secure-waymark-saml-authn-id={authnIdCookie}");
+
+        if (cookies.Count > 0)
+            request.Headers.Add("Cookie", string.Join("; ", cookies));
+
+        return client.SendAsync(request);
+    }
+
+    // -----------------------------------------------------------------------
     // Helper: create an HttpClient that does NOT automatically follow redirects
     //         and does NOT absorb Set-Cookie headers.
     // -----------------------------------------------------------------------
@@ -190,19 +227,8 @@ public sealed class SamlAuthControllerTests
         var samlResp = BuildSamlResponse(IdpConfig(SharedCerts), authnId);
 
         // Step 3: POST to callback with manual cookies
-        var callbackReq = new HttpRequestMessage(HttpMethod.Post, "/auth/saml/callback")
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["SAMLResponse"] = samlResp,
-                ["RelayState"]   = relayState
-            })
-        };
-        callbackReq.Headers.Add("Cookie",
-            $"__Secure-waymark-saml-relay-state={rsCookieRaw}; " +
-            $"__Secure-waymark-saml-authn-id={authnIdCookieRaw}");
-
-        var callbackResp = await client.SendAsync(callbackReq);
+        var callbackResp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
         Assert.Equal(HttpStatusCode.Redirect, callbackResp.StatusCode);
         Assert.Equal("/admin/journey-builder", callbackResp.Headers.Location?.ToString());
 
@@ -293,19 +319,8 @@ public sealed class SamlAuthControllerTests
         xml = xml.Replace("admin@example.com", "attacker@evil.example");
         var tampered = Convert.ToBase64String(Encoding.UTF8.GetBytes(xml));
 
-        var req = new HttpRequestMessage(HttpMethod.Post, "/auth/saml/callback")
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["SAMLResponse"] = tampered,
-                ["RelayState"]   = relayState
-            })
-        };
-        req.Headers.Add("Cookie",
-            $"__Secure-waymark-saml-relay-state={rsCookieRaw}; " +
-            $"__Secure-waymark-saml-authn-id={authnIdCookieRaw}");
-
-        var resp = await client.SendAsync(req);
+        var resp = await PostCallbackAsync(
+            client, tampered, relayState, rsCookieRaw, authnIdCookieRaw);
         Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
         Assert.Contains("error=saml_invalid_assertion",
             resp.Headers.Location?.ToString() ?? "");
@@ -325,19 +340,8 @@ public sealed class SamlAuthControllerTests
         // Build response with the wrong InResponseTo
         var samlResp = BuildSamlResponse(IdpConfig(SharedCerts), "_wrong_id_value");
 
-        var req = new HttpRequestMessage(HttpMethod.Post, "/auth/saml/callback")
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["SAMLResponse"] = samlResp,
-                ["RelayState"]   = relayState
-            })
-        };
-        req.Headers.Add("Cookie",
-            $"__Secure-waymark-saml-relay-state={rsCookieRaw}; " +
-            $"__Secure-waymark-saml-authn-id={authnIdCookieRaw}");
-
-        var resp = await client.SendAsync(req);
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
         Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
         Assert.Contains("error=saml_invalid_assertion",
             resp.Headers.Location?.ToString() ?? "");
@@ -362,19 +366,8 @@ public sealed class SamlAuthControllerTests
             $@"NotOnOrAfter=""{DateTimeOffset.UtcNow.AddHours(-2):yyyy-MM-ddTHH:mm:ssZ}""");
         var expired = Convert.ToBase64String(Encoding.UTF8.GetBytes(xml));
 
-        var req = new HttpRequestMessage(HttpMethod.Post, "/auth/saml/callback")
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["SAMLResponse"] = expired,
-                ["RelayState"]   = relayState
-            })
-        };
-        req.Headers.Add("Cookie",
-            $"__Secure-waymark-saml-relay-state={rsCookieRaw}; " +
-            $"__Secure-waymark-saml-authn-id={authnIdCookieRaw}");
-
-        var resp = await client.SendAsync(req);
+        var resp = await PostCallbackAsync(
+            client, expired, relayState, rsCookieRaw, authnIdCookieRaw);
         Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
         Assert.Contains("error=saml_invalid_assertion",
             resp.Headers.Location?.ToString() ?? "");
@@ -393,19 +386,9 @@ public sealed class SamlAuthControllerTests
 
         var samlResp = BuildSamlResponse(IdpConfig(SharedCerts), authnId);
 
-        var req = new HttpRequestMessage(HttpMethod.Post, "/auth/saml/callback")
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["SAMLResponse"] = samlResp,
-                ["RelayState"]   = "WRONG_RELAY_STATE"   // intentionally wrong
-            })
-        };
-        req.Headers.Add("Cookie",
-            $"__Secure-waymark-saml-relay-state={rsCookieRaw}; " +
-            $"__Secure-waymark-saml-authn-id={authnIdCookieRaw}");
-
-        var resp = await client.SendAsync(req);
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState: "WRONG_RELAY_STATE", // intentionally wrong
+            rsCookieRaw, authnIdCookieRaw);
         Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
         Assert.Contains("error=saml_csrf_failed",
             resp.Headers.Location?.ToString() ?? "");
@@ -427,19 +410,8 @@ public sealed class SamlAuthControllerTests
         var samlResp = BuildSamlResponse(
             IdpConfig(SharedCerts), authnId, nameId: "other@example.com");
 
-        var req = new HttpRequestMessage(HttpMethod.Post, "/auth/saml/callback")
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["SAMLResponse"] = samlResp,
-                ["RelayState"]   = relayState
-            })
-        };
-        req.Headers.Add("Cookie",
-            $"__Secure-waymark-saml-relay-state={rsCookieRaw}; " +
-            $"__Secure-waymark-saml-authn-id={authnIdCookieRaw}");
-
-        var resp = await client.SendAsync(req);
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
         Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
         Assert.Contains("error=saml_access_denied",
             resp.Headers.Location?.ToString() ?? "");
@@ -468,22 +440,76 @@ public sealed class SamlAuthControllerTests
 
         var samlResp = BuildSamlResponse(IdpConfig(SharedCerts), authnId);
 
-        var req = new HttpRequestMessage(HttpMethod.Post, "/auth/saml/callback")
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["SAMLResponse"] = samlResp,
-                ["RelayState"]   = relayState,
-                ["returnUrl"]    = frontendReturn
-            })
-        };
-        req.Headers.Add("Cookie",
-            $"__Secure-waymark-saml-relay-state={rsCookieRaw}; " +
-            $"__Secure-waymark-saml-authn-id={authnId}");
-
-        var resp = await client.SendAsync(req);
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnId, frontendReturn);
         Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
         Assert.Equal(frontendReturn, resp.Headers.Location?.ToString());
+    }
+
+    // =======================================================================
+    // 9. Unsigned response (signature stripped) -> saml_invalid_assertion
+    // =======================================================================
+    [Fact]
+    public async Task Callback_UnsignedResponse_RedirectsToSamlInvalidAssertion()
+    {
+        using var factory = TestWebAppFactory.Create(configurationOverrides: SamlConfig());
+        using var client  = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, authnIdCookieRaw) = await DoLoginAsync(client);
+
+        var samlResp = BuildSamlResponse(IdpConfig(SharedCerts), authnId);
+        var xml = Encoding.UTF8.GetString(Convert.FromBase64String(samlResp));
+        // Remove every ds:Signature element so the response arrives entirely unsigned.
+        xml = Regex.Replace(
+            xml, @"<(\w+:)?Signature\b.*?</(\w+:)?Signature>", "", RegexOptions.Singleline);
+        Assert.DoesNotContain("Signature", xml);
+        var unsigned = Convert.ToBase64String(Encoding.UTF8.GetBytes(xml));
+
+        var resp = await PostCallbackAsync(client, unsigned, relayState, rsCookieRaw, authnIdCookieRaw);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.Contains("error=saml_invalid_assertion", resp.Headers.Location?.ToString() ?? "");
+    }
+
+    // =======================================================================
+    // 10. Missing authn-id cookie -> InResponseTo cannot be verified -> error
+    // =======================================================================
+    [Fact]
+    public async Task Callback_MissingAuthnIdCookie_RedirectsToSamlInvalidAssertion()
+    {
+        using var factory = TestWebAppFactory.Create(configurationOverrides: SamlConfig());
+        using var client  = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, _) = await DoLoginAsync(client);
+
+        var samlResp = BuildSamlResponse(IdpConfig(SharedCerts), authnId);
+
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookie: null);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.Contains("error=saml_invalid_assertion", resp.Headers.Location?.ToString() ?? "");
+    }
+
+    // =======================================================================
+    // 11. Destination (recipient ACS URL) mismatch -> saml_invalid_assertion
+    // =======================================================================
+    [Fact]
+    public async Task Callback_DestinationMismatch_RedirectsToSamlInvalidAssertion()
+    {
+        using var factory = TestWebAppFactory.Create(configurationOverrides: SamlConfig());
+        using var client  = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, authnIdCookieRaw) = await DoLoginAsync(client);
+
+        // Correctly signed, but addressed to a different service provider ACS endpoint.
+        var samlResp = BuildSamlResponse(
+            IdpConfig(SharedCerts), authnId, acsUrl: "https://evil.example/auth/saml/callback");
+
+        var resp = await PostCallbackAsync(client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.Contains("error=saml_invalid_assertion", resp.Headers.Location?.ToString() ?? "");
     }
 
     private sealed class AuthMeResponse
