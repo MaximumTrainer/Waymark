@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { PactV3, MatchersV3 } from '@pact-foundation/pact'
 import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
 import { startSession, submitStep, getNextStep } from '../onboarding/api/workflow-api-client'
+import { clearApplicantToken, setApplicantToken } from '../onboarding/api/applicant-session'
 
 const { like, uuid, string } = MatchersV3
 
@@ -16,7 +17,6 @@ const provider = new PactV3({
   logLevel: 'warn',
 })
 
-const TEST_API_KEY = 'test-api-key'
 const FLOW_ID = '550e8400-e29b-41d4-a716-446655440000'
 const NODE_ID = '660e8400-e29b-41d4-a716-446655440001'
 const SESSION_ID = '770e8400-e29b-41d4-a716-446655440002'
@@ -34,6 +34,12 @@ const sessionStepResponseBody = {
 }
 
 describe('Workflow API — consumer contract', () => {
+  // The applicant session token is a credential, so it is not part of the contract: interactions
+  // declare only the headers they assert, and the provider verifier supplies a real token of its
+  // own. Setting one here keeps the consumer exercising its true code path.
+  beforeAll(() => setApplicantToken('consumer-contract-applicant-token'))
+  afterAll(() => clearApplicantToken())
+
   it('starts an onboarding session', async () => {
     await provider
       .addInteraction({
@@ -43,7 +49,6 @@ describe('Workflow API — consumer contract', () => {
           method: 'POST',
           path: '/api/workflow/sessions/start',
           headers: {
-            'X-Api-Key': TEST_API_KEY,
             'Content-Type': 'application/json',
           },
           body: { flowId: FLOW_ID },
@@ -54,7 +59,7 @@ describe('Workflow API — consumer contract', () => {
         },
       })
       .executeTest(async (mockServer) => {
-        const result = await startSession(mockServer.url, { flowId: FLOW_ID }, TEST_API_KEY)
+        const result = await startSession(mockServer.url, { flowId: FLOW_ID })
         expect(result.sessionId).toBeDefined()
         expect(result.isCompleted).toBe(false)
         expect(result.currentNode).not.toBeNull()
@@ -74,7 +79,6 @@ describe('Workflow API — consumer contract', () => {
           method: 'POST',
           path: `/api/workflow/sessions/${SESSION_ID}/steps/${NODE_ID}/submit`,
           headers: {
-            'X-Api-Key': TEST_API_KEY,
             'Content-Type': 'application/json',
           },
           body: { payload: like({ field: 'value' }) },
@@ -90,7 +94,6 @@ describe('Workflow API — consumer contract', () => {
           SESSION_ID,
           NODE_ID,
           { payload: { field: 'value' } },
-          TEST_API_KEY,
         )
         expect(result.sessionId).toBeDefined()
         expect(result.isCompleted).toBe(false)
@@ -105,9 +108,6 @@ describe('Workflow API — consumer contract', () => {
         withRequest: {
           method: 'GET',
           path: `/api/workflow/sessions/${SESSION_ID}/next`,
-          headers: {
-            'X-Api-Key': TEST_API_KEY,
-          },
         },
         willRespondWith: {
           status: 200,
@@ -115,7 +115,7 @@ describe('Workflow API — consumer contract', () => {
         },
       })
       .executeTest(async (mockServer) => {
-        const result = await getNextStep(mockServer.url, SESSION_ID, TEST_API_KEY)
+        const result = await getNextStep(mockServer.url, SESSION_ID)
         expect(result.sessionId).toBeDefined()
         expect(result.isCompleted).toBeDefined()
       })
@@ -130,7 +130,6 @@ describe('Workflow API — consumer contract', () => {
           method: 'POST',
           path: '/api/workflow/sessions/start',
           headers: {
-            'X-Api-Key': TEST_API_KEY,
             'Content-Type': 'application/json',
           },
           body: {},
@@ -145,7 +144,7 @@ describe('Workflow API — consumer contract', () => {
       })
       .executeTest(async (mockServer) => {
         await expect(
-          startSession(mockServer.url, {} as Parameters<typeof startSession>[1], TEST_API_KEY),
+          startSession(mockServer.url, {} as Parameters<typeof startSession>[1]),
         ).rejects.toThrow()
       })
   })

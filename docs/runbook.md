@@ -100,12 +100,44 @@ All configuration can be set via environment variables or `appsettings.json`.
 | `ConnectionStrings__OnboardingDb` | ✅ | — | PostgreSQL connection string |
 | `Authentication__JwtAuthority` | ✅ (non-dev) | — | OIDC issuer URL. Empty string = JWT disabled (dev only). |
 | `Authentication__JwtAudience` | ✅ (non-dev) | — | Expected JWT audience claim. |
-| `Authentication__ApiKey` | optional | — | Shared API key for X-Api-Key header auth. |
-| `ApiKeys__operator` | optional | — | Per-role API keys. Key = role name, value = key. |
-| `ApiKeys__applicant` | optional | — | Applicant-role API key. |
+| `Authentication__ApiKey` | optional | — | **Server-to-server only.** Grants a full Operator principal — never send it from a browser. See [API credentials](#api-credentials). |
+| `Authentication__ApplicantToken__SigningKey` | ✅ (non-dev) | — | HMAC key signing per-session applicant tokens, min 32 chars. **Store as a secret.** Startup fails without it outside Development. |
+| `Authentication__ApplicantToken__LifetimeMinutes` | optional | `SessionTimeoutMinutes` | Applicant token lifetime. Defaults to the session timeout, since the token is useless once its session is abandoned. |
 | `SessionTimeoutMinutes` | optional | `60` | Inactivity timeout before sessions are auto-abandoned. |
 | `Logging__LogLevel__Default` | optional | `Information` | Log verbosity. |
 | `ASPNETCORE_ENVIRONMENT` | optional | `Production` | `Development`, `Staging`, or `Production`. |
+
+### API credentials
+
+Three credentials reach the API, and they are not interchangeable.
+
+| Credential | Who holds it | Grants |
+|------------|--------------|--------|
+| Applicant session token | The applicant's browser | The one session named in the token. Nothing else. |
+| `AdminSession` cookie | An operator's browser, after SAML SSO | Operator role, subject to the SSO NameID allowlist. |
+| `Authentication__ApiKey` | Server-to-server integrations | A full Operator principal. |
+
+**The API key must never be sent from a browser.** It maps to an Operator principal with no further
+checks, so a key present in a page is a key every visitor to that page holds. The public onboarding
+app does not use it: it starts a session anonymously and is handed a token for that session.
+
+#### Applicant session tokens
+
+`POST /api/workflow/sessions/start` is anonymous — it is the entry point of a public journey, so
+there is no credential to present yet. It is rate limited by the `session-start` policy. The
+response carries `applicantToken`, an HMAC-signed JWT the browser sends as
+`Authorization: Bearer <token>` for the rest of the journey.
+
+- **Scope.** The token names one session. It is rejected for any other session, and for every
+  operator endpoint, including the submissions readout for its own session.
+- **Lifetime.** Defaults to `SessionTimeoutMinutes`. A shorter life only strands applicants
+  mid-journey; a longer one outlives the session it names, which is abandoned by then anyway.
+- **Signing key.** `Authentication__ApplicantToken__SigningKey` must be set outside Development or
+  startup fails. All replicas need the same key, or a token issued by one is rejected by another.
+  In Development an ephemeral key is generated per process, so tokens stop working on restart.
+- **SSE.** The browser `EventSource` API cannot set request headers, so
+  `GET /api/workflow/sessions/{id}/events` also accepts the token as an `access_token` query
+  parameter. Ownership is enforced identically on both paths.
 
 ### SAML Single Sign-On (Admin UI)
 

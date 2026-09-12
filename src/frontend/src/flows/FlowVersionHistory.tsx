@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { operatorFetch } from '../api/operator-api'
 
 interface VersionSummary {
   versionNumber: number
@@ -8,27 +9,26 @@ interface VersionSummary {
 
 interface FlowVersionHistoryProps {
   flowId: string
-  apiKey?: string
   onRestore?: (versionNumber: number) => void
   activePersonasByVersion?: Record<number, string[]>
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
-export function FlowVersionHistory({ flowId, apiKey, onRestore, activePersonasByVersion = {} }: FlowVersionHistoryProps) {
+export function FlowVersionHistory({ flowId, onRestore, activePersonasByVersion = {} }: FlowVersionHistoryProps) {
   const [versions, setVersions] = useState<VersionSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [restoring, setRestoring] = useState<number | null>(null)
   const [confirmVersion, setConfirmVersion] = useState<number | null>(null)
 
   const headers = useMemo(
-    (): Record<string, string> => (apiKey ? { 'X-Api-Key': apiKey } : {}),
-    [apiKey],
+    (): Record<string, string> => ({}),
+    [],
   )
 
   useEffect(() => {
     let cancelled = false
-    fetch(`${API_BASE_URL}/api/flows/${flowId}/versions`, { headers })
+    operatorFetch(`${API_BASE_URL}/api/flows/${flowId}/versions`, { headers })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json() as Promise<VersionSummary[]>
@@ -42,7 +42,7 @@ export function FlowVersionHistory({ flowId, apiKey, onRestore, activePersonasBy
     setRestoring(versionNumber)
     setConfirmVersion(null)
     try {
-      const r = await fetch(`${API_BASE_URL}/api/flows/${flowId}/versions/${versionNumber}/restore`, {
+      const r = await operatorFetch(`${API_BASE_URL}/api/flows/${flowId}/versions/${versionNumber}/restore`, {
         method: 'POST',
         headers,
       })

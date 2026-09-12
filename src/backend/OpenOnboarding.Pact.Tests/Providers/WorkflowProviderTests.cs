@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using OpenOnboarding.Api.Authentication;
 using PactNet;
 using PactNet.Verifier;
 using OpenOnboarding.Pact.Tests.Infrastructure;
@@ -38,16 +40,23 @@ public sealed class WorkflowProviderTests(ITestOutputHelper output)
         using var fixture = new PactProviderFixture();
 
         var (flowId, nodeId) = await fixture.SeedFlowAsync();
-        await fixture.SeedSessionAsync(flowId, nodeId);
+        var sessionId = await fixture.SeedSessionAsync(flowId, nodeId);
 
         var config = new PactVerifierConfig
         {
             Outputters = [new XunitOutput(output)]
         };
 
+        // Credentials are not part of a contract - the consumer's token is meaningless to this
+        // provider. Mint a real one for the seeded session and inject it, which is the standard
+        // Pact approach to authenticated interactions.
+        var tokenService = fixture.Services.GetRequiredService<ApplicantSessionTokenService>();
+        var (applicantToken, _) = tokenService.Issue(sessionId, customerProfileId: null);
+
         new PactVerifier("open-onboarding-api", config)
             .WithHttpEndpoint(fixture.ServerUri)
             .WithFileSource(new FileInfo(pactFile))
+            .WithCustomHeader("Authorization", $"Bearer {applicantToken}")
             .Verify();
     }
 

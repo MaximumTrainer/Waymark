@@ -19,6 +19,12 @@ export interface SessionStepResponse {
   currentNode: FlowNode | null
 }
 
+/** Session start also returns the credential used for the rest of the journey. */
+export interface SessionStartResponse extends SessionStepResponse {
+  applicantToken?: string | null
+  applicantTokenExpiresAt?: string | null
+}
+
 export interface StartSessionRequest {
   flowId: string
   customerProfileId?: string

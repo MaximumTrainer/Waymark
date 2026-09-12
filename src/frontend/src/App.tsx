@@ -104,7 +104,6 @@ function buildReturnUrl(path: string) {
 
 function App() {
   const { step, startSession, submitStep, isLoading, error } = useOnboarding()
-  const apiKey = import.meta.env.VITE_API_KEY || undefined
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname)
   const [currentSearch, setCurrentSearch] = useState(() => window.location.search)
   const [adminAuthState, setAdminAuthState] = useState<AdminAuthState>('checking')
@@ -327,7 +326,6 @@ function App() {
       {builderFlowId && (
         <FlowVersionHistory
           flowId={builderFlowId}
-          apiKey={apiKey}
           activePersonasByVersion={activePersonasByVersion}
           onRestore={() => undefined}
         />
@@ -355,7 +353,6 @@ function App() {
             node={step.currentNode}
             sessionId={step.sessionId}
             nodeId={step.currentNode?.id}
-            apiKey={apiKey}
             onSubmit={async (payload) => {
               if (!step.currentNode) {
                 return
@@ -369,7 +366,7 @@ function App() {
       </section>
       <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Flow Analytics</h2>
-        <FlowAnalytics flowId={selectedFlowId} apiKey={apiKey} />
+        <FlowAnalytics flowId={selectedFlowId} />
       </section>
 
       <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -377,17 +374,16 @@ function App() {
         {selectedSession ? (
           <SessionDetail
             sessionId={selectedSession.id}
-            apiKey={apiKey}
             onBack={() => setSelectedSession(null)}
           />
         ) : (
-          <SessionList apiKey={apiKey} onSelectSession={setSelectedSession} />
+          <SessionList onSelectSession={setSelectedSession} />
         )}
       </section>
 
       <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Webhook Deliveries</h2>
-        <WebhookDeliveries apiKey={apiKey} />
+        <WebhookDeliveries />
       </section>
     </main>
     </JourneyAnalyticsProvider>

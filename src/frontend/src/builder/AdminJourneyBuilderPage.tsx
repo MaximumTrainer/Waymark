@@ -1,15 +1,12 @@
 import type { FlowDefinition } from '../onboarding/types/flow'
 import type { FlowDraft } from './flowAuthoring'
 import { VisualJourneyBuilder } from './VisualJourneyBuilder'
+import { operatorFetch, operatorJsonHeaders } from '../api/operator-api'
 
 const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-const apiKey = import.meta.env.VITE_API_KEY
 
 function buildHeaders(includeJson: boolean): Record<string, string> {
-  const headers: Record<string, string> = {}
-  if (includeJson) headers['Content-Type'] = 'application/json'
-  if (apiKey) headers['X-Api-Key'] = apiKey
-  return headers
+  return includeJson ? operatorJsonHeaders() : {}
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -30,7 +27,7 @@ async function readErrorMessage(response: Response): Promise<string> {
 }
 
 async function loadFlow(flowId: string): Promise<FlowDefinition> {
-  const response = await fetch(`${serverBase}/api/flows/${flowId}`, {
+  const response = await operatorFetch(`${serverBase}/api/flows/${flowId}`, {
     headers: buildHeaders(false),
   })
   if (!response.ok) throw new Error(await readErrorMessage(response))
@@ -38,7 +35,7 @@ async function loadFlow(flowId: string): Promise<FlowDefinition> {
 }
 
 async function saveFlow(flowId: string, draft: FlowDraft): Promise<FlowDefinition> {
-  const response = await fetch(`${serverBase}/api/flows/${flowId}`, {
+  const response = await operatorFetch(`${serverBase}/api/flows/${flowId}`, {
     method: 'PUT',
     headers: buildHeaders(true),
     body: JSON.stringify(draft),
@@ -48,7 +45,7 @@ async function saveFlow(flowId: string, draft: FlowDraft): Promise<FlowDefinitio
 }
 
 async function createFlow(draft: FlowDraft): Promise<FlowDefinition> {
-  const response = await fetch(`${serverBase}/api/flows`, {
+  const response = await operatorFetch(`${serverBase}/api/flows`, {
     method: 'POST',
     headers: buildHeaders(true),
     body: JSON.stringify(draft),

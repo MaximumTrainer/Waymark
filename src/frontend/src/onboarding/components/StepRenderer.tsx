@@ -3,6 +3,7 @@ import { Label } from '@radix-ui/react-label'
 import type { FlowNode } from '../types/flow'
 import { ComplianceError } from '../api/workflow-api-client'
 import { useJourneyAnalytics } from '../../analytics/JourneyAnalyticsContext'
+import { applicantAuthHeaders } from '../api/applicant-session'
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 type ErrorBoundaryState = { hasError: boolean }
@@ -238,13 +239,11 @@ function DocumentUploadStep({
   sessionId,
   nodeId,
   onSubmit,
-  apiKey,
 }: {
   node: FlowNode
   sessionId?: string
   nodeId?: string
   onSubmit: (payload: Record<string, unknown>) => Promise<void>
-  apiKey?: string
 }) {
   const content = (() => {
     try {
@@ -279,8 +278,10 @@ function DocumentUploadStep({
 
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `/api/workflow/sessions/${sessionId}/steps/${nodeId}/documents`)
-    if (apiKey) {
-      xhr.setRequestHeader('X-Api-Key', apiKey)
+    // Document upload belongs to the applicant's own session, so it uses the session credential.
+    const authHeaders = applicantAuthHeaders()
+    for (const [header, value] of Object.entries(authHeaders)) {
+      xhr.setRequestHeader(header, value)
     }
 
     xhr.upload.onprogress = (e) => {
@@ -385,7 +386,6 @@ type StepRendererProps = {
   sessionId?: string
   nodeId?: string
   onSubmit: (payload: Record<string, unknown>) => Promise<void>
-  apiKey?: string
 }
 
 const cardClassName = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm'
@@ -428,7 +428,7 @@ function FormStep({
   return <DynamicForm node={node} schema={schema} onSubmit={onSubmit} />
 }
 
-export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: StepRendererProps) {
+export function StepRenderer({ node, sessionId, nodeId, onSubmit }: StepRendererProps) {
   const { track } = useJourneyAnalytics()
 
   useEffect(() => {
@@ -463,7 +463,7 @@ export function StepRenderer({ node, sessionId, nodeId, onSubmit, apiKey }: Step
       case 'DocumentUpload':
         return (
           <FormErrorBoundary>
-            <DocumentUploadStep node={node} sessionId={sessionId} nodeId={nodeId} onSubmit={onSubmit} apiKey={apiKey} />
+            <DocumentUploadStep node={node} sessionId={sessionId} nodeId={nodeId} onSubmit={onSubmit} />
           </FormErrorBoundary>
         )
       case 'Redirect':

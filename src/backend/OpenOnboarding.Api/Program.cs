@@ -24,7 +24,11 @@ OnboardingDbConnectionStringValidator.ValidateOrThrow(
 JwtAuthorityValidator.ValidateOrThrow(
     builder.Configuration["Authentication:JwtAuthority"],
     builder.Environment.EnvironmentName);
+ApplicantTokenKeyValidator.ValidateOrThrow(
+    builder.Configuration["Authentication:ApplicantToken:SigningKey"],
+    builder.Environment.EnvironmentName);
 
+builder.Services.AddSingleton<ApplicantSessionTokenService>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -81,14 +85,24 @@ builder.Services
         options.DefaultScheme = "Combined";
         options.DefaultChallengeScheme = "Combined";
     })
-    .AddPolicyScheme("Combined", "JWT or ApiKey", options =>
+    .AddPolicyScheme("Combined", "Applicant token, admin cookie, API key or JWT", options =>
     {
         options.ForwardDefaultSelector = context =>
-            context.Request.Headers.ContainsKey("X-Api-Key")
-                ? ApiKeyAuthenticationHandler.SchemeName
-                : context.Request.Cookies.ContainsKey(AdminSessionAuthenticationDefaults.CookieName)
-                    ? AdminSessionAuthenticationDefaults.SchemeName
-                : JwtBearerDefaults.AuthenticationScheme;
+        {
+            if (context.Request.Headers.ContainsKey("X-Api-Key"))
+                return ApiKeyAuthenticationHandler.SchemeName;
+
+            if (context.Request.Cookies.ContainsKey(AdminSessionAuthenticationDefaults.CookieName))
+                return AdminSessionAuthenticationDefaults.SchemeName;
+
+            // Applicant session tokens and external IdP tokens both arrive as bearer tokens, so
+            // route on the issuer we stamp. The chosen scheme still validates the token properly.
+            var bearer = ApplicantSessionAuthenticationHandler.ExtractToken(context.Request);
+            if (bearer is not null && ApplicantSessionTokenService.LooksLikeApplicantToken(bearer))
+                return ApplicantSessionAuthenticationDefaults.SchemeName;
+
+            return JwtBearerDefaults.AuthenticationScheme;
+        };
     })
     .AddCookie(AdminSessionAuthenticationDefaults.SchemeName, options =>
     {
@@ -116,7 +130,9 @@ builder.Services
         }
     })
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
-        ApiKeyAuthenticationHandler.SchemeName, _ => { });
+        ApiKeyAuthenticationHandler.SchemeName, _ => { })
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ApplicantSessionAuthenticationHandler>(
+        ApplicantSessionAuthenticationDefaults.SchemeName, _ => { });
 
 builder.Services.AddAuthorization(options =>
 {
