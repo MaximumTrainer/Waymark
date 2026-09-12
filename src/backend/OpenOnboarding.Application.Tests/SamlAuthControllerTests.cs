@@ -29,14 +29,15 @@ public sealed class SamlAuthControllerTests
         public string PemKey { get; private init; } = "";
 
         public static TestCertPair Generate()
+            => Generate(DateTimeOffset.UtcNow.AddYears(-1), DateTimeOffset.UtcNow.AddYears(10));
+
+        public static TestCertPair Generate(DateTimeOffset notBefore, DateTimeOffset notAfter)
         {
             using var rsa = RSA.Create(2048);
             var req = new CertificateRequest(
                 "CN=test-saml", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
             // Use a temp cert to export the key PEM; CreateSelfSigned disposes the key on some platforms
-            var cert = req.CreateSelfSigned(
-                DateTimeOffset.UtcNow.AddYears(-1),
-                DateTimeOffset.UtcNow.AddYears(10));
+            var cert = req.CreateSelfSigned(notBefore, notAfter);
 
             return new TestCertPair
             {
@@ -44,6 +45,9 @@ public sealed class SamlAuthControllerTests
                 PemKey  = rsa.ExportPkcs8PrivateKeyPem()
             };
         }
+
+        /// <summary>Public-only certificate, as an IdP would hold it for encrypting to the SP.</summary>
+        public X509Certificate2 PublicCertificate() => X509Certificate2.CreateFromPem(PemCert);
     }
 
     // -----------------------------------------------------------------------
@@ -51,25 +55,36 @@ public sealed class SamlAuthControllerTests
     // -----------------------------------------------------------------------
     private static Dictionary<string, string?> SamlConfig(
         TestCertPair? certs = null,
-        string nameId = "admin@example.com")
+        string nameId = "admin@example.com",
+        bool? requireEncryptedAssertion = null,
+        TestCertPair? idpCerts = null)
     {
         var c = certs ?? SharedCerts;
-        return new Dictionary<string, string?>
+        var idp = idpCerts ?? c;
+        var config = new Dictionary<string, string?>
         {
             ["Authentication:Saml:Issuer"]          = "test-sp",
             ["Authentication:Saml:IdpSsoUrl"]       = "https://test-idp.local/sso",
             ["Authentication:Saml:SpCertificate"]   = c.PemCert,
             ["Authentication:Saml:SpPrivateKey"]    = c.PemKey,
-            // Same cert plays the IdP role in tests
-            ["Authentication:Saml:IdpCertificate"]  = c.PemCert,
+            // Same cert plays the IdP role in tests unless a separate one is supplied
+            ["Authentication:Saml:IdpCertificate"]  = idp.PemCert,
             ["Authentication:Saml:AllowedNameIds:0"] = nameId
         };
+
+        if (requireEncryptedAssertion is not null)
+        {
+            config["Authentication:Saml:RequireEncryptedAssertion"] =
+                requireEncryptedAssertion.Value ? "true" : "false";
+        }
+
+        return config;
     }
 
     // -----------------------------------------------------------------------
     // Helper: build the IdP-side Saml2Configuration for generating test responses
     // -----------------------------------------------------------------------
-    private static Saml2Configuration IdpConfig(TestCertPair certs)
+    private static Saml2Configuration IdpConfig(TestCertPair certs, X509Certificate2? encryptTo = null)
     {
         var cfg = new Saml2Configuration
         {
@@ -81,6 +96,11 @@ public sealed class SamlAuthControllerTests
             RevocationMode = X509RevocationMode.NoCheck
         };
         cfg.AllowedAudienceUris.Add("test-sp");
+
+        // When set, ITfoxtec wraps the assertion in <saml:EncryptedAssertion> encrypted to this key.
+        if (encryptTo is not null)
+            cfg.EncryptionCertificate = encryptTo;
+
         return cfg;
     }
 
@@ -516,5 +536,178 @@ public sealed class SamlAuthControllerTests
     {
         public bool Authenticated { get; init; }
         public string[]? Roles { get; init; }
+    }
+
+    // =======================================================================
+    // 13. Encrypted assertion decrypts and signs in (metadata advertises
+    //     KeyDescriptor use="encryption", so this must work)
+    // =======================================================================
+    [Fact]
+    public async Task Callback_EncryptedAssertion_SignsInAndIssuesSession()
+    {
+        using var factory = TestWebAppFactory.Create(configurationOverrides: SamlConfig());
+        using var client  = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, authnIdCookieRaw) = await DoLoginAsync(client);
+
+        using var spPublic = SharedCerts.PublicCertificate();
+        var samlResp = BuildSamlResponse(IdpConfig(SharedCerts, encryptTo: spPublic), authnId);
+
+        // Guard the fixture itself: the response must really carry an EncryptedAssertion.
+        var xml = Encoding.UTF8.GetString(Convert.FromBase64String(samlResp));
+        Assert.Contains("EncryptedAssertion", xml);
+        Assert.DoesNotContain("admin@example.com", xml);
+
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.Equal("/admin/journey-builder", resp.Headers.Location?.ToString());
+
+        var sessionCookie = ExtractCookieValue(resp, AdminSessionAuthenticationDefaults.CookieName);
+        Assert.NotNull(sessionCookie);
+
+        var meReq = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        meReq.Headers.Add("Cookie",
+            $"{AdminSessionAuthenticationDefaults.CookieName}={sessionCookie}");
+        var me = await (await client.SendAsync(meReq)).Content.ReadFromJsonAsync<AuthMeResponse>();
+
+        Assert.NotNull(me);
+        Assert.True(me!.Authenticated);
+        Assert.Contains("Operator", me.Roles ?? []);
+    }
+
+    // =======================================================================
+    // 14. Assertion encrypted to a key we do not hold -> saml_invalid_assertion
+    // =======================================================================
+    [Fact]
+    public async Task Callback_EncryptedToUnknownKey_RedirectsToSamlInvalidAssertion()
+    {
+        using var factory = TestWebAppFactory.Create(configurationOverrides: SamlConfig());
+        using var client  = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, authnIdCookieRaw) = await DoLoginAsync(client);
+
+        // Encrypt to an unrelated certificate the SP has no private key for.
+        var strangerCerts = TestCertPair.Generate();
+        using var strangerPublic = strangerCerts.PublicCertificate();
+        var samlResp = BuildSamlResponse(IdpConfig(SharedCerts, encryptTo: strangerPublic), authnId);
+
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.Contains("error=saml_invalid_assertion",
+            resp.Headers.Location?.ToString() ?? "");
+    }
+
+    // =======================================================================
+    // 15. RequireEncryptedAssertion=true rejects an unencrypted assertion
+    // =======================================================================
+    [Fact]
+    public async Task Callback_UnencryptedAssertion_WhenEncryptionRequired_RedirectsToNotEncrypted()
+    {
+        using var factory = TestWebAppFactory.Create(
+            configurationOverrides: SamlConfig(requireEncryptedAssertion: true));
+        using var client = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, authnIdCookieRaw) = await DoLoginAsync(client);
+
+        var samlResp = BuildSamlResponse(IdpConfig(SharedCerts), authnId);
+
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.Contains("error=saml_assertion_not_encrypted",
+            resp.Headers.Location?.ToString() ?? "");
+    }
+
+    // =======================================================================
+    // 16. RequireEncryptedAssertion=true accepts an encrypted assertion
+    // =======================================================================
+    [Fact]
+    public async Task Callback_EncryptedAssertion_WhenEncryptionRequired_SignsIn()
+    {
+        using var factory = TestWebAppFactory.Create(
+            configurationOverrides: SamlConfig(requireEncryptedAssertion: true));
+        using var client = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, authnIdCookieRaw) = await DoLoginAsync(client);
+
+        using var spPublic = SharedCerts.PublicCertificate();
+        var samlResp = BuildSamlResponse(IdpConfig(SharedCerts, encryptTo: spPublic), authnId);
+
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.NotNull(ExtractCookieValue(resp, AdminSessionAuthenticationDefaults.CookieName));
+    }
+
+    // =======================================================================
+    // 17. RequireEncryptedAssertion=false keeps unencrypted assertions working
+    // =======================================================================
+    [Fact]
+    public async Task Callback_UnencryptedAssertion_WhenEncryptionNotRequired_SignsIn()
+    {
+        using var factory = TestWebAppFactory.Create(
+            configurationOverrides: SamlConfig(requireEncryptedAssertion: false));
+        using var client = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, authnIdCookieRaw) = await DoLoginAsync(client);
+
+        var samlResp = BuildSamlResponse(IdpConfig(SharedCerts), authnId);
+
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.NotNull(ExtractCookieValue(resp, AdminSessionAuthenticationDefaults.CookieName));
+    }
+
+    // =======================================================================
+    // 18. Expired SP certificate -> saml_certificate_expired on login
+    // =======================================================================
+    [Fact]
+    public async Task Login_ExpiredSpCertificate_RedirectsToCertificateExpired()
+    {
+        var expired = TestCertPair.Generate(
+            DateTimeOffset.UtcNow.AddYears(-2), DateTimeOffset.UtcNow.AddDays(-1));
+
+        using var factory = TestWebAppFactory.Create(configurationOverrides: SamlConfig(expired));
+        using var client  = RawClient(factory);
+
+        var resp = await client.GetAsync("/auth/saml/login");
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.Contains("error=saml_certificate_expired",
+            resp.Headers.Location?.ToString() ?? "");
+    }
+
+    // =======================================================================
+    // 19. Expired IdP certificate -> saml_certificate_expired on callback
+    // =======================================================================
+    [Fact]
+    public async Task Callback_ExpiredIdpCertificate_RedirectsToCertificateExpired()
+    {
+        var expiredIdp = TestCertPair.Generate(
+            DateTimeOffset.UtcNow.AddYears(-2), DateTimeOffset.UtcNow.AddDays(-1));
+
+        // Valid SP certificate so login succeeds and the callback reaches the IdP cert check.
+        using var factory = TestWebAppFactory.Create(
+            configurationOverrides: SamlConfig(idpCerts: expiredIdp));
+        using var client = RawClient(factory);
+
+        var (relayState, authnId, rsCookieRaw, authnIdCookieRaw) = await DoLoginAsync(client);
+
+        var samlResp = BuildSamlResponse(IdpConfig(expiredIdp), authnId);
+
+        var resp = await PostCallbackAsync(
+            client, samlResp, relayState, rsCookieRaw, authnIdCookieRaw);
+
+        Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
+        Assert.Contains("error=saml_certificate_expired",
+            resp.Headers.Location?.ToString() ?? "");
     }
 }

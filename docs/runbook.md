@@ -124,6 +124,7 @@ Import `GET /auth/saml/metadata` into the IdP to register Waymark as a service p
 | `Authentication__Saml__AllowedReturnOrigins__0` | optional | — | Absolute origins accepted for `returnUrl`; anything else falls back to a relative path. |
 | `Authentication__Saml__RelayStateTimeoutMinutes` | optional | `5` | Lifetime of the relay-state and AuthnRequest-ID cookies. |
 | `Authentication__Saml__SessionDurationHours` | optional | `8` | Admin session lifetime after a successful assertion. |
+| `Authentication__Saml__RequireEncryptedAssertion` | optional | `false` | When `true`, an unencrypted assertion is rejected with `saml_assertion_not_encrypted`. |
 
 ### Security Notes
 
@@ -131,6 +132,33 @@ Import `GET /auth/saml/metadata` into the IdP to register Waymark as a service p
 - Never log JWT tokens, API keys, or session submission content.
 - File uploads are scanned before storage; rejected files return HTTP 422.
 - SAML responses are rejected unless the XML signature verifies against `Authentication__Saml__IdpCertificate`, `InResponseTo` matches the AuthnRequest this server issued, the `Destination` names our ACS URL, and the assertion is within its validity window.
+
+#### Assertion encryption
+
+`GET /auth/saml/metadata` publishes the SP certificate under both `KeyDescriptor use="signing"` and
+`KeyDescriptor use="encryption"`, so an IdP may encrypt the assertion to it. The same
+`Authentication__Saml__SpCertificate` / `Authentication__Saml__SpPrivateKey` pair is registered as the
+decryption key, so **no extra configuration is needed** to accept encrypted assertions — enable
+encryption on the IdP side and it works.
+
+Set `Authentication__Saml__RequireEncryptedAssertion=true` to reject assertions that arrive
+unencrypted. Leave it unset while migrating an IdP to encryption, then turn it on once the IdP is
+confirmed to be encrypting.
+
+#### SAML login error codes
+
+The callback redirects to `/login?error=<code>` on failure. Each code has a distinct cause:
+
+| Code | Cause |
+|------|-------|
+| `saml_csrf_failed` | `RelayState` did not match the cookie issued at login. |
+| `saml_certificate_expired` | The configured SP or IdP certificate is past its `NotAfter`. Rotate it. |
+| `saml_assertion_not_encrypted` | `RequireEncryptedAssertion` is enabled and the assertion was not encrypted. |
+| `saml_access_denied` | The assertion's NameID is not in `Authentication__Saml__AllowedNameIds`. |
+| `saml_invalid_assertion` | Signature, `InResponseTo`, `Destination`, validity window, or decryption failed. |
+
+`saml_invalid_assertion` is deliberately generic to the browser; the server log distinguishes a
+decryption failure from a signature failure.
 
 ---
 
