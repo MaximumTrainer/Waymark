@@ -92,7 +92,7 @@ jobs:
 
   # ── Frontend ───────────────────────────────────────────────
   frontend-ci:
-    name: Frontend — lint & build (Node 22)
+    name: Frontend — lint, test & build (Node 22)
     runs-on: ubuntu-latest
 
     defaults:
@@ -115,6 +115,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Unit tests (vitest)
+        run: npm test
 
       - name: Build
         run: npm run build
