@@ -37,6 +37,63 @@ public sealed class InfrastructureServiceCollectionExtensionsTests
             descriptor.ImplementationType == typeof(ConsoleAnalyticsProvider));
     }
 
+
+    [Fact]
+    public void AddInfrastructure_RegistersInMemorySessionEventEmitter_ByDefault()
+    {
+        var services = new ServiceCollection();
+
+        services.AddInfrastructure(BuildConfiguration());
+
+        Assert.Contains(services, descriptor =>
+            descriptor.ServiceType == typeof(ISessionEventEmitter) &&
+            descriptor.ImplementationType == typeof(InMemorySessionEventEmitter));
+
+        Assert.DoesNotContain(services, descriptor =>
+            descriptor.ServiceType == typeof(ISessionEventTransport));
+    }
+
+    [Fact]
+    public void AddInfrastructure_RegistersDistributedSessionEventEmitter_WhenTransportConfigured()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["SessionEvents:Transport"] = "rabbitmq"
+        });
+
+        services.AddInfrastructure(configuration);
+
+        Assert.Contains(services, descriptor =>
+            descriptor.ServiceType == typeof(ISessionEventTransport));
+
+        Assert.Contains(services, descriptor =>
+            descriptor.ServiceType == typeof(DistributedSessionEventEmitter));
+
+        Assert.DoesNotContain(services, descriptor =>
+            descriptor.ServiceType == typeof(ISessionEventEmitter) &&
+            descriptor.ImplementationType == typeof(InMemorySessionEventEmitter));
+    }
+
+    [Fact]
+    public void AddInfrastructure_RegistersStartupWarning_OnlyForTheInMemoryEmitter()
+    {
+        var withInMemory = new ServiceCollection();
+        withInMemory.AddInfrastructure(BuildConfiguration());
+
+        Assert.Contains(withInMemory, descriptor =>
+            descriptor.ImplementationType == typeof(InMemorySessionEventEmitterWarning));
+
+        var withTransport = new ServiceCollection();
+        withTransport.AddInfrastructure(BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["SessionEvents:Transport"] = "rabbitmq"
+        }));
+
+        Assert.DoesNotContain(withTransport, descriptor =>
+            descriptor.ImplementationType == typeof(InMemorySessionEventEmitterWarning));
+    }
+
     private static IConfiguration BuildConfiguration(Dictionary<string, string?>? overrides = null)
     {
         var values = new Dictionary<string, string?>

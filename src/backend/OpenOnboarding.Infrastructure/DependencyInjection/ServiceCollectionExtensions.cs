@@ -64,7 +64,7 @@ public static class ServiceCollectionExtensions
         if (configuration.GetValue("DocumentStorage:EnableCleanup", true))
             services.AddHostedService<CleanupExpiredDocumentsService>();
 
-        services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+        AddSessionEventEmitter(services, configuration);
 
         services.AddHttpClient("Webhook");
         services.AddScoped<IWebhookHttpClient, HttpWebhookClient>();
@@ -119,5 +119,44 @@ public static class ServiceCollectionExtensions
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Selects the session event emitter. SSE streams are pinned to the instance that accepted
+    /// them, so with more than one replica an event raised elsewhere never reaches the stream
+    /// unless a distributed transport carries it. Configure <c>SessionEvents:Transport</c> to
+    /// <c>rabbitmq</c> for multi-replica deployments; the in-memory emitter remains the default
+    /// for local development, tests and single-replica deployments.
+    /// </summary>
+    private static void AddSessionEventEmitter(IServiceCollection services, IConfiguration configuration)
+    {
+        var transport = configuration.GetValue<string>("SessionEvents:Transport");
+
+        if (transport?.Equals("rabbitmq", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            // Fall back to the event bus connection so a deployment that already runs RabbitMQ
+            // needs only SessionEvents:Transport to turn this on.
+            var uri = configuration.GetValue<string>("SessionEvents:RabbitMq:Uri")
+                ?? configuration.GetValue<string>("EventBus:RabbitMq:Uri")
+                ?? "amqp://guest:guest@localhost:5672/";
+            var exchange = configuration.GetValue<string>("SessionEvents:RabbitMq:Exchange")
+                ?? "waymark-session-events";
+
+            services.AddSingleton<ISessionEventTransport>(sp =>
+                new RabbitMqSessionEventTransport(
+                    uri,
+                    exchange,
+                    sp.GetRequiredService<ILogger<RabbitMqSessionEventTransport>>()));
+
+            services.AddSingleton<DistributedSessionEventEmitter>();
+            services.AddSingleton<ISessionEventEmitter>(sp =>
+                sp.GetRequiredService<DistributedSessionEventEmitter>());
+            services.AddSingleton<IHostedService>(sp =>
+                sp.GetRequiredService<DistributedSessionEventEmitter>());
+            return;
+        }
+
+        services.AddSingleton<ISessionEventEmitter, InMemorySessionEventEmitter>();
+        services.AddSingleton<IHostedService, InMemorySessionEventEmitterWarning>();
     }
 }

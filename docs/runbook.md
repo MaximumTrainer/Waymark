@@ -343,9 +343,24 @@ docker compose exec -T postgres psql -U postgres onboarding < backup-20241201.sq
 
 ### Horizontal Scaling (Multiple API Instances)
 
-The API is **stateless** with one caveat: `InMemorySessionEventEmitter` (SSE) holds per-session event channels in memory. In a multi-instance setup:
-- SSE clients must connect to the same instance that holds their session's channel, **or**
-- Replace `InMemorySessionEventEmitter` with a distributed adapter (e.g., Redis Pub/Sub)
+The API is **stateless** with one caveat: an SSE stream is pinned to the instance that accepted it,
+so a session event raised while handling a request on another instance has to travel between
+instances to reach that stream.
+
+**Running more than one replica requires a distributed session event transport.** Without one the
+failure is silent: the stream stays open, no error is raised, and the applicant simply never
+receives step progress until they reload. A rolling deploy or scale-in re-breaks it mid-journey, so
+sticky sessions are not a substitute.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `SessionEvents__Transport` | ✅ for >1 replica | — | `rabbitmq` enables the distributed emitter. Unset uses the in-memory emitter. |
+| `SessionEvents__RabbitMq__Uri` | optional | `EventBus__RabbitMq__Uri`, else `amqp://guest:guest@localhost:5672/` | Broker connection. Defaults to the event bus broker so an existing RabbitMQ deployment needs only `SessionEvents__Transport`. |
+| `SessionEvents__RabbitMq__Exchange` | optional | `waymark-session-events` | Fanout exchange name. Each instance binds its own exclusive auto-delete queue. |
+
+A non-Development environment running the in-memory emitter logs a startup warning naming this
+limitation. Events are transient and not persisted: they are only useful to a stream that is open
+at the time, so an instance that was down missed the stream too.
 
 All other state is in PostgreSQL — safe for horizontal scaling.
 
