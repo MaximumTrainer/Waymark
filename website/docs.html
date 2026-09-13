@@ -104,6 +104,7 @@
             <li><a href="#api-sessions" class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Sessions</a></li>
             <li><a href="#api-steps"   class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Steps &amp; Documents</a></li>
             <li><a href="#api-events"  class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Events &amp; Webhooks</a></li>
+            <li><a href="#api-limits"  class="sidebar-link flex px-3 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Rate Limits</a></li>
           </ul>
         </div>
 
@@ -203,7 +204,7 @@ cd Waymark</code></pre>
             <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>cd src/frontend
 cp .env.example .env.local
 # Set VITE_API_BASE_URL=http://localhost:5072
-# Set VITE_API_KEY=dev-api-key-change-in-production
+# Do NOT set an API key here - see Authentication below
 npm install
 npm run dev</code></pre>
           </div>
@@ -699,12 +700,26 @@ X-Api-Key: dev-api-key-change-in-production
         <section id="api">
           <h2>Authentication</h2>
           <p>
-            The API supports two authentication schemes. Requests are routed via a "Combined" policy scheme:
+            Requests are routed to a scheme by a "Combined" policy scheme. Which credential you use depends on who is calling.
           </p>
           <ul>
-            <li><strong class="text-white">API Key</strong> — Pass <code>X-Api-Key: &lt;key&gt;</code> header. Local development key: <code>dev-api-key-change-in-production</code>.</li>
+            <li><strong class="text-white">Applicant session token</strong> — what a browser uses. <code>POST /api/workflow/sessions/start</code> is anonymous and returns <code>applicantToken</code>, scoped to that one session. Send it as <code>Authorization: Bearer &lt;token&gt;</code> for the rest of the journey.</li>
+            <li><strong class="text-white">API Key</strong> — Pass <code>X-Api-Key: &lt;key&gt;</code> header, for server-to-server callers and local API exploration. Maps to a full <code>Operator</code> principal. Local development key: <code>dev-api-key-change-in-production</code>.</li>
             <li><strong class="text-white">JWT Bearer</strong> — Pass a signed JWT in the <code>Authorization: Bearer &lt;token&gt;</code> header.</li>
+            <li><strong class="text-white">Admin session cookie</strong> — established by SAML SSO, used by the operator console.</li>
           </ul>
+          <div class="callout">
+            <p><strong>Never send an API key from a browser.</strong> It maps to a full Operator principal, and a bundler inlines environment variables as literal strings — so a key configured in a web app ships to everyone who loads the page. Browsers use the per-session applicant token, which reaches exactly one session and carries no operator rights.</p>
+          </div>
+          <h3>Applicant token lifetime</h3>
+          <ul>
+            <li><strong class="text-white">Renewal</strong> — every step submission returns a fresh <code>applicantToken</code>. Store it in place of the one you hold; activity is what keeps a long journey from outliving its own credential.</li>
+            <li><strong class="text-white">Expiry</strong> — an expired token returns <code>401</code>.</li>
+            <li><strong class="text-white">Finished sessions</strong> — once a session is <code>Completed</code> or <code>Abandoned</code>, its token is refused for writes with <code>403</code>. Reads still work, so a completion screen can render.</li>
+          </ul>
+          <p>
+            Treat <code>401</code> and <code>403</code> on a session you were completing as the same dead end — the credential is spent and the journey must be restarted — and both as distinct from a <code>5xx</code>, which is retryable.
+          </p>
           <p>
             Roles: <code>Operator</code> (full access), <code>Applicant</code> (session and step submission), <code>ReadOnly</code> (read-only operator endpoints).
           </p>
@@ -825,6 +840,39 @@ X-Api-Key: dev-api-key-change-in-production
               </div>
             </div>
           </div>
+
+          <div class="callout">
+            <p><strong>Documents are scoped to the session in the route.</strong> A token for one session cannot upload to or read from another. The download scopes the lookup as well as the caller: a <code>fileId</code> resolves only when an upload recorded against that session and node carries it, so holding another applicant's file id does not make it readable through your own session. A file that exists but belongs elsewhere returns <code>404</code>, never <code>403</code>.</p>
+          </div>
+        </section>
+
+        <!-- API RATE LIMITS -->
+        <section id="api-limits">
+          <h2>Rate Limits</h2>
+          <p>
+            Every policy is <strong>partitioned per caller</strong>, so one client exhausting its budget does not affect any other. A rejected request returns <code>429</code> with <code>Retry-After: 60</code> and a problem-details body.
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr><th>Policy</th><th>Applies to</th><th>Partitioned by</th><th>Default / min</th></tr></thead>
+              <tbody>
+                <tr><td><code>session-start</code></td><td><code>POST /api/workflow/sessions/start</code></td><td>Client IP &mdash; the endpoint is anonymous by design</td><td>100</td></tr>
+                <tr><td><code>analytics-ingest</code></td><td><code>POST /api/analytics/events</code></td><td>Applicant session from the token</td><td>120</td></tr>
+                <tr><td><code>webhook-registration</code></td><td><code>POST /api/flows/{flowId}/webhooks</code></td><td>Authenticated principal</td><td>20</td></tr>
+                <tr><td><code>general</code></td><td>Every other controller endpoint</td><td>Authenticated principal, else client IP</td><td>300</td></tr>
+                <tr><td>global ceiling</td><td>Every request</td><td>Not partitioned</td><td>3000</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The global ceiling runs <em>in addition to</em> the endpoint policy, so a flood spread across many callers still has a bound. An endpoint naming a specific policy is not additionally bound by <code>general</code> &mdash; the two do not stack. Health check endpoints are outside rate limiting entirely.
+          </p>
+          <div class="callout">
+            <p>Callers sharing a credential share a partition: every integration using the same API key spends one budget between them, because the partition key is the principal. Give separate integrations separate credentials. Limits are also per-instance rather than cluster-wide, so with <em>N</em> replicas the effective budget is up to <em>N</em> times the configured value.</p>
+          </div>
+          <p>
+            Configure any limit with <code>RateLimiting__&lt;Key&gt;</code>, for example <code>RateLimiting__GeneralPerMinute</code>. Behind a proxy, set <code>ForwardedHeaders__KnownProxies</code> so the partition key is the real client rather than the load balancer &mdash; until you do, <code>X-Forwarded-For</code> is ignored and every caller shares one partition.
+          </p>
         </section>
 
         <!-- API EVENTS -->
@@ -876,23 +924,26 @@ X-Api-Key: dev-api-key-change-in-production
           <h3>Initialize and start a session</h3>
           <div class="code-block rounded-lg overflow-hidden">
             <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">React</div>
-            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>import { useState } from 'react'
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>import { useRef, useState } from 'react'
 
 const API = import.meta.env.VITE_API_BASE_URL
-const KEY = import.meta.env.VITE_API_KEY
+// No API key. The browser holds only the token for the session it started.
 
 export function useWaymark(flowId: string) {
   const [sessionId, setSessionId] = useState&lt;string | null&gt;(null)
   const [currentNode, setCurrentNode] = useState&lt;NodeDto | null&gt;(null)
-  const [status, setStatus] = useState&lt;'idle' | 'active' | 'completed'&gt;('idle')
+  const [status, setStatus] = useState&lt;'idle' | 'active' | 'completed' | 'expired'&gt;('idle')
+  const token = useRef&lt;string | null&gt;(null)
 
   async function start() {
+    // Anonymous: the entry point of a public journey, so there is no credential yet.
     const res = await fetch(`${API}/api/workflow/sessions/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ flowId }),
     })
     const data = await res.json()
+    token.current = data.applicantToken
     setSessionId(data.sessionId)
     setCurrentNode(data.currentNode)
     setStatus('active')
@@ -903,16 +954,28 @@ export function useWaymark(flowId: string) {
       `${API}/api/workflow/sessions/${sessionId}/steps/${nodeId}/submit`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token.current}`,
+        },
         body: JSON.stringify({ payload }),
       }
     )
-    const data = await res.json()
-    if (data.nextNode) {
-      setCurrentNode(data.nextNode)
-    } else {
-      setStatus('completed')
+
+    // 401 expired, 403 the session ended: the credential is spent either way and
+    // the journey cannot resume. Distinct from a 5xx, which is worth retrying.
+    if (res.status === 401 || res.status === 403) {
+      setStatus('expired')
+      return
     }
+    if (!res.ok) throw new Error(`submit failed with status ${res.status}`)
+
+    const data = await res.json()
+    // Keep the renewal, or a long journey outlives its own token.
+    if (data.applicantToken) token.current = data.applicantToken
+
+    setCurrentNode(data.currentNode ?? null)
+    if (data.isCompleted) setStatus('completed')
   }
 
   return { start, submit, currentNode, status }
@@ -962,15 +1025,19 @@ export function useWaymark(flowId: string) {
   const isComplete = ref(false)
 
   const API = import.meta.env.VITE_API_BASE_URL
-  const KEY = import.meta.env.VITE_API_KEY
+  // No API key. The browser holds only the token for the session it started.
+  const token = ref&lt;string | null&gt;(null)
+  const isExpired = ref(false)
 
   async function start() {
+    // Anonymous: the entry point of a public journey, so there is no credential yet.
     const response = await fetch(`${API}/api/workflow/sessions/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ flowId }),
     })
     const data = await response.json()
+    token.value       = data.applicantToken
     sessionId.value   = data.sessionId
     currentNode.value = data.currentNode
   }
@@ -980,16 +1047,30 @@ export function useWaymark(flowId: string) {
       `${API}/api/workflow/sessions/${sessionId.value}/steps/${nodeId}/submit`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token.value}`,
+        },
         body: JSON.stringify({ payload }),
       }
     )
+
+    // 401 expired, 403 the session ended: the credential is spent either way.
+    if (response.status === 401 || response.status === 403) {
+      isExpired.value = true
+      return
+    }
+    if (!response.ok) throw new Error(`submit failed with status ${response.status}`)
+
     const data = await response.json()
-    currentNode.value = data.nextNode ?? null
-    if (!data.nextNode) isComplete.value = true
+    // Keep the renewal, or a long journey outlives its own token.
+    if (data.applicantToken) token.value = data.applicantToken
+
+    currentNode.value = data.currentNode ?? null
+    if (data.isCompleted) isComplete.value = true
   }
 
-  return { start, submit, currentNode, isComplete }
+  return { start, submit, currentNode, isComplete, isExpired }
 }</code></pre>
           </div>
         </section>
@@ -998,16 +1079,22 @@ export function useWaymark(flowId: string) {
           <h2>Node.js Integration</h2>
           <div class="code-block rounded-lg overflow-hidden">
             <div class="px-4 py-2 border-b border-slate-800 text-xs text-slate-500 font-mono">Node.js (fetch API)</div>
-            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>const BASE = process.env.WAYMARK_API_URL
+            <pre class="p-4 text-sm font-mono text-slate-300 overflow-x-auto"><code>// Server-side, so an API key is appropriate here - it never reaches a browser.
+// It maps to a full Operator principal, so keep it in server config only.
+const BASE = process.env.WAYMARK_API_URL
 const KEY  = process.env.WAYMARK_API_KEY
 
+const headers = { 'Content-Type': 'application/json', 'X-Api-Key': KEY }
+
 async function startSession(flowId) {
-  const res  = await fetch(`${BASE}/api/workflow/sessions/start`, {
+  const res = await fetch(`${BASE}/api/workflow/sessions/start`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+    headers,
     body: JSON.stringify({ flowId }),
   })
-  return res.json() // { sessionId, currentNode }
+  // An operator-authenticated start returns no applicantToken: the API key already
+  // covers the session, so there is nothing to carry forward.
+  return res.json() // { sessionId, isCompleted, currentNode }
 }
 
 async function submitStep(sessionId, nodeId, payload) {
@@ -1015,16 +1102,23 @@ async function submitStep(sessionId, nodeId, payload) {
     `${BASE}/api/workflow/sessions/${sessionId}/steps/${nodeId}/submit`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Key': KEY },
+      headers,
       body: JSON.stringify({ payload }),
     }
   )
-  return res.json() // { nextNode } or null when complete
+  if (!res.ok) throw new Error(`submit failed with status ${res.status}`)
+  return res.json() // { sessionId, isCompleted, currentNode } - currentNode is null once complete
 }
 
 // Usage
 const { sessionId, currentNode } = await startSession('my-flow-id')
-const result = await submitStep(sessionId, currentNode.id, { Country: 'USA' })</code></pre>
+const result = await submitStep(sessionId, currentNode.id, { Country: 'USA' })
+
+if (result.isCompleted) {
+  console.log('journey complete')
+} else {
+  console.log('next step:', result.currentNode.title)
+}</code></pre>
           </div>
         </section>
 

@@ -6,7 +6,7 @@ This guide is for engineers and SDETs onboarding to the repository.
 
 - .NET SDK 10.x
 - Node.js 22.x
-- Docker (for local PostgreSQL)
+- Docker (for local PostgreSQL, and optionally RabbitMQ)
 
 ## 2. Clone and inspect
 
@@ -18,7 +18,7 @@ cd open-onboarding
 ## 3. Start local dependencies
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
 Local PostgreSQL from `docker-compose.yml`:
@@ -26,6 +26,20 @@ Local PostgreSQL from `docker-compose.yml`:
 - port: `5432`
 - database: `onboarding`
 - user/password: `postgres` / `postgres`
+
+`docker compose up -d` with no service name also builds and starts the `api` container, which you do
+not want while running the API from source. Name the service you need.
+
+### RabbitMQ (optional)
+
+```bash
+docker compose up -d rabbitmq
+```
+
+Only needed for two things: running more than one API replica, where a broker carries session
+events between them (`SessionEvents__Transport=rabbitmq`), and running the broker-backed tests,
+which skip themselves when nothing is listening. Management UI on `http://localhost:15672`
+(`guest`/`guest`).
 
 ## 4. Start backend API
 
@@ -63,7 +77,7 @@ Frontend dev server: `http://localhost:5173`
 Available routes:
 - `/` — the applicant onboarding journey. `/?flowId=<id>` selects a specific journey.
 - `/admin` — operator console: flow authoring, version history, analytics, sessions, webhook deliveries (requires Operator SSO)
-- `/admin/journey-builder` — Visual Journey Builder admin UI (requires Operator SSO — see [`user-guide.md`](./user-guide.md) section 8 for usage)
+- `/admin/journey-builder` — Visual Journey Builder admin UI (requires Operator SSO — see [`user-guide.md`](./user-guide.md) section 10 for usage)
 
 ## 6. Run validation commands
 
@@ -83,8 +97,24 @@ npm run test:pact
 ```bash
 dotnet restore src/backend/OpenOnboarding.slnx
 dotnet build src/backend/OpenOnboarding.slnx --no-restore -c Release
-dotnet test src/backend/OpenOnboarding.slnx -c Release
+dotnet test src/backend/OpenOnboarding.slnx -c Release --filter "FullyQualifiedName!~OpenOnboarding.Pact.Tests.E2E"
 ```
+
+The filter excludes the end-to-end suite, which needs a running PostgreSQL and is what CI runs it
+against. Without it, `dotnet test` fails on a machine with no database.
+
+The main suite runs against an in-memory database and mocked transports, so it needs nothing
+installed. A few tests are backed by a real RabbitMQ broker and **skip with a clear reason** when
+none is reachable — start one as in section 3 to run them:
+
+```bash
+docker compose up -d rabbitmq
+dotnet test src/backend/OpenOnboarding.Application.Tests
+```
+
+Point them at a different broker with `SESSIONEVENTS__RABBITMQ__URI`. CI sets
+`REQUIRE_BROKER_TESTS=1`, which turns a missing broker into a failure rather than a skip, so a
+service-container problem cannot pass as a green build.
 
 ## 7. Install the git hooks
 
