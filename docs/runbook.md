@@ -103,7 +103,7 @@ All configuration can be set via environment variables or `appsettings.json`.
 | `Authentication__ApiKey` | optional | — | **Server-to-server only.** Grants a full Operator principal — never send it from a browser. See [API credentials](#api-credentials). |
 | `Authentication__ApplicantToken__SigningKey` | ✅ (non-dev) | — | HMAC key signing per-session applicant tokens, min 32 chars. **Store as a secret.** Startup fails without it outside Development. |
 | `Authentication__ApplicantToken__LifetimeMinutes` | optional | `SessionTimeoutMinutes` | Applicant token lifetime. Defaults to the session timeout, since the token is useless once its session is abandoned. |
-| `SessionTimeoutMinutes` | optional | `60` | Inactivity timeout before sessions are auto-abandoned. |
+| `SessionTimeoutMinutes` | optional | `1440` | Inactivity timeout before sessions are auto-abandoned. Also the default applicant token lifetime. Set to `0` or less to disable the sweep. |
 | `Analytics__DatabaseProvider__Enabled` | optional | `true` | Persist analytics events so a session's trail can be read back. `false` leaves only the console provider. |
 | `Analytics__ConsoleProvider__Enabled` | optional | `true` | Write every event to the application log. |
 | `Analytics__RetentionDays` | optional | `365` | Age at which stored analytics events are deleted. |

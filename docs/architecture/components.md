@@ -8,12 +8,12 @@ C4Component
 
     Container_Boundary(api, "ASP.NET Core API (.NET 10)") {
 
-        Component(workflow_ctrl, "WorkflowController", "ASP.NET Controller", "POST /sessions/start, POST /sessions/{id}/steps/{nodeId}/submit, GET /sessions/{id}/next, GET /sessions/{id}/submissions, GET /sessions/{id}/stream (SSE)")
+        Component(workflow_ctrl, "WorkflowController", "ASP.NET Controller", "POST /sessions/start, POST /sessions/{id}/steps/{nodeId}/submit, GET /sessions/{id}/next, GET /sessions/{id}/submissions, GET /sessions/{id}/events (SSE)")
         Component(flows_ctrl, "FlowsController", "ASP.NET Controller", "CRUD endpoints for Flows, Nodes, Connections. Operator-only.")
         Component(customers_ctrl, "CustomersController", "ASP.NET Controller", "CRUD for CustomerProfiles. GET by externalId.")
         Component(webhooks_ctrl, "WebhooksController", "ASP.NET Controller", "Register/list/delete webhooks. Inspect delivery history.")
-        Component(analytics_ctrl, "AnalyticsController", "ASP.NET Controller", "GET /analytics/flows/{id} — session counts, completion rate, avg duration, abandonment node.")
-        Component(auth_ctrl, "AuthController", "ASP.NET Controller", "GET /auth/me — returns authenticated caller identity.")
+        Component(analytics_ctrl, "AnalyticsController", "ASP.NET Controller", "POST /analytics/events — ingests browser-raised events. GET /analytics/sessions/{id}/events — one session trail in order. GET /analytics/flows/{id} — session counts, completion rate, avg duration, abandonment node.")
+        Component(auth_ctrl, "AuthController", "ASP.NET Controller", "GET /api/auth/me — returns authenticated caller identity.")
 
         Component(workflow_svc, "WorkflowService", "Application Service", "Orchestrates session lifecycle: start, submit, advance, abandon. Evaluates compliance rules. Executes logic nodes. Emits SSE events. Dispatches webhooks.")
         Component(flow_svc, "FlowService", "Application Service", "CRUD for flows, nodes, connections. Validates node types and connection structure.")

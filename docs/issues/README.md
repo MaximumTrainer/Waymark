@@ -1,6 +1,36 @@
 # Waymark — Issue Backlog
 
-This directory contains the detailed requirements for identified functional gaps, TODOs, and stub implementations in the codebase. Each file is formatted as a GitHub issue and can be bulk-created using the helper script below.
+This directory is a staging area for backlog items written as markdown, which a GitHub Actions
+workflow turns into real GitHub issues. It is **not** a record of open work: once an item becomes a
+GitHub issue, the issue is the source of truth and the file has done its job.
+
+**The backlog is currently empty.** Every item that passed through here has been implemented and its
+GitHub issue closed, so the files were removed. Open work lives on the
+[issue tracker](https://github.com/MaximumTrainer/Waymark/issues).
+
+## Adding a backlog item
+
+Create `docs/issues/NN-short-slug.md` with YAML front-matter carrying the title and labels, followed
+by the issue body in markdown:
+
+```markdown
+---
+title: A one-line statement of the defect or gap
+labels: bug, backend, security
+---
+
+## Summary
+...
+
+## Requirements
+...
+
+## Acceptance Criteria
+
+- [ ] ...
+```
+
+Number files sequentially from the highest already used. Numbers 01–16 are spent.
 
 ## Creating the issues
 
@@ -11,38 +41,26 @@ Issues are created via the **Create Backlog Issues** GitHub Actions workflow.
 3. Optionally enable **Dry run** to preview what would be created without touching the issue tracker.
 4. Click **Run workflow** to confirm.
 
-The workflow is idempotent: it checks for an existing issue with the same title (open or closed) before creating a new one, so re-running it is safe.
+The workflow is idempotent: it checks for an existing issue with the same title (open or closed)
+before creating a new one, so re-running it is safe. It also fires automatically whenever a numbered
+issue markdown file (`docs/issues/[0-9]*.md`) is pushed to `main`, and exits cleanly when there are
+none.
 
-The workflow also fires automatically whenever a numbered issue markdown file (`docs/issues/[0-9]*.md`) is pushed to `main`.
+## After an item is delivered
 
-## Issue index
+Delete the markdown file. Leaving it behind creates a second, stale copy of requirements that no
+longer match the code, and a reader cannot tell which items are outstanding. The closed GitHub issue
+and the commits that reference it are the durable record.
 
-| # | File | Title | Labels |
-|---|------|-------|--------|
-| 1 | [01-saml-placeholder-wire-format.md](01-saml-placeholder-wire-format.md) | Replace placeholder SAML wire format with standard SAML XML | bug, security, authentication |
-| 2 | [02-session-timeout-service-tests.md](02-session-timeout-service-tests.md) | Add unit tests for SessionTimeoutService | testing, reliability |
-| 3 | [03-null-virus-scan-observability.md](03-null-virus-scan-observability.md) | NullVirusScanService — add monitoring and observability for bypassed scans | security, observability |
-| 4 | [04-rabbitmq-eventbus-resilience.md](04-rabbitmq-eventbus-resilience.md) | RabbitMqEventBus — fix sync-over-async startup registration and add resilience | bug, reliability, infrastructure |
-| 5 | [05-document-storage-scan-missing-file.md](05-document-storage-scan-missing-file.md) | LocalDocumentStorageService — fix silent clean-result for missing files in ScanAsync | bug, security |
-| 6 | [06-session-event-emitter-cleanup.md](06-session-event-emitter-cleanup.md) | InMemorySessionEventEmitter — document channel eviction behaviour and add stale-channel cleanup | reliability, observability |
-| 7 | [07-frontend-unit-tests.md](07-frontend-unit-tests.md) | Frontend — add unit tests for StepRenderer, useOnboarding, and App | testing, frontend |
-| 8 | [08-frontend-app-error-boundary.md](08-frontend-app-error-boundary.md) | Frontend — add top-level error boundary for auth/routing failures | reliability, frontend |
-| 9 | [09-webhook-cancellation-token.md](09-webhook-cancellation-token.md) | WebhookService — CancellationToken not propagated through delivery retry loop | bug, reliability |
-| 10 | [10-cloud-document-storage.md](10-cloud-document-storage.md) | Add cloud/blob storage adapter for document storage (production readiness) | enhancement, infrastructure |
-| 11 | [11-browser-api-key-grants-operator.md](11-browser-api-key-grants-operator.md) | Frontend API key grants full Operator access to every browser visitor | security, authentication, frontend |
-| 12 | [12-operator-ui-on-public-route.md](12-operator-ui-on-public-route.md) | Operator-only UI is rendered on the unauthenticated applicant route | security, frontend |
-| 13 | [13-frontend-unit-tests-not-in-ci.md](13-frontend-unit-tests-not-in-ci.md) | npm test fails on a clean checkout and frontend unit tests never run in CI | bug, testing, frontend |
-| 14 | [14-sse-single-instance.md](14-sse-single-instance.md) | SSE session progress events break when the API runs more than one replica | bug, reliability, infrastructure |
-| 15 | [15-saml-assertion-encryption.md](15-saml-assertion-encryption.md) | SAML metadata advertises assertion encryption the ACS cannot decrypt | bug, security, authentication |
-| 16 | [16-analytics-no-durable-sink.md](16-analytics-no-durable-sink.md) | Journey analytics events have no durable sink and browser events never reach the backend | enhancement, observability |
+## History
 
-## Priority summary
+Two sweeps have been run through this directory, both fully delivered:
 
-| Priority | Issues |
-|----------|--------|
-| 🔴 Critical | #11 (browser-held API key grants full Operator access), #12 (operator data on the public applicant route) |
-| 🟠 High | #13 (`npm test` is red and unenforced in CI), #14 (SSE silently breaks above one replica) |
-| 🟡 Medium | #15 (SAML metadata advertises encryption that does not work) |
-| 🟢 Low / Enhancement | #16 (analytics event stream has no durable sink) |
+| Sweep | Files | GitHub issues | Subject |
+|-------|-------|---------------|---------|
+| First backlog sweep | 01–10 | [#76–#86](https://github.com/MaximumTrainer/Waymark/issues?q=is%3Aissue+is%3Aclosed+76..86) | SAML wire format, service test gaps, virus-scan observability, broker resilience, storage scan defects, event emitter cleanup, frontend tests and error boundary, webhook cancellation, cloud blob storage |
+| September 2026 gap review | 11–16 | [#90–#95](https://github.com/MaximumTrainer/Waymark/issues?q=is%3Aissue+is%3Aclosed+90..95) | Browser-held API key, operator UI on the public route, frontend tests absent from CI, single-instance SSE, SAML assertion encryption, analytics durability |
 
-Items #1–#10 were the first backlog sweep and are all resolved; #11–#16 come from the September 2026 gap review.
+A follow-up review of that second sweep produced [#99–#102](https://github.com/MaximumTrainer/Waymark/issues?q=is%3Aissue+is%3Aclosed+99..102)
+and [#104](https://github.com/MaximumTrainer/Waymark/issues/104), which were raised directly on the
+tracker rather than through this directory.

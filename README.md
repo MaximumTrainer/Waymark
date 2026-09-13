@@ -8,9 +8,12 @@ Waymark is a schema-driven journey orchestration engine for onboarding and compl
 ## Documentation map
 
 - [`getting-started.md`](./getting-started.md) — prerequisites, local setup, and contribution workflow
-- [`user-guide.md`](./user-guide.md) — persona model, session lifecycle, and webhook integration
+- [`user-guide.md`](./user-guide.md) — persona model, credentials, session lifecycle, rate limits, and webhook integration
 - [`docs/journey-json.md`](./docs/journey-json.md) — journey JSON notation, structure, frontend linkage, and visualization
-- [`docs/issues/`](./docs/issues/) — known gaps tracked as GitHub issues
+- [`docs/runbook.md`](./docs/runbook.md) — configuration reference, credentials, rate limits, scaling, and operations
+- [`docs/troubleshooting.md`](./docs/troubleshooting.md) — symptoms, causes and fixes for common failures
+- [`docs/architecture/`](./docs/architecture/) — C4 context, container and component diagrams
+- [`docs/issues/`](./docs/issues/) — staging area for backlog items the CI workflow turns into GitHub issues. Currently empty; open work lives on the [issue tracker](https://github.com/MaximumTrainer/Waymark/issues).
 
 ## Repository structure
 
