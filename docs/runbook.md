@@ -135,8 +135,25 @@ response carries `applicantToken`, an HMAC-signed JWT the browser sends as
 
 - **Scope.** The token names one session. It is rejected for any other session, and for every
   operator endpoint, including the submissions readout for its own session.
-- **Lifetime.** Defaults to `SessionTimeoutMinutes`. A shorter life only strands applicants
+- **Lifetime.** Defaults to `SessionTimeoutMinutes` (1440), overridable with
+  `Authentication__ApplicantToken__LifetimeMinutes`. A shorter life only strands applicants
   mid-journey; a longer one outlives the session it names, which is abandoned by then anyway.
+- **Renewal.** Step submission returns a fresh `applicantToken` and `applicantTokenExpiresAt`
+  alongside the next step, and the browser stores it in place of the one it held. Activity is what
+  extends the credential, so a journey being worked on never outlives its own token, and there is no
+  separate refresh endpoint to protect. Operators get no token back: their own credential already
+  covers the session.
+- **Terminal sessions.** Once a session is `Completed` or `Abandoned` its token is refused for
+  writes — step submission and `POST /api/analytics/events` both return `403`. Reads still work, so
+  the completion screen renders. This bounds how long a credential left behind on a shared machine
+  stays useful: the visit, not the full lifetime. Operators are unaffected; the rule is about a
+  stale applicant credential, not about who may act on a finished session. Abandoning an already
+  terminal session stays idempotent rather than returning `403`, since it changes nothing.
+- **Clearing.** The browser drops the token from `sessionStorage` when the journey completes.
+- **Expiry, from the applicant's side.** An expired token returns `401`; a token for a finished
+  session returns `403`. The frontend treats both as an expired credential and shows a distinct
+  "your session has expired, start again" state rather than a generic error banner — an expired
+  credential is a dead end, not a fault to retry.
 - **Signing key.** `Authentication__ApplicantToken__SigningKey` must be set outside Development or
   startup fails. All replicas need the same key, or a token issued by one is rejected by another.
   In Development an ephemeral key is generated per process, so tokens stop working on restart.

@@ -14,6 +14,12 @@ vi.mock('../api/workflow-api-client', () => ({
       this.violations = violations
     }
   },
+  ExpiredSessionError: class ExpiredSessionError extends Error {
+    constructor() {
+      super('Your session has expired. Please start again.')
+      this.name = 'ExpiredSessionError'
+    }
+  },
 }))
 
 vi.mock('./session-event-source', () => ({
@@ -112,5 +118,85 @@ describe('useOnboarding', () => {
     })
 
     expect(result.current.error).toBeNull()
+  })
+
+  // ── Expired credentials ────────────────────────────────────────────────────
+
+  it('flags an expired credential apart from a generic error', async () => {
+    const { ExpiredSessionError } = await import('../api/workflow-api-client')
+    mockApiSubmitStep.mockRejectedValueOnce(new ExpiredSessionError())
+
+    const { result } = renderHook(() => useOnboarding())
+
+    await act(async () => {
+      try {
+        await result.current.submitStep('session-abc', 'node-1', { payload: {} })
+      } catch {
+        // expected
+      }
+    })
+
+    expect(result.current.isExpired).toBe(true)
+  })
+
+  it('leaves isExpired false for an ordinary failure', async () => {
+    // A server fault is retryable; telling the applicant to start again would throw away a
+    // journey that is still valid.
+    mockApiSubmitStep.mockRejectedValueOnce(new Error('submitStep failed with status 500'))
+
+    const { result } = renderHook(() => useOnboarding())
+
+    await act(async () => {
+      try {
+        await result.current.submitStep('session-abc', 'node-1', { payload: {} })
+      } catch {
+        // expected
+      }
+    })
+
+    expect(result.current.isExpired).toBe(false)
+    expect(result.current.error).toBe('submitStep failed with status 500')
+  })
+
+  it('starts with no expired state', () => {
+    const { result } = renderHook(() => useOnboarding())
+
+    expect(result.current.isExpired).toBe(false)
+  })
+
+  it('drops the stored credential once the journey completes', async () => {
+    const { setApplicantToken, getApplicantToken } = await import('../api/applicant-session')
+    setApplicantToken('token-for-a-finished-journey')
+
+    mockApiSubmitStep.mockResolvedValueOnce({
+      sessionId: 'session-abc',
+      isCompleted: true,
+      currentNode: null,
+    })
+
+    const { result } = renderHook(() => useOnboarding())
+
+    await act(async () => {
+      await result.current.submitStep('session-abc', 'node-1', { payload: {} })
+    })
+
+    // Nothing left to authorise, and a credential left in sessionStorage outlives the visit on a
+    // shared machine.
+    expect(getApplicantToken()).toBeNull()
+  })
+
+  it('keeps the credential while the journey is still in progress', async () => {
+    const { setApplicantToken, getApplicantToken } = await import('../api/applicant-session')
+    setApplicantToken('token-mid-journey')
+
+    mockApiSubmitStep.mockResolvedValueOnce(makeStep())
+
+    const { result } = renderHook(() => useOnboarding())
+
+    await act(async () => {
+      await result.current.submitStep('session-abc', 'node-1', { payload: {} })
+    })
+
+    expect(getApplicantToken()).toBe('token-mid-journey')
   })
 })
