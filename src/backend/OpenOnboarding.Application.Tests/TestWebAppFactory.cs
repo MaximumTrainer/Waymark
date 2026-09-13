@@ -20,10 +20,15 @@ internal static class TestWebAppFactory
     /// Defaults to <c>Testing</c>, which disables rate limiting so unrelated tests are not throttled.
     /// Pass <c>Development</c> to exercise the real limiters.
     /// </param>
+    /// <param name="configureServices">
+    /// Extra test doubles to register, applied after the DbContext swap so it can replace anything
+    /// the application registered - document storage, for instance, which otherwise writes to disk.
+    /// </param>
     public static WebApplicationFactory<Program> Create(
         string? dbName = null,
         IReadOnlyDictionary<string, string?>? configurationOverrides = null,
-        string environment = "Testing")
+        string environment = "Testing",
+        Action<IServiceCollection>? configureServices = null)
     {
         // A shared InMemoryDatabaseRoot ensures all DbContext instances across DI scopes
         // (startup seed scope, test seed scope, request scope) read from the same store.
@@ -79,6 +84,8 @@ internal static class TestWebAppFactory
 
                 services.AddDbContext<OnboardingDbContext>(options =>
                     options.UseInMemoryDatabase(resolvedDbName, dbRoot));
+
+                configureServices?.Invoke(services);
             });
         });
     }

@@ -227,6 +227,14 @@ public sealed class WorkflowController(
         IList<IFormFile> files,
         CancellationToken cancellationToken)
     {
+        // Same ownership rule as every other session endpoint. The route's sessionId was previously
+        // trusted, so any applicant token could write documents into any session - and the resulting
+        // Submission row reads in the operator console as the real applicant's upload. Checked
+        // before the files are read, so a refused caller never reaches storage or the virus scanner.
+        var session = await sessionAnalyticsService.GetSessionAsync(sessionId, cancellationToken);
+        var authResult = await authorizationService.AuthorizeAsync(User, session, SessionOwnershipRequirement.Write);
+        if (!authResult.Succeeded) return Forbid();
+
         if (files == null || files.Count == 0)
             return BadRequest(new ProblemDetails { Title = "No files provided.", Status = 400 });
 
@@ -292,7 +300,14 @@ public sealed class WorkflowController(
         [FromRoute] string fileId,
         CancellationToken cancellationToken)
     {
-        var (stream, info) = await workflowService.GetDocumentAsync(fileId, cancellationToken);
+        var session = await sessionAnalyticsService.GetSessionAsync(sessionId, cancellationToken);
+        var authResult = await authorizationService.AuthorizeAsync(User, session, SessionOwnershipRequirement.Read);
+        if (!authResult.Succeeded) return Forbid();
+
+        // The session and node are passed through rather than left in the route as decoration.
+        // Ownership alone is not enough: it would still let the owner of one session ask for
+        // another's document through their own route. Anything not recorded here is a 404.
+        var (stream, info) = await workflowService.GetDocumentAsync(sessionId, nodeId, fileId, cancellationToken);
         return File(stream, info.ContentType, info.FileName);
     }
 

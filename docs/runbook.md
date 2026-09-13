@@ -143,8 +143,14 @@ response carries `applicantToken`, an HMAC-signed JWT the browser sends as
   extends the credential, so a journey being worked on never outlives its own token, and there is no
   separate refresh endpoint to protect. Operators get no token back: their own credential already
   covers the session.
+- **Documents.** Upload and download are scoped to the session in the route, like every other
+  session endpoint. Upload follows the terminal-status rule below. Download also scopes the
+  *lookup*: a file id is resolved only if an upload recorded against that session and node carries
+  it, so holding an id for another applicant's document does not make it readable through your own
+  session. A file that exists but belongs elsewhere returns `404`, never `403` — a refusal would
+  confirm the id is real.
 - **Terminal sessions.** Once a session is `Completed` or `Abandoned` its token is refused for
-  writes — step submission and `POST /api/analytics/events` both return `403`. Reads still work, so
+  writes — step submission, document upload and `POST /api/analytics/events` all return `403`. Reads still work, so
   the completion screen renders. This bounds how long a credential left behind on a shared machine
   stays useful: the visit, not the full lifetime. Operators are unaffected; the rule is about a
   stale applicant credential, not about who may act on a finished session. Abandoning an already
