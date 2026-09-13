@@ -278,4 +278,37 @@ public sealed class ApplicantSessionTokenTests
         var start = await response.Content.ReadFromJsonAsync<StartResponse>();
         Assert.Null(start!.ApplicantToken);
     }
+
+    // =======================================================================
+    // The operator surface depends on a real credential, not an API key the
+    // browser happens to hold
+    // =======================================================================
+    [Theory]
+    [MemberData(nameof(OperatorOnlyEndpoints))]
+    public async Task OperatorEndpoints_RejectARequestCarryingNoCredential(string url)
+    {
+        using var factory = TestWebAppFactory.Create();
+        using var operatorClient = CreateOperatorClient(factory);
+        var flowId = await CreateFlowAsync(operatorClient);
+
+        // Exactly what an operator screen sends once its AdminSession cookie is gone.
+        using var browser = CreateClient(factory);
+        var response = await browser.GetAsync(url.Replace("{flowId}", flowId.ToString()));
+
+        Assert.True(
+            response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden,
+            $"{url} returned {(int)response.StatusCode} with no credential; expected 401 or 403.");
+    }
+
+    [Fact]
+    public async Task OperatorEndpoints_AreReachableWithTheOperatorCredential()
+    {
+        // The counterpart to the test above: the endpoints are not simply broken.
+        using var factory = TestWebAppFactory.Create();
+        using var operatorClient = CreateOperatorClient(factory);
+        var flowId = await CreateFlowAsync(operatorClient);
+
+        Assert.Equal(HttpStatusCode.OK, (await operatorClient.GetAsync("/api/workflow/sessions")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await operatorClient.GetAsync($"/api/flows/{flowId}/webhooks")).StatusCode);
+    }
 }
