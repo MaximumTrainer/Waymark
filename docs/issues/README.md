@@ -29,12 +29,20 @@ The workflow also fires automatically whenever a numbered issue markdown file (`
 | 8 | [08-frontend-app-error-boundary.md](08-frontend-app-error-boundary.md) | Frontend — add top-level error boundary for auth/routing failures | reliability, frontend |
 | 9 | [09-webhook-cancellation-token.md](09-webhook-cancellation-token.md) | WebhookService — CancellationToken not propagated through delivery retry loop | bug, reliability |
 | 10 | [10-cloud-document-storage.md](10-cloud-document-storage.md) | Add cloud/blob storage adapter for document storage (production readiness) | enhancement, infrastructure |
+| 11 | [11-browser-api-key-grants-operator.md](11-browser-api-key-grants-operator.md) | Frontend API key grants full Operator access to every browser visitor | security, authentication, frontend |
+| 12 | [12-operator-ui-on-public-route.md](12-operator-ui-on-public-route.md) | Operator-only UI is rendered on the unauthenticated applicant route | security, frontend |
+| 13 | [13-frontend-unit-tests-not-in-ci.md](13-frontend-unit-tests-not-in-ci.md) | npm test fails on a clean checkout and frontend unit tests never run in CI | bug, testing, frontend |
+| 14 | [14-sse-single-instance.md](14-sse-single-instance.md) | SSE session progress events break when the API runs more than one replica | bug, reliability, infrastructure |
+| 15 | [15-saml-assertion-encryption.md](15-saml-assertion-encryption.md) | SAML metadata advertises assertion encryption the ACS cannot decrypt | bug, security, authentication |
+| 16 | [16-analytics-no-durable-sink.md](16-analytics-no-durable-sink.md) | Journey analytics events have no durable sink and browser events never reach the backend | enhancement, observability |
 
 ## Priority summary
 
 | Priority | Issues |
 |----------|--------|
-| 🔴 Critical | #1 (SAML placeholder is the only SSO implementation) |
-| 🟠 High | #2, #5, #7, #9 (untested background service; security bug; untested frontend core; cancelled delivery not recorded) |
-| 🟡 Medium | #3, #4, #6, #8 (observability; resilience; memory leak; UX safety net) |
-| 🟢 Low / Enhancement | #10 (production storage — needed before cloud deploy) |
+| 🔴 Critical | #11 (browser-held API key grants full Operator access), #12 (operator data on the public applicant route) |
+| 🟠 High | #13 (`npm test` is red and unenforced in CI), #14 (SSE silently breaks above one replica) |
+| 🟡 Medium | #15 (SAML metadata advertises encryption that does not work) |
+| 🟢 Low / Enhancement | #16 (analytics event stream has no durable sink) |
+
+Items #1–#10 were the first backlog sweep and are all resolved; #11–#16 come from the September 2026 gap review.
