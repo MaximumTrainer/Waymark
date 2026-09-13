@@ -28,21 +28,21 @@ Each journey isolates a distinct capability of the platform.
 ```bash
 # 1. Start session
 curl -X POST http://localhost:5072/api/workflow/sessions/start \
-  -H 'X-Api-Key: dev-key' \
+  -H 'X-Api-Key: dev-api-key-change-in-production' \
   -H 'Content-Type: application/json' \
   -d '{"flowId":"a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"}'
 
 # 2. Submit form (valid)
 curl -X POST http://localhost:5072/api/workflow/sessions/{sessionId}/steps/{nodeId}/submit \
-  -H 'X-Api-Key: dev-key' \
+  -H 'X-Api-Key: dev-api-key-change-in-production' \
   -H 'Content-Type: application/json' \
-  -d '{"FullName":"Alice Example","Email":"alice@example.com"}'
+  -d '{"payload":{"FullName":"Alice Example","Email":"alice@example.com"}}'
 
 # 3. Submit Information node (empty payload advances session)
 curl -X POST http://localhost:5072/api/workflow/sessions/{sessionId}/steps/{nodeId}/submit \
-  -H 'X-Api-Key: dev-key' \
+  -H 'X-Api-Key: dev-api-key-change-in-production' \
   -H 'Content-Type: application/json' \
-  -d '{}'
+  -d '{"payload":{}}'
 # → {"isCompleted":true,"currentNode":null}
 ```
 
@@ -77,11 +77,11 @@ See [`src/frontend/src/schemas/journey-a-linear-basic.json`](../../src/frontend/
 
 ```bash
 # France → EU disclosure
-curl -X POST .../steps/{nodeId}/submit -d '{"Country":"France"}'
+curl -X POST .../steps/{nodeId}/submit -d '{"payload":{"Country":"France"}}'
 # → currentNode.key = "eu-gdpr-disclosure"
 
 # USA → global terms
-curl -X POST .../steps/{nodeId}/submit -d '{"Country":"USA"}'
+curl -X POST .../steps/{nodeId}/submit -d '{"payload":{"Country":"USA"}}'
 # → currentNode.key = "global-terms-and-conditions"
 ```
 
@@ -126,15 +126,15 @@ The raw `{{sessionId}}` token is **never** sent to the frontend.
 curl -X POST .../sessions/start -d '{"flowId":"c3c3c3c3-..."}'
 
 # 2a. Invalid NationalId → 422
-curl -X POST .../steps/{nodeId}/submit -d '{"NationalId":"INVALID"}'
+curl -X POST .../steps/{nodeId}/submit -d '{"payload":{"NationalId":"INVALID"}}'
 # → 422 {"violations":[{"field":"NationalId","message":"..."}]}
 
 # 2b. Valid NationalId → advances to DocumentUpload
-curl -X POST .../steps/{nodeId}/submit -d '{"NationalId":"AB123456"}'
+curl -X POST .../steps/{nodeId}/submit -d '{"payload":{"NationalId":"AB123456"}}'
 # → currentNode.type = "DocumentUpload"
 
 # 3. DocumentUpload submission (empty payload in test mode skips virus scan)
-curl -X POST .../steps/{nodeId}/submit -d '{}'
+curl -X POST .../steps/{nodeId}/submit -d '{"payload":{}}'
 # → currentNode.type = "Redirect", jsonContent.url contains real sessionId
 ```
 
