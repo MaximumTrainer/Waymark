@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Xml;
 using ITfoxtec.Identity.Saml2;
 using ITfoxtec.Identity.Saml2.MvcCore;
 using ITfoxtec.Identity.Saml2.Schemas;
@@ -17,10 +18,13 @@ namespace OpenOnboarding.Api.Controllers;
 [ApiController]
 [Route("auth/saml")]
 [AllowAnonymous]
-public sealed class SamlAuthController(IConfiguration configuration) : ControllerBase
+public sealed class SamlAuthController(
+    IConfiguration configuration,
+    ILogger<SamlAuthController> logger) : ControllerBase
 {
     private const string RelayStateCookie = "__Secure-waymark-saml-relay-state";
     private const string AuthnIdCookie = "__Secure-waymark-saml-authn-id";
+    private const string AssertionNamespace = "urn:oasis:names:tc:SAML:2.0:assertion";
 
     [HttpGet("metadata")]
     [Produces("application/samlmetadata+xml")]
@@ -60,9 +64,20 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
     [HttpGet("login")]
     public IActionResult Login([FromQuery] string? returnUrl = null)
     {
+        var safeReturnUrl = NormalizeReturnUrl(returnUrl);
+
+        var expiredCertificate = FindExpiredCertificate(includeIdpCertificate: false);
+        if (expiredCertificate is not null)
+        {
+            logger.LogError(
+                "SAML login refused: the {Role} certificate expired at {NotAfter:u}.",
+                expiredCertificate.Value.Role,
+                expiredCertificate.Value.NotAfter);
+            return Redirect(BuildLoginErrorRedirect("saml_certificate_expired", safeReturnUrl));
+        }
+
         var config = BuildSamlConfiguration();
         var relayState = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
-        var safeReturnUrl = NormalizeReturnUrl(returnUrl);
         var relayStateTimeoutMinutes = GetRelayStateTimeoutMinutes();
 
         Response.Cookies.Append(RelayStateCookie, relayState, new CookieOptions
@@ -119,8 +134,20 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         if (string.IsNullOrWhiteSpace(expectedAuthnId))
             return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
 
+        var assertionWasEncrypted = ResponseContainsEncryptedAssertion(form["SAMLResponse"].ToString());
+
         try
         {
+            var expiredCertificate = FindExpiredCertificate();
+            if (expiredCertificate is not null)
+            {
+                logger.LogError(
+                    "SAML callback rejected: the {Role} certificate expired at {NotAfter:u}.",
+                    expiredCertificate.Value.Role,
+                    expiredCertificate.Value.NotAfter);
+                return Redirect(BuildLoginErrorRedirect("saml_certificate_expired", safeReturnUrl));
+            }
+
             var config = BuildSamlConfiguration();
             var authnResponse = new Saml2AuthnResponse(config);
             var httpRequest = Request.ToGenericHttpRequest(validate: true);
@@ -136,6 +163,15 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
             if (authnResponse.Status != Saml2StatusCodes.Success)
                 return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
 
+            if (RequireEncryptedAssertion() && !assertionWasEncrypted)
+            {
+                logger.LogWarning(
+                    "SAML callback rejected: Authentication:Saml:RequireEncryptedAssertion is enabled "
+                    + "but the IdP returned an unencrypted assertion.");
+                return Redirect(BuildLoginErrorRedirect("saml_assertion_not_encrypted", safeReturnUrl));
+            }
+
+            // Unbind decrypts an EncryptedAssertion and validates the XML signature.
             httpRequest.Binding.Unbind(httpRequest, authnResponse);
 
             var nameId = authnResponse.NameId?.Value?.Trim();
@@ -191,8 +227,24 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         {
             throw;
         }
-        catch
+        catch (Exception ex)
         {
+            if (assertionWasEncrypted && IsDecryptionFailure(ex))
+            {
+                logger.LogError(
+                    ex,
+                    "SAML callback rejected: the encrypted assertion could not be decrypted with the "
+                    + "configured SP private key. Confirm the IdP is encrypting to the certificate "
+                    + "published in /auth/saml/metadata.");
+            }
+            else
+            {
+                logger.LogError(
+                    ex,
+                    "SAML callback rejected: {Encryption} assertion failed validation.",
+                    assertionWasEncrypted ? "encrypted" : "unencrypted");
+            }
+
             return Redirect(BuildLoginErrorRedirect("saml_invalid_assertion", safeReturnUrl));
         }
     }
@@ -202,6 +254,72 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
     {
         await HttpContext.SignOutAsync(AdminSessionAuthenticationDefaults.SchemeName);
         return NoContent();
+    }
+
+    private bool RequireEncryptedAssertion()
+        => configuration.GetValue("Authentication:Saml:RequireEncryptedAssertion", false);
+
+    /// <summary>
+    /// Reports whether the IdP wrapped the assertion in <c>&lt;saml:EncryptedAssertion&gt;</c>.
+    /// Read from the raw response so the answer is available before Unbind decrypts it, and so a
+    /// decryption failure can be reported as such rather than as a generic validation failure.
+    /// </summary>
+    private static bool ResponseContainsEncryptedAssertion(string? encodedResponse)
+    {
+        if (string.IsNullOrWhiteSpace(encodedResponse))
+            return false;
+
+        try
+        {
+            var xml = Encoding.UTF8.GetString(Convert.FromBase64String(encodedResponse));
+            var document = new XmlDocument { XmlResolver = null };
+            document.LoadXml(xml);
+            return document.GetElementsByTagName("EncryptedAssertion", AssertionNamespace).Count > 0;
+        }
+        catch (Exception ex) when (ex is FormatException or XmlException or DecoderFallbackException)
+        {
+            // A malformed response is rejected by Unbind further down; treat it as unencrypted here.
+            return false;
+        }
+    }
+
+    private static bool IsDecryptionFailure(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is CryptographicException)
+                return true;
+
+            if (current.Message.Contains("decrypt", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the first configured certificate that has passed its expiry, or <c>null</c> when
+    /// all of them are valid. An expired certificate produces an unusable signature or an assertion
+    /// that cannot be verified, so it is reported as its own error code rather than folded into a
+    /// generic failure. Each endpoint checks only the certificates it actually uses: login signs
+    /// with the SP key, while the callback also verifies against the IdP certificate.
+    /// </summary>
+    private (string Role, DateTime NotAfter)? FindExpiredCertificate(bool includeIdpCertificate = true)
+    {
+        var now = DateTime.Now;
+
+        var spCert = LoadSpCertificate();
+        if (spCert.NotAfter < now)
+            return ("service provider", spCert.NotAfter);
+
+        if (!includeIdpCertificate)
+            return null;
+
+        var idpCert = LoadIdpCertificate();
+        if (idpCert.NotAfter < now)
+            return ("identity provider", idpCert.NotAfter);
+
+        return null;
     }
 
     private Saml2Configuration BuildSamlConfiguration()
@@ -223,6 +341,10 @@ public sealed class SamlAuthController(IConfiguration configuration) : Controlle
         };
 
         config.SignatureValidationCertificates.Add(idpCert);
+        // The SP certificate is published in metadata under KeyDescriptor use="encryption", so an
+        // IdP may encrypt the assertion to it. Without a decryption certificate the assertion
+        // cannot be unwrapped and every such login fails.
+        config.DecryptionCertificates.Add(spCert);
         config.AllowedAudienceUris.Add(issuer);
 
         return config;

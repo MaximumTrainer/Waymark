@@ -100,12 +100,73 @@ All configuration can be set via environment variables or `appsettings.json`.
 | `ConnectionStrings__OnboardingDb` | ✅ | — | PostgreSQL connection string |
 | `Authentication__JwtAuthority` | ✅ (non-dev) | — | OIDC issuer URL. Empty string = JWT disabled (dev only). |
 | `Authentication__JwtAudience` | ✅ (non-dev) | — | Expected JWT audience claim. |
-| `Authentication__ApiKey` | optional | — | Shared API key for X-Api-Key header auth. |
-| `ApiKeys__operator` | optional | — | Per-role API keys. Key = role name, value = key. |
-| `ApiKeys__applicant` | optional | — | Applicant-role API key. |
+| `Authentication__ApiKey` | optional | — | **Server-to-server only.** Grants a full Operator principal — never send it from a browser. See [API credentials](#api-credentials). |
+| `Authentication__ApplicantToken__SigningKey` | ✅ (non-dev) | — | HMAC key signing per-session applicant tokens, min 32 chars. **Store as a secret.** Startup fails without it outside Development. |
+| `Authentication__ApplicantToken__LifetimeMinutes` | optional | `SessionTimeoutMinutes` | Applicant token lifetime. Defaults to the session timeout, since the token is useless once its session is abandoned. |
 | `SessionTimeoutMinutes` | optional | `60` | Inactivity timeout before sessions are auto-abandoned. |
+| `Analytics__DatabaseProvider__Enabled` | optional | `true` | Persist analytics events so a session's trail can be read back. `false` leaves only the console provider. |
+| `Analytics__ConsoleProvider__Enabled` | optional | `true` | Write every event to the application log. |
+| `Analytics__RetentionDays` | optional | `365` | Age at which stored analytics events are deleted. |
+| `Analytics__CleanupIntervalHours` | optional | `24` | How often the analytics retention sweep runs. |
+| `RateLimiting__AnalyticsIngestPerMinute` | optional | `120` | Per-caller limit on `POST /api/analytics/events`. |
 | `Logging__LogLevel__Default` | optional | `Information` | Log verbosity. |
 | `ASPNETCORE_ENVIRONMENT` | optional | `Production` | `Development`, `Staging`, or `Production`. |
+
+### API credentials
+
+Three credentials reach the API, and they are not interchangeable.
+
+| Credential | Who holds it | Grants |
+|------------|--------------|--------|
+| Applicant session token | The applicant's browser | The one session named in the token. Nothing else. |
+| `AdminSession` cookie | An operator's browser, after SAML SSO | Operator role, subject to the SSO NameID allowlist. |
+| `Authentication__ApiKey` | Server-to-server integrations | A full Operator principal. |
+
+**The API key must never be sent from a browser.** It maps to an Operator principal with no further
+checks, so a key present in a page is a key every visitor to that page holds. The public onboarding
+app does not use it: it starts a session anonymously and is handed a token for that session.
+
+#### Applicant session tokens
+
+`POST /api/workflow/sessions/start` is anonymous — it is the entry point of a public journey, so
+there is no credential to present yet. It is rate limited by the `session-start` policy. The
+response carries `applicantToken`, an HMAC-signed JWT the browser sends as
+`Authorization: Bearer <token>` for the rest of the journey.
+
+- **Scope.** The token names one session. It is rejected for any other session, and for every
+  operator endpoint, including the submissions readout for its own session.
+- **Lifetime.** Defaults to `SessionTimeoutMinutes`. A shorter life only strands applicants
+  mid-journey; a longer one outlives the session it names, which is abandoned by then anyway.
+- **Signing key.** `Authentication__ApplicantToken__SigningKey` must be set outside Development or
+  startup fails. All replicas need the same key, or a token issued by one is rejected by another.
+  In Development an ephemeral key is generated per process, so tokens stop working on restart.
+- **SSE.** The browser `EventSource` API cannot set request headers, so
+  `GET /api/workflow/sessions/{id}/events` also accepts the token as an `access_token` query
+  parameter. Ownership is enforced identically on both paths.
+
+### Journey analytics
+
+Two things are counted separately.
+
+**Aggregate flow figures** — completion rate, drop-off, average duration — are derived from sessions
+and submissions on demand at `GET /api/analytics/flows/{flowId}` (operator only). They need no
+event history and are unaffected by retention.
+
+**The event trail** is the per-step record of what happened in one session, readable at
+`GET /api/analytics/sessions/{sessionId}/events` (operator only), ordered by occurrence.
+
+- Server-raised events (session started, step advanced) are emitted by the journey engine.
+- Client-raised events are posted by the browser to `POST /api/analytics/events` in batches. The
+  caller's applicant token must name the session every event in the batch belongs to, or the whole
+  batch is rejected with `403` — a client cannot write events against someone else's journey. The
+  server stamps `source`, so a client cannot pass its events off as server-raised.
+- Delivery from the browser is best-effort: a failed batch is dropped rather than retried, so a
+  broken analytics endpoint can never stall an application form.
+
+Events are stored in the `AnalyticsEvents` table and pruned by a background sweep after
+`Analytics__RetentionDays`, measured from **write** time rather than the client-reported timestamp,
+which a caller controls. Set `Analytics__DatabaseProvider__Enabled=false` to turn storage off
+entirely; the application keeps working and events go only to the log.
 
 ### SAML Single Sign-On (Admin UI)
 
@@ -124,6 +185,7 @@ Import `GET /auth/saml/metadata` into the IdP to register Waymark as a service p
 | `Authentication__Saml__AllowedReturnOrigins__0` | optional | — | Absolute origins accepted for `returnUrl`; anything else falls back to a relative path. |
 | `Authentication__Saml__RelayStateTimeoutMinutes` | optional | `5` | Lifetime of the relay-state and AuthnRequest-ID cookies. |
 | `Authentication__Saml__SessionDurationHours` | optional | `8` | Admin session lifetime after a successful assertion. |
+| `Authentication__Saml__RequireEncryptedAssertion` | optional | `false` | When `true`, an unencrypted assertion is rejected with `saml_assertion_not_encrypted`. |
 
 ### Security Notes
 
@@ -131,6 +193,33 @@ Import `GET /auth/saml/metadata` into the IdP to register Waymark as a service p
 - Never log JWT tokens, API keys, or session submission content.
 - File uploads are scanned before storage; rejected files return HTTP 422.
 - SAML responses are rejected unless the XML signature verifies against `Authentication__Saml__IdpCertificate`, `InResponseTo` matches the AuthnRequest this server issued, the `Destination` names our ACS URL, and the assertion is within its validity window.
+
+#### Assertion encryption
+
+`GET /auth/saml/metadata` publishes the SP certificate under both `KeyDescriptor use="signing"` and
+`KeyDescriptor use="encryption"`, so an IdP may encrypt the assertion to it. The same
+`Authentication__Saml__SpCertificate` / `Authentication__Saml__SpPrivateKey` pair is registered as the
+decryption key, so **no extra configuration is needed** to accept encrypted assertions — enable
+encryption on the IdP side and it works.
+
+Set `Authentication__Saml__RequireEncryptedAssertion=true` to reject assertions that arrive
+unencrypted. Leave it unset while migrating an IdP to encryption, then turn it on once the IdP is
+confirmed to be encrypting.
+
+#### SAML login error codes
+
+The callback redirects to `/login?error=<code>` on failure. Each code has a distinct cause:
+
+| Code | Cause |
+|------|-------|
+| `saml_csrf_failed` | `RelayState` did not match the cookie issued at login. |
+| `saml_certificate_expired` | The configured SP or IdP certificate is past its `NotAfter`. Rotate it. |
+| `saml_assertion_not_encrypted` | `RequireEncryptedAssertion` is enabled and the assertion was not encrypted. |
+| `saml_access_denied` | The assertion's NameID is not in `Authentication__Saml__AllowedNameIds`. |
+| `saml_invalid_assertion` | Signature, `InResponseTo`, `Destination`, validity window, or decryption failed. |
+
+`saml_invalid_assertion` is deliberately generic to the browser; the server log distinguishes a
+decryption failure from a signature failure.
 
 ---
 
@@ -315,9 +404,24 @@ docker compose exec -T postgres psql -U postgres onboarding < backup-20241201.sq
 
 ### Horizontal Scaling (Multiple API Instances)
 
-The API is **stateless** with one caveat: `InMemorySessionEventEmitter` (SSE) holds per-session event channels in memory. In a multi-instance setup:
-- SSE clients must connect to the same instance that holds their session's channel, **or**
-- Replace `InMemorySessionEventEmitter` with a distributed adapter (e.g., Redis Pub/Sub)
+The API is **stateless** with one caveat: an SSE stream is pinned to the instance that accepted it,
+so a session event raised while handling a request on another instance has to travel between
+instances to reach that stream.
+
+**Running more than one replica requires a distributed session event transport.** Without one the
+failure is silent: the stream stays open, no error is raised, and the applicant simply never
+receives step progress until they reload. A rolling deploy or scale-in re-breaks it mid-journey, so
+sticky sessions are not a substitute.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `SessionEvents__Transport` | ✅ for >1 replica | — | `rabbitmq` enables the distributed emitter. Unset uses the in-memory emitter. |
+| `SessionEvents__RabbitMq__Uri` | optional | `EventBus__RabbitMq__Uri`, else `amqp://guest:guest@localhost:5672/` | Broker connection. Defaults to the event bus broker so an existing RabbitMQ deployment needs only `SessionEvents__Transport`. |
+| `SessionEvents__RabbitMq__Exchange` | optional | `waymark-session-events` | Fanout exchange name. Each instance binds its own exclusive auto-delete queue. |
+
+A non-Development environment running the in-memory emitter logs a startup warning naming this
+limitation. Events are transient and not persisted: they are only useful to a stream that is open
+at the time, so an instance that was down missed the stream too.
 
 All other state is in PostgreSQL — safe for horizontal scaling.
 

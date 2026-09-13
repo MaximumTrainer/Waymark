@@ -13,6 +13,11 @@
     <PackageReference Include="ITfoxtec.Identity.Saml2" Version="4.18.0" />
     <PackageReference Include="ITfoxtec.Identity.Saml2.MvcCore" Version="4.18.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <!-- JwtBearer resolves Microsoft.IdentityModel.JsonWebTokens 8.0.1 while ITfoxtec pulls
+         Microsoft.IdentityModel.Tokens 8.18.0. The mixed pair throws MissingMethodException
+         when reading a JWT, so pin both halves to the same version. -->
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.18.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
       <PrivateAssets>all</PrivateAssets>

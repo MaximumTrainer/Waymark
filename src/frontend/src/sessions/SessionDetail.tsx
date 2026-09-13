@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { operatorFetch } from '../api/operator-api'
 
 interface Submission {
   id: string
@@ -10,13 +11,11 @@ interface Submission {
 
 interface SessionDetailProps {
   sessionId: string
-  apiKey?: string
   onBack: () => void
 }
 
-function buildHeaders(apiKey?: string): Record<string, string> {
+function buildHeaders(): Record<string, string> {
   const h: Record<string, string> = {}
-  if (apiKey) h['X-Api-Key'] = apiKey
   return h
 }
 
@@ -29,7 +28,7 @@ function payloadSummary(payload: Record<string, unknown>): string {
     .join(', ') + (entries.length > 3 ? ', …' : '')
 }
 
-export function SessionDetail({ sessionId, apiKey, onBack }: SessionDetailProps) {
+export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,9 +40,9 @@ export function SessionDetail({ sessionId, apiKey, onBack }: SessionDetailProps)
       setIsLoading(true)
       setError(null)
       try {
-        const res = await fetch(
+        const res = await operatorFetch(
           `/api/workflow/sessions/${sessionId}/submissions`,
-          { headers: buildHeaders(apiKey), signal: controller.signal },
+          { headers: buildHeaders(), signal: controller.signal },
         )
         if (!res.ok) throw new Error(`Failed to load submissions (${res.status})`)
         setSubmissions((await res.json()) as Submission[])
@@ -58,7 +57,7 @@ export function SessionDetail({ sessionId, apiKey, onBack }: SessionDetailProps)
 
     void load()
     return () => controller.abort()
-  }, [sessionId, apiKey])
+  }, [sessionId])
 
   return (
     <div className="space-y-4">

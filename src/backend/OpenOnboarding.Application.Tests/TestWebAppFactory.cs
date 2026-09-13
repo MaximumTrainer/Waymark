@@ -14,9 +14,14 @@ namespace OpenOnboarding.Application.Tests;
 /// </summary>
 internal static class TestWebAppFactory
 {
+    /// <param name="environment">
+    /// Defaults to <c>Testing</c>, which disables rate limiting so unrelated tests are not throttled.
+    /// Pass <c>Development</c> to exercise the real limiters.
+    /// </param>
     public static WebApplicationFactory<Program> Create(
         string? dbName = null,
-        IReadOnlyDictionary<string, string?>? configurationOverrides = null)
+        IReadOnlyDictionary<string, string?>? configurationOverrides = null,
+        string environment = "Testing")
     {
         // A shared InMemoryDatabaseRoot ensures all DbContext instances across DI scopes
         // (startup seed scope, test seed scope, request scope) read from the same store.
@@ -25,7 +30,7 @@ internal static class TestWebAppFactory
 
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
-            builder.UseEnvironment("Testing");
+            builder.UseEnvironment(environment);
             builder.ConfigureAppConfiguration((_, config) =>
             {
                 var settings = new Dictionary<string, string?>

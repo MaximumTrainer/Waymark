@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:pact": "vitest run src/pact",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "prepare": "cd ../.. && sh scripts/install-git-hooks.sh || true"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",

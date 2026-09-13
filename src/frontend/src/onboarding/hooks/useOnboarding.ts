@@ -8,10 +8,10 @@ import {
   ComplianceError,
 } from '../api/workflow-api-client'
 import { createSessionEventSource } from './session-event-source'
+import { withApplicantTokenQuery } from '../api/applicant-session'
 
 const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const workflowApiBase = resolveWorkflowApiBase(serverBase)
-const apiKey = import.meta.env.VITE_API_KEY || undefined
 
 export function useOnboarding() {
   const [step, setStep] = useState<SessionStepResponse | null>(null)
@@ -42,7 +42,7 @@ export function useOnboarding() {
     setIsLoading(true)
     setError(null)
     try {
-      const next = await apiGetNextStep(serverBase, sessionId, apiKey)
+      const next = await apiGetNextStep(serverBase, sessionId)
       setStep(next)
       return next
     } catch (requestError) {
@@ -59,7 +59,8 @@ export function useOnboarding() {
 
     if (typeof EventSource !== 'undefined') {
       const handle = createSessionEventSource(
-        `${workflowApiBase}/sessions/${sessionId}/events`,
+        // EventSource cannot set headers, so the credential rides in the query string.
+        withApplicantTokenQuery(`${workflowApiBase}/sessions/${sessionId}/events`),
         {
           onStepAdvanced: (data) => setStep(data),
           onCompleted: () => {
@@ -90,7 +91,7 @@ export function useOnboarding() {
     setIsLoading(true)
     setError(null)
     try {
-      const next = await apiStartSession(serverBase, payload, apiKey)
+      const next = await apiStartSession(serverBase, payload)
       setStep(next)
       setIsCompleted(false)
       openEventStream(next.sessionId)
@@ -107,7 +108,7 @@ export function useOnboarding() {
     setIsLoading(true)
     setError(null)
     try {
-      const next = await apiSubmitStep(serverBase, sessionId, nodeId, payload, apiKey)
+      const next = await apiSubmitStep(serverBase, sessionId, nodeId, payload)
       setStep(next)
       return next
     } catch (requestError) {

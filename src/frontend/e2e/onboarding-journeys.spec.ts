@@ -137,7 +137,12 @@ const mockJourneys: Record<string, MockJourney> = {
   },
 }
 
-let documentUploads: Array<{ sessionId: string; nodeId: string; apiKey: string | null }> = []
+let documentUploads: Array<{
+  sessionId: string
+  nodeId: string
+  apiKey: string | null
+  authorization: string | null
+}> = []
 
 test.beforeEach(async ({ page }) => {
   const sessions = new Map<string, { journeyId: string; nodeIndex: number }>()
@@ -180,6 +185,8 @@ test.beforeEach(async ({ page }) => {
         sessionId,
         isCompleted: false,
         currentNode: journey.nodes[0],
+        applicantToken: `applicant-token-${sessionId}`,
+        applicantTokenExpiresAt: new Date(Date.now() + 3_600_000).toISOString(),
       }),
     })
   })
@@ -237,6 +244,7 @@ test.beforeEach(async ({ page }) => {
       sessionId,
       nodeId,
       apiKey: route.request().headers()['x-api-key'] ?? null,
+      authorization: route.request().headers()['authorization'] ?? null,
     })
 
     await route.fulfill({
@@ -271,9 +279,8 @@ test('journey 1 runs simple small business onboarding flow', async ({ page }) =>
 })
 
 test('journey 2 reaches medium business document verification step', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?flowId=22222222-2222-2222-2222-222222222222')
 
-  await page.selectOption('#journey-select', '22222222-2222-2222-2222-222222222222')
   await expect(page.locator('form').getByText('Medium business details')).toBeVisible()
 
   await page.locator('#BusinessName').fill('Acme Regional Ltd')
@@ -300,13 +307,15 @@ test('journey 2 reaches medium business document verification step', async ({ pa
 
   expect(documentUploads).toHaveLength(1)
   expect(documentUploads[0].nodeId).toBe('medium-node-2')
-  expect(documentUploads[0].apiKey).toBe('playwright-api-key')
+  // The browser authenticates with the per-session applicant token issued at session start, and
+  // must never send the operator API key - it is inlined into the bundle for every visitor to read.
+  expect(documentUploads[0].apiKey).toBeNull()
+  expect(documentUploads[0].authorization).toMatch(/^Bearer applicant-token-session-\d+$/)
 })
 
 test('journey 3 runs large nationwide onboarding and compliance questions', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?flowId=33333333-3333-3333-3333-333333333333')
 
-  await page.selectOption('#journey-select', '33333333-3333-3333-3333-333333333333')
   await expect(page.locator('form').getByText('Large business profile')).toBeVisible()
 
   await page.locator('#BusinessName').fill('Acme National PLC')

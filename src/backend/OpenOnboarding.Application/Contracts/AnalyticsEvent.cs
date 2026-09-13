@@ -1,3 +1,5 @@
+using OpenOnboarding.Domain.Entities;
+
 namespace OpenOnboarding.Application.Contracts;
 
 /// <summary>
@@ -29,4 +31,11 @@ public sealed record AnalyticsEvent
 
     /// <summary>UTC timestamp when the event occurred.</summary>
     public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Where the event was raised: <c>server</c> for events the journey engine emits, <c>client</c>
+    /// for events ingested from a browser. Client events are self-reported, so keeping the two
+    /// apart matters when reading a trail.
+    /// </summary>
+    public string Source { get; init; } = AnalyticsEventSources.Server;
 }

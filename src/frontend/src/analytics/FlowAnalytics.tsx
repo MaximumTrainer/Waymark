@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { operatorFetch } from '../api/operator-api'
 
 interface FlowAnalyticsData {
   flowId: string
@@ -13,7 +14,6 @@ interface FlowAnalyticsData {
 
 interface FlowAnalyticsProps {
   flowId: string
-  apiKey?: string
 }
 
 function formatDuration(seconds: number): string {
@@ -40,7 +40,7 @@ function SkeletonCard() {
   )
 }
 
-export function FlowAnalytics({ flowId, apiKey }: FlowAnalyticsProps) {
+export function FlowAnalytics({ flowId }: FlowAnalyticsProps) {
   const [data, setData] = useState<FlowAnalyticsData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,9 +53,8 @@ export function FlowAnalytics({ flowId, apiKey }: FlowAnalyticsProps) {
       setIsLoading(true)
       setError(null)
       const headers: Record<string, string> = {}
-      if (apiKey) headers['X-Api-Key'] = apiKey
       try {
-        const res = await fetch(`/api/analytics/flows/${flowId}`, { headers })
+        const res = await operatorFetch(`/api/analytics/flows/${flowId}`, { headers })
         if (!res.ok) throw new Error(`Failed to load analytics (${res.status})`)
         if (!cancelled) setData((await res.json()) as FlowAnalyticsData)
       } catch (err) {
@@ -67,7 +66,7 @@ export function FlowAnalytics({ flowId, apiKey }: FlowAnalyticsProps) {
 
     void load()
     return () => { cancelled = true }
-  }, [flowId, apiKey, refreshKey])
+  }, [flowId, refreshKey])
 
   return (
     <div className="space-y-4">

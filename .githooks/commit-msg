@@ -1,0 +1,53 @@
+#!/bin/sh
+# Enforces Conventional Commits, the format this repository's history already follows.
+#
+# The format is not decoration: `feat:` / `fix:` / `BREAKING CHANGE` are what let a release tool
+# derive a version and changelog from the log.
+set -e
+
+. "$(dirname "$0")/_lib.sh"
+
+hooks_skipped "commit-msg" && exit 0
+
+MSG_FILE=$1
+SUBJECT=$(head -n 1 "$MSG_FILE")
+
+# Git's own generated messages and rebase helpers are not authored commits.
+case "$SUBJECT" in
+    "Merge "*|"Revert "*|"fixup!"*|"squash!"*|"amend!"*)
+        exit 0
+        ;;
+esac
+
+# Comment-only content means an aborted commit; git handles that itself.
+if [ -z "$(printf '%s' "$SUBJECT" | tr -d '[:space:]')" ]; then
+    exit 0
+fi
+
+TYPES='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
+PATTERN="^(${TYPES})(\([a-z0-9._/-]+\))?!?: .+"
+
+if ! printf '%s' "$SUBJECT" | grep -Eq "$PATTERN"; then
+    hook_error "Commit message does not follow Conventional Commits."
+    hook_error ""
+    hook_error "  got:      $SUBJECT"
+    hook_error "  expected: <type>[(scope)][!]: <description>"
+    hook_error "  types:    ${TYPES}"
+    hook_error ""
+    hook_error "  e.g.  feat(saml): support encrypted assertions"
+    hook_error "        fix: propagate the cancellation token through webhook retries"
+    hook_error ""
+    hook_error "Bypass once with:  SKIP_HOOKS=1 git commit ..."
+    exit 1
+fi
+
+# A subject that needs more than 100 characters belongs in the body.
+SUBJECT_LENGTH=$(printf '%s' "$SUBJECT" | wc -c | tr -d ' ')
+if [ "$SUBJECT_LENGTH" -gt 100 ]; then
+    hook_error "Commit subject is ${SUBJECT_LENGTH} characters; keep it under 100 and use the body."
+    exit 1
+fi
+
+if [ "$SUBJECT_LENGTH" -gt 72 ]; then
+    hook_warn "Commit subject is ${SUBJECT_LENGTH} characters; 72 or fewer reads better in git log."
+fi

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { operatorFetch } from '../api/operator-api'
 
 export interface SessionSummary {
   id: string
@@ -10,7 +11,6 @@ export interface SessionSummary {
 }
 
 interface SessionListProps {
-  apiKey?: string
   onSelectSession: (session: SessionSummary) => void
 }
 
@@ -20,13 +20,12 @@ const statusBadge: Record<SessionSummary['status'], string> = {
   Abandoned: 'bg-red-100 text-red-800',
 }
 
-function buildHeaders(apiKey?: string): Record<string, string> {
+function buildHeaders(): Record<string, string> {
   const h: Record<string, string> = {}
-  if (apiKey) h['X-Api-Key'] = apiKey
   return h
 }
 
-export function SessionList({ apiKey, onSelectSession }: SessionListProps) {
+export function SessionList({ onSelectSession }: SessionListProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
@@ -42,9 +41,9 @@ export function SessionList({ apiKey, onSelectSession }: SessionListProps) {
       setIsLoading(true)
       setError(null)
       try {
-        const res = await fetch(
+        const res = await operatorFetch(
           `/api/workflow/sessions?page=${page}&pageSize=${pageSize}`,
-          { headers: buildHeaders(apiKey) },
+          { headers: buildHeaders() },
         )
         if (!res.ok) throw new Error(`Failed to load sessions (${res.status})`)
         const data = (await res.json()) as SessionSummary[]
@@ -61,7 +60,7 @@ export function SessionList({ apiKey, onSelectSession }: SessionListProps) {
 
     void load()
     return () => { cancelled = true }
-  }, [apiKey, page])
+  }, [page])
 
   return (
     <div className="space-y-4">

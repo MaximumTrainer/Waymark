@@ -1,4 +1,5 @@
-import type { SessionStepResponse, StartSessionRequest, SubmitStepRequest } from '../types/flow'
+import type { SessionStartResponse, SessionStepResponse, StartSessionRequest, SubmitStepRequest } from '../types/flow'
+import { applicantAuthHeaders, setApplicantToken } from './applicant-session'
 
 export interface ComplianceViolation {
   field: string
@@ -16,14 +17,15 @@ export class ComplianceError extends Error {
   }
 }
 
-const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY ?? ''
 const WORKFLOW_API_BASE_PATH = '/api/workflow'
 
-function buildHeaders(apiKey?: string): Record<string, string> {
-  const key = apiKey ?? DEFAULT_API_KEY
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (key) headers['X-Api-Key'] = key
-  return headers
+/**
+ * Requests carry the per-session applicant token issued at session start. No API key is sent from
+ * the browser: the key maps to a full Operator principal and inlining it in the bundle would hand
+ * every visitor operator access.
+ */
+function buildHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', ...applicantAuthHeaders() }
 }
 
 export function resolveWorkflowApiBase(baseUrl: string): string {
@@ -37,16 +39,21 @@ export function resolveWorkflowApiBase(baseUrl: string): string {
 export async function startSession(
   baseUrl: string,
   payload: StartSessionRequest,
-  apiKey?: string,
 ): Promise<SessionStepResponse> {
   const workflowBase = resolveWorkflowApiBase(baseUrl)
+  // Anonymous by design: this is the entry point of a public journey, and the response is what
+  // hands the browser its credential for everything that follows.
   const res = await fetch(`${workflowBase}/sessions/start`, {
     method: 'POST',
-    headers: buildHeaders(apiKey),
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`startSession failed with status ${res.status}`)
-  return res.json() as Promise<SessionStepResponse>
+
+  const session = await res.json() as SessionStartResponse
+  if (session.applicantToken) setApplicantToken(session.applicantToken)
+
+  return session
 }
 
 export async function submitStep(
@@ -54,14 +61,13 @@ export async function submitStep(
   sessionId: string,
   nodeId: string,
   payload: SubmitStepRequest,
-  apiKey?: string,
 ): Promise<SessionStepResponse> {
   const workflowBase = resolveWorkflowApiBase(baseUrl)
   const res = await fetch(
     `${workflowBase}/sessions/${sessionId}/steps/${nodeId}/submit`,
     {
       method: 'POST',
-      headers: buildHeaders(apiKey),
+      headers: buildHeaders(),
       body: JSON.stringify(payload),
     },
   )
@@ -76,12 +82,11 @@ export async function submitStep(
 export async function getNextStep(
   baseUrl: string,
   sessionId: string,
-  apiKey?: string,
 ): Promise<SessionStepResponse> {
   const workflowBase = resolveWorkflowApiBase(baseUrl)
   const res = await fetch(`${workflowBase}/sessions/${sessionId}/next`, {
     method: 'GET',
-    headers: buildHeaders(apiKey),
+    headers: buildHeaders(),
   })
   if (!res.ok) throw new Error(`getNextStep failed with status ${res.status}`)
   return res.json() as Promise<SessionStepResponse>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
+using OpenOnboarding.Api.Authentication;
 using OpenOnboarding.Api.Authorization;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Interfaces;
@@ -21,25 +22,42 @@ public sealed class WorkflowController(
     ISessionAnalyticsService sessionAnalyticsService,
     IAuthorizationService authorizationService,
     ISessionEventEmitter sessionEventEmitter,
+    ApplicantSessionTokenService applicantTokenService,
     IConfiguration configuration) : ControllerBase
 {
     /// <summary>
     /// Starts a new onboarding session for the given workflow flow.
     /// </summary>
+    /// <remarks>
+    /// Anonymous: this is the entry point of a public onboarding journey, so there is no credential
+    /// to present yet. The response carries an applicant token scoped to the new session, which the
+    /// caller sends as a bearer token for every subsequent request. Rate limited per the
+    /// <c>session-start</c> policy.
+    /// </remarks>
     [HttpPost("sessions/start")]
     [EnableRateLimiting("session-start")]
-    [Authorize(Policy = "ApplicantOrOperator")]
+    [AllowAnonymous]
     [Consumes("application/json")]
-    [ProducesResponseType(typeof(SessionStepResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(SessionStartResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<SessionStepResponse>> StartSession([FromBody] StartSessionRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<SessionStartResponse>> StartSession([FromBody] StartSessionRequest request, CancellationToken cancellationToken)
     {
         var result = await workflowService.StartSessionAsync(request, cancellationToken);
-        return Ok(result);
+        var response = SessionStartResponse.From(result);
+
+        // An operator's own credential already covers the session, so only mint a token for the
+        // anonymous applicant case.
+        if (!User.IsInRole(AppRoles.Operator))
+        {
+            var session = await sessionAnalyticsService.GetSessionAsync(result.SessionId, cancellationToken);
+            var (token, expiresAt) = applicantTokenService.Issue(result.SessionId, session?.CustomerProfileId);
+            response.ApplicantToken = token;
+            response.ApplicantTokenExpiresAt = expiresAt;
+        }
+
+        return Ok(response);
     }
 
     /// <summary>
@@ -270,6 +288,16 @@ public sealed class WorkflowController(
     [Authorize(Policy = "ApplicantOrOperator")]
     public async Task StreamEvents([FromRoute] Guid sessionId, CancellationToken cancellationToken)
     {
+        // Same ownership rule as every other session endpoint: a credential for one session must
+        // not open another session's event stream.
+        var session = await sessionAnalyticsService.GetSessionAsync(sessionId, cancellationToken);
+        var authResult = await authorizationService.AuthorizeAsync(User, session, new SessionOwnershipRequirement());
+        if (!authResult.Succeeded)
+        {
+            Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
         Response.Headers["Content-Type"] = "text/event-stream";
         Response.Headers["Cache-Control"] = "no-cache";
         Response.Headers["X-Accel-Buffering"] = "no";

@@ -22,6 +22,60 @@ namespace OpenOnboarding.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("OpenOnboarding.Domain.Entities.AnalyticsEventRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("JourneyId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("StepId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecordedAt");
+
+                    b.HasIndex("JourneyId", "OccurredAt");
+
+                    b.HasIndex("SessionId", "OccurredAt");
+
+                    b.ToTable("AnalyticsEvents");
+                });
+
             modelBuilder.Entity("OpenOnboarding.Domain.Entities.Connection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -362,14 +416,6 @@ namespace OpenOnboarding.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("CustomerCountry")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("CustomerEmail")
-                        .HasMaxLength(320)
-                        .HasColumnType("character varying(320)");
-
                     b.Property<Guid?>("CurrentNodeId")
                         .HasColumnType("uuid");
 
@@ -380,6 +426,14 @@ namespace OpenOnboarding.Infrastructure.Migrations
                     b.Property<string>("CurrentNodeTitle")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("CustomerCountry")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("CustomerEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
 
                     b.Property<string>("ExternalCustomerId")
                         .HasMaxLength(200)
@@ -408,11 +462,11 @@ namespace OpenOnboarding.Infrastructure.Migrations
 
                     b.HasIndex("FlowId");
 
-                    b.HasIndex("FlowId", "StatusName");
-
                     b.HasIndex("StatusName");
 
-                    b.ToTable("SessionReadModels");
+                    b.HasIndex("FlowId", "StatusName");
+
+                    b.ToTable("SessionReadModels", (string)null);
                 });
 
             modelBuilder.Entity("OpenOnboarding.Domain.Entities.Connection", b =>

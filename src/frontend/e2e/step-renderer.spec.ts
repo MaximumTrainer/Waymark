@@ -107,7 +107,9 @@ test.describe('StepRenderer – Information node', () => {
     await page.goto('/')
     await page.getByRole('button', { name: /continue/i }).click()
 
-    await expect(page.getByText(/all steps finished/i)).toBeVisible()
+    // The journey-map visualisation that used to show completion here is an operator tool and no
+    // longer renders for applicants; this is the applicant-facing completion state.
+    await expect(page.getByText(/your application is complete/i)).toBeVisible()
     const parsed = JSON.parse(submitBody ?? '{}') as Record<string, unknown>
     expect(parsed).toEqual({ payload: {} })
   })

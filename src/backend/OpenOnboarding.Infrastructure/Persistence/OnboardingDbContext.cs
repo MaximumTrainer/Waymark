@@ -16,6 +16,7 @@ public sealed class OnboardingDbContext(DbContextOptions<OnboardingDbContext> op
     public DbSet<Webhook> Webhooks => Set<Webhook>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
     public DbSet<SessionReadModel> SessionReadModels => Set<SessionReadModel>();
+    public DbSet<AnalyticsEventRecord> AnalyticsEvents => Set<AnalyticsEventRecord>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -34,6 +35,21 @@ public sealed class OnboardingDbContext(DbContextOptions<OnboardingDbContext> op
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // ── AnalyticsEventRecord ──────────────────────────────────────────
+        modelBuilder.Entity<AnalyticsEventRecord>(b =>
+        {
+            b.Property(x => x.EventType).HasMaxLength(100).IsRequired();
+            b.Property(x => x.JourneyId).HasMaxLength(100).IsRequired();
+            b.Property(x => x.SessionId).HasMaxLength(100).IsRequired();
+            b.Property(x => x.StepId).HasMaxLength(100);
+            b.Property(x => x.Source).HasMaxLength(20).IsRequired();
+            // Reading one session's trail in order is the common query.
+            b.HasIndex(x => new { x.SessionId, x.OccurredAt });
+            b.HasIndex(x => new { x.JourneyId, x.OccurredAt });
+            // Retention sweeps delete by write time.
+            b.HasIndex(x => x.RecordedAt);
+        });
+
         // ── Flow ─────────────────────────────────────────────────────────
         modelBuilder.Entity<Flow>(b =>
         {

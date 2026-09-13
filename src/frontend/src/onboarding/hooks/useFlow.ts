@@ -1,14 +1,12 @@
 import { useEffect, useReducer } from 'react'
 import type { FlowDefinition } from '../types/flow'
 
-const API_KEY = import.meta.env.VITE_API_KEY as string | undefined
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 async function fetchFlowDefinition(flowId: string): Promise<FlowDefinition> {
-  const headers: Record<string, string> = {}
-  if (API_KEY) headers['X-Api-Key'] = API_KEY
-
-  const response = await fetch(`${API_BASE_URL}/api/flows/${flowId}`, { headers })
+  // Flow definitions are operator data: authenticated by the admin session cookie, never by an
+  // API key shipped to the browser.
+  const response = await fetch(`${API_BASE_URL}/api/flows/${flowId}`, { credentials: 'include' })
   if (!response.ok) throw new Error(`Failed to fetch flow: ${response.status}`)
   return response.json() as Promise<FlowDefinition>
 }

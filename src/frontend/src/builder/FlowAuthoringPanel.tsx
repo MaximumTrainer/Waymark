@@ -8,9 +8,9 @@ import {
   validateFlowDraft,
   type FlowDraft,
 } from './flowAuthoring'
+import { operatorFetch, operatorJsonHeaders } from '../api/operator-api'
 
 const serverBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-const apiKey = import.meta.env.VITE_API_KEY
 
 type FlowAuthoringPanelProps = {
   onFlowSelected: (flowId: string | null, version: number | null) => void
@@ -22,10 +22,7 @@ type StatusState = {
 }
 
 function buildHeaders(includeJsonContentType: boolean): Record<string, string> {
-  const headers: Record<string, string> = {}
-  if (includeJsonContentType) headers['Content-Type'] = 'application/json'
-  if (apiKey) headers['X-Api-Key'] = apiKey
-  return headers
+  return includeJsonContentType ? operatorJsonHeaders() : {}
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -109,7 +106,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
     setIsBusy(true)
     setStatus({ kind: 'idle', message: '' })
     try {
-      const response = await fetch(`${serverBase}/api/flows/${flowIdInput.trim()}`, {
+      const response = await operatorFetch(`${serverBase}/api/flows/${flowIdInput.trim()}`, {
         headers: buildHeaders(false),
       })
       if (!response.ok) {
@@ -156,7 +153,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
         ? `${serverBase}/api/flows`
         : `${serverBase}/api/flows/${flowIdInput.trim()}`
       const method = mode === 'create' ? 'POST' : 'PUT'
-      const response = await fetch(url, {
+      const response = await operatorFetch(url, {
         method,
         headers: buildHeaders(true),
         body: JSON.stringify(buildFlowWritePayload(draft)),
@@ -195,7 +192,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
     setIsBusy(true)
     setStatus({ kind: 'idle', message: '' })
     try {
-      const response = await fetch(`${serverBase}/api/flows/${flowIdInput.trim()}`, {
+      const response = await operatorFetch(`${serverBase}/api/flows/${flowIdInput.trim()}`, {
         method: 'DELETE',
         headers: buildHeaders(false),
       })
@@ -236,7 +233,7 @@ export function FlowAuthoringPanel({ onFlowSelected }: FlowAuthoringPanelProps) 
     setIsBusy(true)
     setStatus({ kind: 'idle', message: '' })
     try {
-      const response = await fetch(`${serverBase}/api/flows/${flowIdInput.trim()}`, {
+      const response = await operatorFetch(`${serverBase}/api/flows/${flowIdInput.trim()}`, {
         headers: buildHeaders(false),
       })
       if (!response.ok) {

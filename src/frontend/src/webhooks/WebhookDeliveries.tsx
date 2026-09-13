@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { operatorFetch } from '../api/operator-api'
 
 interface Webhook {
   id: string
@@ -17,23 +18,18 @@ interface WebhookDelivery {
   createdAt: string
 }
 
-interface WebhookDeliveriesProps {
-  apiKey?: string
-}
-
 const statusColors: Record<WebhookDelivery['status'], string> = {
   Pending: 'bg-yellow-100 text-yellow-800',
   Delivered: 'bg-green-100 text-green-800',
   Failed: 'bg-red-100 text-red-800',
 }
 
-function buildHeaders(apiKey?: string): Record<string, string> {
+function buildHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (apiKey) h['X-Api-Key'] = apiKey
   return h
 }
 
-export function WebhookDeliveries({ apiKey }: WebhookDeliveriesProps) {
+export function WebhookDeliveries() {
   const [webhooks, setWebhooks] = useState<Webhook[]>([])
   const [selectedWebhook, setSelectedWebhook] = useState<Webhook | null>(null)
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([])
@@ -50,7 +46,7 @@ export function WebhookDeliveries({ apiKey }: WebhookDeliveriesProps) {
       setIsLoadingWebhooks(true)
       setWebhookError(null)
       try {
-        const res = await fetch('/api/webhooks', { headers: buildHeaders(apiKey) })
+        const res = await operatorFetch('/api/webhooks', { headers: buildHeaders() })
         if (!res.ok) throw new Error(`Failed to load webhooks (${res.status})`)
         const data = (await res.json()) as Webhook[]
         if (!cancelled) setWebhooks(data)
@@ -63,13 +59,13 @@ export function WebhookDeliveries({ apiKey }: WebhookDeliveriesProps) {
 
     void load()
     return () => { cancelled = true }
-  }, [apiKey])
+  }, [])
 
   const fetchDeliveries = useCallback((webhook: Webhook) => {
     setIsLoadingDeliveries(true)
     setDeliveryError(null)
 
-    fetch(`/api/webhooks/${webhook.id}/deliveries`, { headers: buildHeaders(apiKey) })
+    operatorFetch(`/api/webhooks/${webhook.id}/deliveries`, { headers: buildHeaders() })
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load deliveries (${res.status})`)
         return res.json() as Promise<WebhookDelivery[]>
@@ -77,14 +73,14 @@ export function WebhookDeliveries({ apiKey }: WebhookDeliveriesProps) {
       .then((data) => setDeliveries(data))
       .catch((err: unknown) => setDeliveryError(err instanceof Error ? err.message : 'Unknown error'))
       .finally(() => setIsLoadingDeliveries(false))
-  }, [apiKey])
+  }, [])
 
   const retryDelivery = useCallback((deliveryId: string, webhook: Webhook) => {
     setRetryingId(deliveryId)
 
-    fetch(`/api/webhooks/deliveries/${deliveryId}/retry`, {
+    operatorFetch(`/api/webhooks/deliveries/${deliveryId}/retry`, {
       method: 'POST',
-      headers: buildHeaders(apiKey),
+      headers: buildHeaders(),
     })
       .then((res) => {
         if (!res.ok) throw new Error(`Retry failed (${res.status})`)
@@ -92,7 +88,7 @@ export function WebhookDeliveries({ apiKey }: WebhookDeliveriesProps) {
       })
       .catch((err: unknown) => setDeliveryError(err instanceof Error ? err.message : 'Retry failed'))
       .finally(() => setRetryingId(null))
-  }, [apiKey, fetchDeliveries])
+  }, [fetchDeliveries])
 
   const handleSelectWebhook = (webhook: Webhook) => {
     setSelectedWebhook(webhook)
