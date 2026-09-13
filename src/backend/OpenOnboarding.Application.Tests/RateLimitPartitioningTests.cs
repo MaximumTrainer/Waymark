@@ -222,6 +222,79 @@ public sealed class RateLimitPartitioningTests
     }
 
     [Fact]
+    public async Task General_ExhaustedByOneCaller_StillAdmitsADifferentPartition()
+    {
+        // The fallback policy covers every controller endpoint that does not name a tighter one,
+        // which is most of the API. Partitioning matters here for the same reason it does on
+        // session-start: one caller must not be able to close the API to everyone else.
+        using var factory = CreateFactory(new Dictionary<string, string?>
+        {
+            ["RateLimiting:GeneralPerMinute"] = Limit.ToString()
+        });
+
+        using var client = factory.CreateClient();
+
+        for (var i = 0; i < Limit + 1; i++)
+            await client.SendAsync(GeneralRequest(ClientA));
+
+        var limited = await client.SendAsync(GeneralRequest(ClientA));
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+
+        // A different caller reaches authorization and is refused there, not by the exhausted
+        // caller's limiter.
+        var other = await client.SendAsync(GeneralRequest(ClientB));
+
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, other.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnEndpointWithItsOwnPolicy_IsNotAlsoBoundByTheGeneralFallback()
+    {
+        // Attaching "general" to every controller must not silently stack a second limiter onto the
+        // endpoints that already declare one - session-start would then be capped by whichever of
+        // the two is tighter, which is not what either setting says.
+        using var factory = CreateFactory(new Dictionary<string, string?>
+        {
+            ["RateLimiting:GeneralPerMinute"] = "2",
+            ["RateLimiting:SessionStartPerMinute"] = "1000"
+        });
+
+        using var operatorClient = factory.CreateClient();
+        operatorClient.DefaultRequestHeaders.Add("X-Api-Key", "test-api-key");
+        var flowId = await CreateFlowAsync(operatorClient);
+
+        using var client = factory.CreateClient();
+
+        for (var i = 0; i < 6; i++)
+        {
+            var response = await client.SendAsync(StartRequest(flowId, ClientA));
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task TheGeneralFallback_DoesNotApplyToHealthChecks()
+    {
+        // Health checks are what a load balancer polls, often several times a second. Rate limiting
+        // them turns a traffic spike into an instance being marked unhealthy and pulled out.
+        using var factory = CreateFactory(new Dictionary<string, string?>
+        {
+            ["RateLimiting:GeneralPerMinute"] = "2"
+        });
+
+        using var client = factory.CreateClient();
+
+        for (var i = 0; i < 6; i++)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/health/live");
+            request.Headers.Add(ClientAddressStartupFilter.HeaderName, ClientA);
+            var response = await client.SendAsync(request);
+
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, response.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task GlobalCeiling_BoundsAFloodSpreadAcrossManyPartitions()
     {
         const int ceiling = 5;
@@ -293,6 +366,18 @@ public sealed class RateLimitPartitioningTests
         Assert.Equal(
             RateLimitPartitionKeys.ClientAddress(context),
             RateLimitPartitionKeys.Principal(context));
+    }
+
+    /// <summary>
+    /// A request to an endpoint that declares no policy of its own, so it falls to the "general"
+    /// fallback. Sent anonymously: the limiter runs before authorization, so an unauthenticated
+    /// caller still spends its partition's budget and a refusal tells the two apart by status.
+    /// </summary>
+    private static HttpRequestMessage GeneralRequest(string clientAddress)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/flows");
+        request.Headers.Add(ClientAddressStartupFilter.HeaderName, clientAddress);
+        return request;
     }
 
     private static HttpRequestMessage WebhookRequest(string clientAddress, string? apiKey)

@@ -498,11 +498,21 @@ other. Configure the limits under `RateLimiting` in `appsettings.json` or as
 | `session-start` | `POST /api/workflow/sessions/start` | Client IP — the endpoint is anonymous by design | `RateLimiting:SessionStartPerMinute` | 100 |
 | `analytics-ingest` | `POST /api/analytics/events` | Applicant session id from the token; operators fall back to their principal | `RateLimiting:AnalyticsIngestPerMinute` | 120 |
 | `webhook-registration` | `POST /api/flows/{flowId}/webhooks` | Authenticated principal, falling back to client IP | `RateLimiting:WebhookRegistrationPerMinute` | 20 |
-| `general` | declared, not yet attached to an endpoint | Authenticated principal, falling back to client IP | `RateLimiting:GeneralPerMinute` | 300 |
+| `general` | every other controller endpoint | Authenticated principal, falling back to client IP | `RateLimiting:GeneralPerMinute` | 300 |
 | global ceiling | every request | nothing — one bucket for the whole instance | `RateLimiting:GlobalCeilingPerMinute` | 3000 |
 
 The global ceiling runs **in addition to** the endpoint policy, so a flood spread across thousands
 of partitions still has a bound. A request rejected by either returns `429` with `Retry-After: 60`.
+
+`general` is the fallback: it is attached to every controller endpoint that does not declare a
+policy of its own, so no part of the API is unlimited. An endpoint naming a specific policy is
+**not** additionally bound by it — the two do not stack, and `session-start` runs under its own
+budget alone. Health check endpoints are outside it entirely, since throttling the endpoint a load
+balancer polls turns a traffic spike into an instance being pulled out of service.
+
+One consequence worth sizing for: callers sharing a credential share a partition. Every integration
+using the same API key spends one `general` budget between them, because the partition key is the
+principal. Give separate integrations separate credentials, or raise the limit to cover them all.
 
 #### Behind a proxy
 

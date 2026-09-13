@@ -410,7 +410,21 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
     }
 }).AllowAnonymous();
 
-app.MapControllers();
+// Every controller endpoint falls under the "general" policy unless it names a more specific one.
+// The policy was previously declared and attached to nothing, so most of the API was unlimited
+// while appearing covered.
+//
+// Added as metadata only where no policy is already present, rather than with
+// RequireRateLimiting: that applies to the whole group, and because the middleware takes the last
+// matching metadata it would override the action-level attributes - session-start would silently
+// run under the general budget instead of its own. Health checks are mapped above and stay outside.
+app.MapControllers().Add(endpoint =>
+{
+    if (endpoint.Metadata.OfType<EnableRateLimitingAttribute>().Any()) return;
+    if (endpoint.Metadata.OfType<DisableRateLimitingAttribute>().Any()) return;
+
+    endpoint.Metadata.Add(new EnableRateLimitingAttribute("general"));
+});
 
 app.MapMetrics().RequireAuthorization().DisableRateLimiting();
 
