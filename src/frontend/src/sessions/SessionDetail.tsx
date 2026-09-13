@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { operatorFetch } from '../api/operator-api'
+import { SessionEventTrail } from './SessionEventTrail'
 
 interface Submission {
   id: string
@@ -74,6 +75,8 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       {error && <p className="rounded bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
       {isLoading && <p className="text-sm text-slate-500">Loading submissions…</p>}
 
+      <h4 className="text-sm font-semibold text-slate-800">Submissions</h4>
+
       {!isLoading && submissions.length === 0 && (
         <p className="text-sm text-slate-400 italic">No submissions recorded for this session.</p>
       )}
@@ -92,6 +95,10 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           ))}
         </ol>
       )}
+
+      {/* The complementary view: submissions say what was entered, the trail says how the applicant
+          got there and where the time went. */}
+      <SessionEventTrail sessionId={sessionId} />
     </div>
   )
 }

@@ -185,6 +185,27 @@ Events are stored in the `AnalyticsEvents` table and pruned by a background swee
 which a caller controls. Set `Analytics__DatabaseProvider__Enabled=false` to turn storage off
 entirely; the application keeps working and events go only to the log.
 
+#### Reading one session's trail
+
+The operator console shows a session's trail under **Sessions → (a session) → Event trail**, beside
+its submissions. Submissions say what the applicant entered; the trail says how they got there —
+the order steps were seen in, and the gap between consecutive events, which is what makes a stall
+visible. It reads `GET /api/analytics/sessions/{sessionId}/events` with the admin session cookie,
+and is never requested from the applicant page.
+
+Two empty states are worth recognising when reading it:
+
+- **Server events only.** Client events are self-reported by the applicant's browser and can be
+  absent entirely — an ad blocker or a tab closed before the batch flushed stops them reaching the
+  API. The panel says so. It is not evidence of a fault.
+- **No events at all.** Either none were raised, or they aged past `Analytics__RetentionDays` and
+  were deleted. The two are indistinguishable after the sweep, so the panel names both rather than
+  implying data was lost. Expect this for any session older than the retention window.
+
+Aggregate drop-off in the flow analytics view is still derived from session status and submissions,
+not from this event stream, so per-step timing is currently visible per session but not across a
+flow.
+
 ### SAML Single Sign-On (Admin UI)
 
 The admin UI signs operators in over SAML 2.0 (`GET /auth/saml/login` → IdP → `POST /auth/saml/callback`).
