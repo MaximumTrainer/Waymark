@@ -223,6 +223,17 @@ builder.Services.AddRateLimiter(options =>
             opt.QueueLimit = 0;
         });
 
+        var analyticsIngestLimit = builder.Configuration.GetValue<int>("RateLimiting:AnalyticsIngestPerMinute", 120);
+
+        options.AddSlidingWindowLimiter("analytics-ingest", opt =>
+        {
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.SegmentsPerWindow = 4;
+            opt.PermitLimit = analyticsIngestLimit;
+            opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+            opt.QueueLimit = 0;
+        });
+
         options.AddSlidingWindowLimiter("general", opt =>
         {
             opt.Window = TimeSpan.FromMinutes(1);
@@ -238,6 +249,7 @@ builder.Services.AddRateLimiter(options =>
         options.AddPolicy("session-start", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
         options.AddPolicy("webhook-registration", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
         options.AddPolicy("general", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("analytics-ingest", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
     }
 });
 

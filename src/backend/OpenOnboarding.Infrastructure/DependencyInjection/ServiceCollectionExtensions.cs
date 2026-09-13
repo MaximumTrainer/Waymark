@@ -79,6 +79,15 @@ public static class ServiceCollectionExtensions
         if (configuration.GetValue("Analytics:ConsoleProvider:Enabled", true))
             services.AddSingleton<IAnalyticsProvider, ConsoleAnalyticsProvider>();
 
+        // Durable sink. Without it events reach the log and nothing else, so no trail can be read
+        // back; with it, analytics rows accumulate and need the retention sweep below.
+        services.AddScoped<IAnalyticsEventStore, DatabaseAnalyticsEventStore>();
+        if (configuration.GetValue("Analytics:DatabaseProvider:Enabled", true))
+        {
+            services.AddSingleton<IAnalyticsProvider, DatabaseAnalyticsProvider>();
+            services.AddHostedService<CleanupExpiredAnalyticsEventsService>();
+        }
+
         services.AddSingleton<ITelemetryService, TelemetryService>();
 
         // Virus scanning: use real ClamAV adapter when enabled, otherwise no-op

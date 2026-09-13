@@ -95,11 +95,14 @@ describe('App routing and route guards', () => {
       render(<App />)
       await screen.findByText('Welcome aboard')
 
+      // Operator-only reads. /api/analytics/events is excluded deliberately: that is the
+      // applicant's own analytics ingest, scoped to their session token.
       const operatorPaths = [
         '/api/workflow/sessions?',
         '/api/webhooks',
         '/api/flows/',
-        '/api/analytics/',
+        '/api/analytics/flows',
+        '/api/analytics/sessions',
         '/api/customers',
         '/api/auth/me',
       ]

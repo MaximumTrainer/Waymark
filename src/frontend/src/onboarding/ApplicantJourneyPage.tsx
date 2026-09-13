@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { JourneyAnalyticsProvider } from '../analytics/JourneyAnalyticsContext'
 import { consoleAnalyticsSink } from '../analytics/consoleAnalyticsSink'
+import { createHttpAnalyticsSink } from '../analytics/httpAnalyticsSink'
 import { StepRenderer } from './components/StepRenderer'
 import { useOnboarding } from './hooks/useOnboarding'
 import { defaultFlowId } from '../journeys'
@@ -20,6 +21,23 @@ export function ApplicantJourneyPage({ search }: { search: string }) {
 
   const flowId = new URLSearchParams(search).get('flowId') ?? defaultFlowId
 
+  // One sink for the lifetime of the page so its batch queue survives re-renders. The console sink
+  // stays alongside it for local debugging.
+  const httpSink = useMemo(() => createHttpAnalyticsSink(), [])
+  const analyticsSinks = useMemo(() => [consoleAnalyticsSink, httpSink], [httpSink])
+
+  useEffect(() => {
+    // A journey often ends by the applicant closing the tab, so flush what is queued before the
+    // page goes away rather than losing the tail of every session.
+    const flushOnHide = () => { void httpSink.flush() }
+    window.addEventListener('pagehide', flushOnHide)
+
+    return () => {
+      window.removeEventListener('pagehide', flushOnHide)
+      void httpSink.close()
+    }
+  }, [httpSink])
+
   useEffect(() => {
     startSession({ flowId })
       .then((result) => {
@@ -34,7 +52,7 @@ export function ApplicantJourneyPage({ search }: { search: string }) {
     <JourneyAnalyticsProvider
       journeyId={flowId}
       sessionId={step?.sessionId ?? null}
-      initialSinks={[consoleAnalyticsSink]}
+      initialSinks={analyticsSinks}
     >
       <main className="mx-auto max-w-2xl space-y-6 p-6">
         <header className="space-y-1">

@@ -104,6 +104,11 @@ All configuration can be set via environment variables or `appsettings.json`.
 | `Authentication__ApplicantToken__SigningKey` | ✅ (non-dev) | — | HMAC key signing per-session applicant tokens, min 32 chars. **Store as a secret.** Startup fails without it outside Development. |
 | `Authentication__ApplicantToken__LifetimeMinutes` | optional | `SessionTimeoutMinutes` | Applicant token lifetime. Defaults to the session timeout, since the token is useless once its session is abandoned. |
 | `SessionTimeoutMinutes` | optional | `60` | Inactivity timeout before sessions are auto-abandoned. |
+| `Analytics__DatabaseProvider__Enabled` | optional | `true` | Persist analytics events so a session's trail can be read back. `false` leaves only the console provider. |
+| `Analytics__ConsoleProvider__Enabled` | optional | `true` | Write every event to the application log. |
+| `Analytics__RetentionDays` | optional | `365` | Age at which stored analytics events are deleted. |
+| `Analytics__CleanupIntervalHours` | optional | `24` | How often the analytics retention sweep runs. |
+| `RateLimiting__AnalyticsIngestPerMinute` | optional | `120` | Per-caller limit on `POST /api/analytics/events`. |
 | `Logging__LogLevel__Default` | optional | `Information` | Log verbosity. |
 | `ASPNETCORE_ENVIRONMENT` | optional | `Production` | `Development`, `Staging`, or `Production`. |
 
@@ -138,6 +143,30 @@ response carries `applicantToken`, an HMAC-signed JWT the browser sends as
 - **SSE.** The browser `EventSource` API cannot set request headers, so
   `GET /api/workflow/sessions/{id}/events` also accepts the token as an `access_token` query
   parameter. Ownership is enforced identically on both paths.
+
+### Journey analytics
+
+Two things are counted separately.
+
+**Aggregate flow figures** — completion rate, drop-off, average duration — are derived from sessions
+and submissions on demand at `GET /api/analytics/flows/{flowId}` (operator only). They need no
+event history and are unaffected by retention.
+
+**The event trail** is the per-step record of what happened in one session, readable at
+`GET /api/analytics/sessions/{sessionId}/events` (operator only), ordered by occurrence.
+
+- Server-raised events (session started, step advanced) are emitted by the journey engine.
+- Client-raised events are posted by the browser to `POST /api/analytics/events` in batches. The
+  caller's applicant token must name the session every event in the batch belongs to, or the whole
+  batch is rejected with `403` — a client cannot write events against someone else's journey. The
+  server stamps `source`, so a client cannot pass its events off as server-raised.
+- Delivery from the browser is best-effort: a failed batch is dropped rather than retried, so a
+  broken analytics endpoint can never stall an application form.
+
+Events are stored in the `AnalyticsEvents` table and pruned by a background sweep after
+`Analytics__RetentionDays`, measured from **write** time rather than the client-reported timestamp,
+which a caller controls. Set `Analytics__DatabaseProvider__Enabled=false` to turn storage off
+entirely; the application keeps working and events go only to the log.
 
 ### SAML Single Sign-On (Admin UI)
 
