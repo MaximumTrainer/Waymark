@@ -429,4 +429,49 @@ All other state is in PostgreSQL — safe for horizontal scaling.
 
 ### Rate Limits
 
-Default rate limit: **100 requests per minute per IP** (configurable). Adjust in `Program.cs` `AddRateLimiter()`.
+Every policy is **partitioned per caller**, so one client exhausting its budget does not affect any
+other. Configure the limits under `RateLimiting` in `appsettings.json` or as
+`RateLimiting__<Key>` environment variables.
+
+| Policy | Endpoint | Partitioned by | Setting | Default (per minute) |
+| --- | --- | --- | --- | --- |
+| `session-start` | `POST /api/workflow/sessions/start` | Client IP — the endpoint is anonymous by design | `RateLimiting:SessionStartPerMinute` | 100 |
+| `analytics-ingest` | `POST /api/analytics/events` | Applicant session id from the token; operators fall back to their principal | `RateLimiting:AnalyticsIngestPerMinute` | 120 |
+| `webhook-registration` | `POST /api/flows/{flowId}/webhooks` | Authenticated principal, falling back to client IP | `RateLimiting:WebhookRegistrationPerMinute` | 20 |
+| `general` | declared, not yet attached to an endpoint | Authenticated principal, falling back to client IP | `RateLimiting:GeneralPerMinute` | 300 |
+| global ceiling | every request | nothing — one bucket for the whole instance | `RateLimiting:GlobalCeilingPerMinute` | 3000 |
+
+The global ceiling runs **in addition to** the endpoint policy, so a flood spread across thousands
+of partitions still has a bound. A request rejected by either returns `429` with `Retry-After: 60`.
+
+#### Behind a proxy
+
+The partition key is the connection address, which behind a load balancer is the balancer's own
+address — every caller would land in one partition again. `X-Forwarded-For` corrects this, but only
+from a proxy this API trusts; a header from anywhere else is an anonymous caller choosing their own
+partition key, and is ignored.
+
+**Nothing is trusted by default.** The ASP.NET defaults (loopback) are cleared at startup, so
+`X-Forwarded-For` has no effect until you name your proxy:
+
+```jsonc
+"ForwardedHeaders": {
+  "KnownProxies": ["10.1.2.3"],        // individual proxy addresses
+  "KnownNetworks": ["10.0.0.0/8"],     // or CIDR ranges
+  "ForwardLimit": 1                     // hops to walk back; raise only if you have chained proxies
+}
+```
+
+If you deploy behind an ingress and leave this unset, every request partitions by the ingress
+address and the limits behave as global ones. Set it.
+
+#### Multi-replica behaviour
+
+**Limits are per-instance, not cluster-wide.** The limiters hold their counters in process memory,
+so with *N* replicas a caller's effective budget is up to *N* × the configured value, depending on
+which instance each request lands on. This is accepted deliberately, for the same reason as the SSE
+fan-out design: the alternative is a shared counter store on the path of every request.
+
+Size the limits accordingly — divide the budget you actually want by your replica count — and treat
+these as a coarse abuse bound, not a precise quota. A cluster-wide limit belongs at the ingress or
+in a shared store; if you need one, that is where to put it.

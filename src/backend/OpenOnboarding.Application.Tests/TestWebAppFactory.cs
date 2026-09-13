@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using OpenOnboarding.Application.Tests.TestHelpers;
 using OpenOnboarding.Infrastructure.Persistence;
 
 namespace OpenOnboarding.Application.Tests;
@@ -54,6 +56,11 @@ internal static class TestWebAppFactory
             });
             builder.ConfigureTestServices(services =>
             {
+                // Lets a test choose the address a request appears to come from; without it
+                // TestServer leaves RemoteIpAddress null and every caller shares one rate limit
+                // partition. Inert unless the test sends the header.
+                services.AddSingleton<IStartupFilter, ClientAddressStartupFilter>();
+
                 // EF Core 10 uses TryAdd for IDbContextOptionsConfiguration<TContext>, so the Npgsql
                 // registration persists unless we explicitly remove it before adding the InMemory one.
                 // Remove all DbContext-related registrations for OnboardingDbContext.

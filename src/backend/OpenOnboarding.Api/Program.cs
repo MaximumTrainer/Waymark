@@ -5,14 +5,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using System.Net;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using OpenOnboarding.Api.Authentication;
 using OpenOnboarding.Api.Authorization;
 using OpenOnboarding.Api.Configuration;
+using OpenOnboarding.Api.RateLimiting;
 using OpenOnboarding.Application.Exceptions;
 using OpenOnboarding.Infrastructure.DependencyInjection;
 using OpenOnboarding.Infrastructure.Persistence;
@@ -185,6 +189,30 @@ builder.Services.AddCors(options =>
 var environment = builder.Environment.EnvironmentName;
 var rateLimitingEnabled = !string.Equals(environment, "Testing", StringComparison.OrdinalIgnoreCase);
 
+// Behind a proxy the connection address is the load balancer's, so every caller would land in one
+// rate limit partition. X-Forwarded-For fixes that, but only from a proxy we trust - a header from
+// anywhere else is an unauthenticated caller choosing their own partition key. The ASP.NET
+// defaults (loopback) are cleared so nothing is trusted unless it is configured here.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = builder.Configuration.GetValue<int?>("ForwardedHeaders:ForwardLimit") ?? 1;
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+
+    foreach (var proxy in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+    {
+        if (IPAddress.TryParse(proxy, out var address))
+            options.KnownProxies.Add(address);
+    }
+
+    foreach (var network in builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [])
+    {
+        if (System.Net.IPNetwork.TryParse(network, out var parsed))
+            options.KnownIPNetworks.Add(parsed);
+    }
+});
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -204,52 +232,45 @@ builder.Services.AddRateLimiter(options =>
         var sessionStartLimit = builder.Configuration.GetValue<int>("RateLimiting:SessionStartPerMinute", 100);
         var webhookRegLimit = builder.Configuration.GetValue<int>("RateLimiting:WebhookRegistrationPerMinute", 20);
         var generalLimit = builder.Configuration.GetValue<int>("RateLimiting:GeneralPerMinute", 300);
-
-        options.AddSlidingWindowLimiter("session-start", opt =>
-        {
-            opt.Window = TimeSpan.FromMinutes(1);
-            opt.SegmentsPerWindow = 4;
-            opt.PermitLimit = sessionStartLimit;
-            opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
-            opt.QueueLimit = 0;
-        });
-
-        options.AddSlidingWindowLimiter("webhook-registration", opt =>
-        {
-            opt.Window = TimeSpan.FromMinutes(1);
-            opt.SegmentsPerWindow = 4;
-            opt.PermitLimit = webhookRegLimit;
-            opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
-            opt.QueueLimit = 0;
-        });
-
         var analyticsIngestLimit = builder.Configuration.GetValue<int>("RateLimiting:AnalyticsIngestPerMinute", 120);
+        var globalCeiling = builder.Configuration.GetValue<int>("RateLimiting:GlobalCeilingPerMinute", 3000);
 
-        options.AddSlidingWindowLimiter("analytics-ingest", opt =>
+        static SlidingWindowRateLimiterOptions PerMinute(int permitLimit) => new()
         {
-            opt.Window = TimeSpan.FromMinutes(1);
-            opt.SegmentsPerWindow = 4;
-            opt.PermitLimit = analyticsIngestLimit;
-            opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
-            opt.QueueLimit = 0;
-        });
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 4,
+            PermitLimit = permitLimit,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        };
 
-        options.AddSlidingWindowLimiter("general", opt =>
-        {
-            opt.Window = TimeSpan.FromMinutes(1);
-            opt.SegmentsPerWindow = 4;
-            opt.PermitLimit = generalLimit;
-            opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
-            opt.QueueLimit = 0;
-        });
+        // Each policy is partitioned by whoever the request belongs to. AddSlidingWindowLimiter
+        // would build a single limiter shared by every caller, which is what made one client able
+        // to lock out the rest.
+        options.AddPolicy("session-start", context => RateLimitPartition.GetSlidingWindowLimiter(
+            RateLimitPartitionKeys.ClientAddress(context), _ => PerMinute(sessionStartLimit)));
+
+        options.AddPolicy("analytics-ingest", context => RateLimitPartition.GetSlidingWindowLimiter(
+            RateLimitPartitionKeys.ApplicantSession(context), _ => PerMinute(analyticsIngestLimit)));
+
+        options.AddPolicy("webhook-registration", context => RateLimitPartition.GetSlidingWindowLimiter(
+            RateLimitPartitionKeys.Principal(context), _ => PerMinute(webhookRegLimit)));
+
+        options.AddPolicy("general", context => RateLimitPartition.GetSlidingWindowLimiter(
+            RateLimitPartitionKeys.Principal(context), _ => PerMinute(generalLimit)));
+
+        // A ceiling over every partition, so a flood spread across many callers still has a bound.
+        // It runs in addition to the endpoint policy, not instead of it.
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
+            _ => RateLimitPartition.GetSlidingWindowLimiter("global", _ => PerMinute(globalCeiling)));
     }
     else
     {
         // Testing: add NoLimiter policies so attributes don't error
-        options.AddPolicy("session-start", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
-        options.AddPolicy("webhook-registration", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
-        options.AddPolicy("general", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
-        options.AddPolicy("analytics-ingest", _ => System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("session-start", _ => RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("webhook-registration", _ => RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("general", _ => RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("analytics-ingest", _ => RateLimitPartition.GetNoLimiter("testing"));
     }
 });
 
@@ -337,6 +358,9 @@ app.UseExceptionHandler(exceptionHandler =>
     });
 });
 
+// First in the pipeline: everything downstream that reads the client address - the rate limit
+// partitioner above all - must see the real caller, not the proxy in front of it.
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("FrontendDev");
 app.UseMiddleware<OpenOnboarding.Api.Middleware.CorrelationIdMiddleware>();
