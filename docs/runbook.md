@@ -295,21 +295,41 @@ Docker Compose configures automatic restart when the liveness probe fails.
 
 The API exposes Prometheus metrics at `GET /metrics`.
 
-Key metrics to monitor:
+The endpoint requires authentication and is exempt from rate limiting.
 
-| Metric | Description | Alert threshold |
-|--------|-------------|-----------------|
-| `dotnet_duration_seconds` | HTTP request duration | p95 > 2s |
-| `waymark_session_started_total` | New sessions started | Sudden drop |
-| `waymark_session_completed_total` | Sessions completed | Sudden drop |
-| `waymark_session_abandoned_total` | Sessions abandoned by timeout | Spike > normal |
-| `waymark_webhook_delivery_failed_total` | Failed webhook deliveries | > 5 in 5 min |
-| `waymark_webhook_delivery_retried_total` | Webhook retries | Sustained high rate |
-| `process_cpu_seconds_total` | Process CPU usage | > 80% for 5 min |
+### Application metrics
 
-**Grafana dashboard** (if using Grafana Cloud / self-hosted):
-- Import the provided dashboard JSON from `docs/grafana-dashboard.json` (if available)
-- Data source: Prometheus scraping `http://api:8080/metrics` every 15s
+These are the metrics the application emits. Names are as registered in
+`PrometheusMetricsService`; build alerts against these exact strings.
+
+| Metric | Type | Labels | Emitted when | Alert on |
+|--------|------|--------|--------------|----------|
+| `onboarding_sessions_started_total` | counter | `flowId` | A session starts | Sudden drop |
+| `onboarding_sessions_completed_total` | counter | `flowId` | A session completes | Sudden drop, or a widening gap against started |
+| `onboarding_webhook_deliveries_total` | counter | `status` (`delivered`, `failed`) | Each delivery attempt resolves | `failed` rate > 5 in 5 min |
+| `waymark_virus_scan_bypassed_total` | counter | — | A document upload is accepted without a real scan | Any increase outside a deliberately unscanned environment |
+
+`prometheus-net` also exports standard .NET runtime and process metrics on the same endpoint, among
+them `process_cpu_seconds_total` (alert above 80% for 5 min) and the GC and thread-pool series.
+
+### What is not exposed
+
+Worth knowing before you design a dashboard around metrics that will never arrive:
+
+- **HTTP request duration and status code counts.** `UseHttpMetrics()` is not wired up, so there is
+  no `http_request_duration_seconds` series and no per-endpoint latency or error rate. Request-level
+  monitoring has to come from your ingress or APM until that middleware is added.
+- **Abandoned sessions.** There is no counter for sessions the timeout sweep abandons. Track
+  abandonment from the `Sessions` table or the analytics event trail instead.
+- **`onboarding_active_sessions`.** The gauge is registered but nothing ever sets it, so it reads
+  zero permanently. Do not alert on it.
+
+### Grafana
+
+There is no dashboard JSON in this repository; build one against the metric names above.
+
+- Data source: Prometheus scraping `http://api:8080/metrics` every 15s.
+- The scraper needs a credential, since `/metrics` requires authentication.
 
 ---
 

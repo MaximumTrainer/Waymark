@@ -98,6 +98,13 @@ erDiagram
     Webhooks ||--o{ WebhookDeliveries : "tracks"
 ```
 
+Two further tables carry no foreign keys and so sit outside the diagram:
+
+- **`AnalyticsEvents`** — the durable journey event trail. Rows reference a session by its id as a
+  string rather than by FK, because events outlive nothing and are pruned on their own schedule.
+- **`SessionReadModels`** — a denormalised projection of a session used by the operator session
+  list, so that view does not join five tables per row.
+
 ### Table reference
 
 #### `Flows`
@@ -122,7 +129,7 @@ A single step in a flow. `JsonContent` carries type-specific configuration; `Com
 | `Id` | `uuid` | PK | Node identifier |
 | `FlowId` | `uuid` | FK → `Flows.Id` CASCADE | Owning flow |
 | `Key` | `varchar(100)` | NOT NULL, UNIQUE per flow | Stable string identifier (used in routing logic and URL interpolation) |
-| `Type` | `integer` | NOT NULL | Enum: `Form=0`, `Information=1`, `Logic=2`, `Redirect=3`, `DocumentUpload=4` |
+| `Type` | `integer` | NOT NULL | Enum: `Form=0`, `DocumentUpload=1`, `Redirect=2`, `Information=3`, `Logic=4`. Stored as the ordinal with no value conversion, so these integers are what is in the column. |
 | `Title` | `varchar(200)` | NOT NULL | Display title shown to the end user |
 | `JsonContent` | `text` | NOT NULL | Type-specific configuration JSON (field definitions, upload constraints, redirect URL, etc.) |
 | `ComplianceRuleJson` | `text` | nullable | Server-side validation rules (see [ComplianceRuleJson reference](#compliancerulejson-reference)) |
@@ -245,6 +252,58 @@ Immutable snapshots of a flow graph captured on each publish. Enables rollback a
 | `CreatedBy` | `text` | nullable | Identity of the user who published the version |
 
 **Indexes:** `(FlowId, VersionNumber)` UNIQUE
+
+#### `AnalyticsEvents`
+
+The durable journey event trail. Added so the per-step record of where applicants stall could be
+queried and exported rather than only written to the application log. Read per session by
+`GET /api/analytics/sessions/{sessionId}/events`, and surfaced in the operator console under a
+session's **Event trail**.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | The originating event's id; doubles as the idempotency key for client retries |
+| `EventType` | `varchar(100)` | NOT NULL | For example `session_started`, `step_view`, `journey_complete` |
+| `JourneyId` | `varchar(100)` | NOT NULL | The flow the event belongs to |
+| `SessionId` | `varchar(100)` | NOT NULL | The session the event belongs to. A string, not an FK — events are pruned on their own schedule and must not depend on the session row surviving |
+| `StepId` | `varchar(100)` | nullable | Node the event relates to, when there is one |
+| `StepIndex` | `integer` | nullable | Zero-based position within the session's submission history |
+| `PayloadJson` | `text` | NOT NULL | Event-specific payload, so a new event type needs no schema change |
+| `Source` | `varchar(20)` | NOT NULL | `server` or `client`. Stamped by the API, never taken from the caller, so a client cannot pass its events off as server-raised |
+| `OccurredAt` | `timestamptz` | NOT NULL | When the event happened, as reported by its origin |
+| `RecordedAt` | `timestamptz` | NOT NULL | When the row was written. Retention is measured from this, not `OccurredAt`, which a client controls and could backdate |
+
+**Indexes:** `(SessionId, OccurredAt)` — reading one session's trail in order is the common query
+
+Pruned by a background sweep after `Analytics__RetentionDays` (default 365). Set
+`Analytics__DatabaseProvider__Enabled=false` to disable storage entirely; the application keeps
+working and events go only to the log.
+
+---
+
+#### `SessionReadModels`
+
+A denormalised projection of a session, maintained so the operator session list does not join five
+tables per row. Not a source of truth: every column is derived from `Sessions` and its relations.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | `uuid` | PK | Mirrors `Sessions.Id` |
+| `FlowId` | `uuid` | NOT NULL | The flow being executed |
+| `FlowName` | `text` | NOT NULL | Denormalised from `Flows.Name` |
+| `CustomerEmail` | `text` | nullable | Denormalised from the linked `CustomerProfiles` row |
+| `CustomerCountry` | `text` | nullable | Denormalised from the linked `CustomerProfiles` row |
+| `ExternalCustomerId` | `text` | nullable | Denormalised from the linked `CustomerProfiles` row |
+| `CurrentNodeId` | `uuid` | nullable | Node awaiting submission; `null` once terminal |
+| `CurrentNodeKey` | `text` | nullable | Denormalised from `Nodes.Key` |
+| `CurrentNodeTitle` | `text` | nullable | Denormalised from `Nodes.Title` |
+| `StatusName` | `text` | NOT NULL | Status as a string, so the list needs no enum mapping |
+| `StepCount` | `integer` | NOT NULL | Number of submissions recorded |
+| `CreatedAt` | `timestamptz` | NOT NULL | Session creation timestamp |
+| `UpdatedAt` | `timestamptz` | NOT NULL | Last modification timestamp |
+| `CompletedAt` | `timestamptz` | nullable | Set when the session completes |
+
+---
 
 ### Design notes
 

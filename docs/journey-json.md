@@ -124,7 +124,7 @@ The journey JSON links directly to frontend behavior:
 | `connections[]` | Runtime engine + `JourneyBuilder.tsx` | Drives routing and shows labeled graph edges in the read-only session monitor. |
 | `nodes[]`/`connections[]` | `VisualJourneyBuilder.tsx` + `VisualJourneyCanvas.tsx` | Edited visually via drag-and-drop in the admin builder at `/admin/journey-builder`. |
 | `nodes[]`/`connections[]` | `FlowAuthoringPanel.tsx` + `flowAuthoring.ts` | Alternative JSON authoring panel for power users; runs alongside the visual builder. |
-| `nodes[].type` | `VisualJourneyCanvas.tsx` (`NODE_TYPE_STYLES`) | Determines the color scheme of each node on the canvas (Form=blue, DocumentUpload=purple, Redirect=amber, Information=green, Logic=orange). |
+| `nodes[].type` | `visualJourneyCanvasUtils.ts` (`NODE_TYPE_STYLES`) | Determines the color scheme of each node on the canvas (Form=blue, DocumentUpload=purple, Redirect=amber, Information=green, Logic=orange). |
 | `nodes[].isStartNode` | `VisualJourneyCanvas.tsx` + `NodePropertiesPanel.tsx` | Start node receives a bold outline; Properties Panel enforces at most one start node. |
 
 ## Journey visualization
