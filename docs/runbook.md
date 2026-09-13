@@ -423,6 +423,28 @@ A non-Development environment running the in-memory emitter logs a startup warni
 limitation. Events are transient and not persisted: they are only useful to a stream that is open
 at the time, so an instance that was down missed the stream too.
 
+**Connection recovery.** The transport sets `AutomaticRecoveryEnabled` and `TopologyRecoveryEnabled`
+explicitly rather than relying on the RabbitMQ client defaults. On a dropped connection the client
+reconnects, re-declares the exclusive queue and its binding, and re-attaches the consumer, so
+delivery resumes without restarting the instance. This is covered by a test that drops the
+connection from the broker side and asserts events flow again. Each connection reports a name of
+`open-onboarding-session-events:<hostname>`, so the management UI identifies which replica holds
+which queue.
+
+**Testing the transport.** The broker-backed tests skip themselves when nothing is listening, so
+`dotnet test` stays dependency-free. To run them:
+
+```bash
+docker compose up -d rabbitmq
+dotnet test src/backend/OpenOnboarding.Application.Tests
+```
+
+Point them elsewhere with `SESSIONEVENTS__RABBITMQ__URI`. One of them — the recovery test — also
+needs the management API on port 15672, and skips separately if the broker image does not include
+it. CI declares a `rabbitmq:3-management` service container and sets `REQUIRE_BROKER_TESTS=1`, which
+turns a missing broker into a failure rather than a skip: a silently skipped test is a green build
+that proved nothing.
+
 All other state is in PostgreSQL — safe for horizontal scaling.
 
 **Connection pool**: Configure `Maximum Pool Size` in the connection string (default: 100). For multi-instance, ensure total connections < PostgreSQL `max_connections` (default: 100).
