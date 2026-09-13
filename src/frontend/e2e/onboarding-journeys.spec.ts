@@ -279,9 +279,8 @@ test('journey 1 runs simple small business onboarding flow', async ({ page }) =>
 })
 
 test('journey 2 reaches medium business document verification step', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?flowId=22222222-2222-2222-2222-222222222222')
 
-  await page.selectOption('#journey-select', '22222222-2222-2222-2222-222222222222')
   await expect(page.locator('form').getByText('Medium business details')).toBeVisible()
 
   await page.locator('#BusinessName').fill('Acme Regional Ltd')
@@ -315,9 +314,8 @@ test('journey 2 reaches medium business document verification step', async ({ pa
 })
 
 test('journey 3 runs large nationwide onboarding and compliance questions', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?flowId=33333333-3333-3333-3333-333333333333')
 
-  await page.selectOption('#journey-select', '33333333-3333-3333-3333-333333333333')
   await expect(page.locator('form').getByText('Large business profile')).toBeVisible()
 
   await page.locator('#BusinessName').fill('Acme National PLC')
