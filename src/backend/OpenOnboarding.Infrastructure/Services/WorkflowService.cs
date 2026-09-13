@@ -27,6 +27,6 @@ public sealed class WorkflowService(IMediator mediator) : IWorkflowService
     public Task<IReadOnlyList<StoredFileInfo>> UploadDocumentsAsync(Guid sessionId, Guid nodeId, IReadOnlyList<DocumentUploadItem> files, long maxFileSizeBytes, CancellationToken cancellationToken = default)
         => mediator.Send(new UploadDocumentsCommand(sessionId, nodeId, files, maxFileSizeBytes), cancellationToken);
 
-    public Task<(Stream Stream, StoredFileInfo Info)> GetDocumentAsync(string fileId, CancellationToken cancellationToken = default)
-        => mediator.Send(new GetDocumentQuery(fileId), cancellationToken);
+    public Task<(Stream Stream, StoredFileInfo Info)> GetDocumentAsync(Guid sessionId, Guid nodeId, string fileId, CancellationToken cancellationToken = default)
+        => mediator.Send(new GetDocumentQuery(sessionId, nodeId, fileId), cancellationToken);
 }
