@@ -1,0 +1,50 @@
+#!/bin/sh
+# The real gate: the test suites that run without external dependencies.
+#
+# Scope is deliberate. These run against an in-memory database and mocked transports, so they pass
+# on any machine with the two SDKs installed. The suites that need PostgreSQL, a broker or a
+# browser (Pact provider verification, Playwright) stay in CI, where those services exist.
+set -e
+
+. "$(dirname "$0")/_lib.sh"
+
+hooks_skipped "pre-push" && exit 0
+
+# ── Protect the default branch ────────────────────────────────────────────────
+# Changes reach main through a reviewed PR; CI is wired to run on pull requests.
+REMOTE_REF=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')
+if [ "$REMOTE_REF" = "main" ] && [ "${ALLOW_PUSH_TO_MAIN:-0}" != "1" ]; then
+    hook_error "Refusing to push directly to main."
+    hook_error "Branch and open a pull request, or set ALLOW_PUSH_TO_MAIN=1 if you mean it."
+    exit 1
+fi
+
+FAILED=0
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+if [ -d "$REPO_ROOT/src/backend" ]; then
+    require_command dotnet "the backend test step" || exit 1
+    run_step "backend: dotnet test" \
+        dotnet test src/backend/OpenOnboarding.Application.Tests/OpenOnboarding.Application.Tests.csproj \
+        --nologo -v quiet || FAILED=1
+fi
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+if [ -d "$REPO_ROOT/src/frontend" ]; then
+    require_command npm "the frontend test step" || exit 1
+
+    if [ ! -d "$REPO_ROOT/src/frontend/node_modules" ]; then
+        hook_warn "src/frontend/node_modules is missing; skipping frontend checks. Run npm ci."
+    else
+        run_step "frontend: vitest" sh -c 'cd src/frontend && npm test --silent' || FAILED=1
+        run_step "frontend: build" sh -c 'cd src/frontend && npm run --silent build' || FAILED=1
+    fi
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+    hook_error ""
+    hook_error "Push aborted. Fix the above, or bypass once with:  SKIP_HOOKS=1 git push ..."
+    exit 1
+fi
+
+hook_ok "pre-push checks passed."

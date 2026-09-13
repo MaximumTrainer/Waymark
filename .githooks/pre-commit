@@ -1,0 +1,76 @@
+#!/bin/sh
+# Fast checks on what is actually staged.
+#
+# Kept to seconds: a slow pre-commit gets bypassed, and a bypassed hook enforces nothing. The full
+# test suites run at pre-push, and CI remains the authority.
+set -e
+
+. "$(dirname "$0")/_lib.sh"
+
+hooks_skipped "pre-commit" && exit 0
+
+FILES=$(staged_files)
+if [ -z "$FILES" ]; then
+    exit 0
+fi
+
+FAILED=0
+
+# ── 1. Secrets ────────────────────────────────────────────────────────────────
+# Scans only the lines this commit adds. A credential is far cheaper to catch here than to rotate
+# after it reaches a branch.
+ADDED=$(git diff --cached --unified=0 --diff-filter=ACMR | grep '^+' | grep -v '^+++' || true)
+
+if printf '%s\n' "$ADDED" | grep -Eq -- '-----BEGIN [A-Z ]*PRIVATE KEY-----'; then
+    hook_error "A PEM private key block is being committed."
+    FAILED=1
+fi
+
+# Vite inlines every VITE_* variable into the published bundle as a literal string, so a secret
+# named this way is readable by every visitor. This is the defect #90 fixed.
+if printf '%s\n' "$ADDED" | grep -Eiq '^\+[^#]*VITE_[A-Z0-9_]*(KEY|SECRET|TOKEN|PASSWORD)[A-Z0-9_]*[[:space:]]*[=:][[:space:]]*[^[:space:]"'"'"']'; then
+    hook_error "A VITE_* secret is being committed with a value."
+    hook_error "Vite inlines these into the browser bundle - every visitor can read them."
+    FAILED=1
+fi
+
+# Non-empty secret values in configuration. Obvious local placeholders are allowed so the committed
+# development defaults stay editable.
+SECRET_ASSIGNMENTS=$(printf '%s\n' "$ADDED" \
+    | grep -Ei '"(SigningKey|SpPrivateKey|ClientSecret|Secret|Password|ApiKey)"[[:space:]]*:[[:space:]]*"[^"]+"' \
+    | grep -Eiv '(change-in-production|^\+[^"]*"(dev|test|example|sample|placeholder|postgres)[^"]*"|"(dev|test|example|sample|placeholder|postgres)-)' \
+    || true)
+
+if [ -n "$SECRET_ASSIGNMENTS" ]; then
+    hook_error "A non-placeholder secret value is being committed in configuration:"
+    printf '%s\n' "$SECRET_ASSIGNMENTS" >&2
+    hook_error "Supply it as an environment variable or deployment secret instead."
+    FAILED=1
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+    hook_error ""
+    hook_error "If this is a false positive, bypass once with:  SKIP_HOOKS=1 git commit ..."
+    exit 1
+fi
+
+# ── 2. Frontend ───────────────────────────────────────────────────────────────
+if paths_touch '^src/frontend/.*\.(ts|tsx|js|jsx)$' $FILES; then
+    require_command npm "the frontend lint step" || exit 1
+    run_step "frontend: eslint" sh -c 'cd src/frontend && npm run --silent lint' || FAILED=1
+fi
+
+# ── 3. Backend ────────────────────────────────────────────────────────────────
+# Compile only. Tests are at pre-push, where the wait is expected.
+if paths_touch '^src/backend/.*\.cs$|^src/backend/.*\.csproj$|^src/backend/.*\.slnx$' $FILES; then
+    require_command dotnet "the backend build step" || exit 1
+    run_step "backend: build" dotnet build src/backend/OpenOnboarding.slnx --nologo -v quiet || FAILED=1
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+    hook_error ""
+    hook_error "Commit aborted. Fix the above, or bypass once with:  SKIP_HOOKS=1 git commit ..."
+    exit 1
+fi
+
+hook_ok "pre-commit checks passed."
