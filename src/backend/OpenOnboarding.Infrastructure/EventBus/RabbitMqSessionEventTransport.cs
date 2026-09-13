@@ -21,19 +21,27 @@ public sealed class RabbitMqSessionEventTransport : ISessionEventTransport
 
     private readonly string _connectionString;
     private readonly string _exchangeName;
+    private readonly string _clientProvidedName;
     private readonly ILogger<RabbitMqSessionEventTransport> _logger;
 
     private IConnection? _connection;
     private IChannel? _channel;
 
+    /// <param name="clientProvidedName">
+    /// Name this connection reports to the broker. Defaults to one naming the host, so the
+    /// management UI identifies which replica owns which queue - without it every replica shows up
+    /// as an anonymous connection and a stuck consumer cannot be traced back to an instance.
+    /// </param>
     public RabbitMqSessionEventTransport(
         string connectionString,
         string exchangeName,
-        ILogger<RabbitMqSessionEventTransport> logger)
+        ILogger<RabbitMqSessionEventTransport> logger,
+        string? clientProvidedName = null)
     {
         _connectionString = connectionString;
         _exchangeName = exchangeName;
         _logger = logger;
+        _clientProvidedName = clientProvidedName ?? $"open-onboarding-session-events:{Environment.MachineName}";
     }
 
     /// <summary>Wire envelope. Kept separate from <see cref="SessionEvent"/> so the session id travels with it.</summary>
@@ -51,9 +59,48 @@ public sealed class RabbitMqSessionEventTransport : ISessionEventTransport
     internal static Envelope? Deserialize(ReadOnlySpan<byte> body)
         => JsonSerializer.Deserialize<Envelope>(body, JsonOptions);
 
+    /// <summary>
+    /// Hands one received message to <paramref name="handler"/>, swallowing anything it or the
+    /// deserialiser throws.
+    /// <para>
+    /// A single malformed or unhandleable message must never tear down the consumer: this channel
+    /// carries every session on this instance, so one poison body would silently stop progress
+    /// reaching every open SSE stream - the exact failure the distributed transport exists to
+    /// prevent. Extracted from the consumer callback so it can be tested without a broker.
+    /// </para>
+    /// </summary>
+    internal static async Task DeliverAsync(
+        ReadOnlyMemory<byte> body,
+        Func<Guid, SessionEvent, Task> handler,
+        ILogger logger)
+    {
+        try
+        {
+            var envelope = Deserialize(body.Span);
+            if (envelope is not null)
+                await handler(envelope.SessionId, envelope.ToSessionEvent());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to deliver a session event received from RabbitMQ.");
+        }
+    }
+
     public async Task StartAsync(Func<Guid, SessionEvent, Task> handler, CancellationToken cancellationToken = default)
     {
-        var factory = new ConnectionFactory { Uri = new Uri(_connectionString) };
+        // Recovery is stated rather than inherited from the client defaults. On a dropped
+        // connection the client reconnects and replays the topology - the exclusive queue, its
+        // binding and the consumer - so delivery resumes without this instance restarting. Left
+        // implicit, a future client default could turn this off and the only symptom would be SSE
+        // streams that stay open and deliver nothing.
+        var factory = new ConnectionFactory
+        {
+            Uri = new Uri(_connectionString),
+            AutomaticRecoveryEnabled = true,
+            TopologyRecoveryEnabled = true,
+            NetworkRecoveryInterval = TimeSpan.FromSeconds(5),
+            ClientProvidedName = _clientProvidedName
+        };
         _connection = await factory.CreateConnectionAsync(cancellationToken);
         _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
 
@@ -71,21 +118,7 @@ public sealed class RabbitMqSessionEventTransport : ISessionEventTransport
             cancellationToken: cancellationToken);
 
         var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += async (_, args) =>
-        {
-            try
-            {
-                var envelope = Deserialize(args.Body.Span);
-                if (envelope is not null)
-                    await handler(envelope.SessionId, envelope.ToSessionEvent());
-            }
-            catch (Exception ex)
-            {
-                // A poison message must not tear down the consumer; the stream stays live for
-                // every other session.
-                _logger.LogError(ex, "Failed to deliver a session event received from RabbitMQ.");
-            }
-        };
+        consumer.ReceivedAsync += (_, args) => DeliverAsync(args.Body, handler, _logger);
 
         await _channel.BasicConsumeAsync(
             queue.QueueName, autoAck: true, consumer, cancellationToken: cancellationToken);

@@ -135,8 +135,25 @@ response carries `applicantToken`, an HMAC-signed JWT the browser sends as
 
 - **Scope.** The token names one session. It is rejected for any other session, and for every
   operator endpoint, including the submissions readout for its own session.
-- **Lifetime.** Defaults to `SessionTimeoutMinutes`. A shorter life only strands applicants
+- **Lifetime.** Defaults to `SessionTimeoutMinutes` (1440), overridable with
+  `Authentication__ApplicantToken__LifetimeMinutes`. A shorter life only strands applicants
   mid-journey; a longer one outlives the session it names, which is abandoned by then anyway.
+- **Renewal.** Step submission returns a fresh `applicantToken` and `applicantTokenExpiresAt`
+  alongside the next step, and the browser stores it in place of the one it held. Activity is what
+  extends the credential, so a journey being worked on never outlives its own token, and there is no
+  separate refresh endpoint to protect. Operators get no token back: their own credential already
+  covers the session.
+- **Terminal sessions.** Once a session is `Completed` or `Abandoned` its token is refused for
+  writes — step submission and `POST /api/analytics/events` both return `403`. Reads still work, so
+  the completion screen renders. This bounds how long a credential left behind on a shared machine
+  stays useful: the visit, not the full lifetime. Operators are unaffected; the rule is about a
+  stale applicant credential, not about who may act on a finished session. Abandoning an already
+  terminal session stays idempotent rather than returning `403`, since it changes nothing.
+- **Clearing.** The browser drops the token from `sessionStorage` when the journey completes.
+- **Expiry, from the applicant's side.** An expired token returns `401`; a token for a finished
+  session returns `403`. The frontend treats both as an expired credential and shows a distinct
+  "your session has expired, start again" state rather than a generic error banner — an expired
+  credential is a dead end, not a fault to retry.
 - **Signing key.** `Authentication__ApplicantToken__SigningKey` must be set outside Development or
   startup fails. All replicas need the same key, or a token issued by one is rejected by another.
   In Development an ephemeral key is generated per process, so tokens stop working on restart.
@@ -167,6 +184,27 @@ Events are stored in the `AnalyticsEvents` table and pruned by a background swee
 `Analytics__RetentionDays`, measured from **write** time rather than the client-reported timestamp,
 which a caller controls. Set `Analytics__DatabaseProvider__Enabled=false` to turn storage off
 entirely; the application keeps working and events go only to the log.
+
+#### Reading one session's trail
+
+The operator console shows a session's trail under **Sessions → (a session) → Event trail**, beside
+its submissions. Submissions say what the applicant entered; the trail says how they got there —
+the order steps were seen in, and the gap between consecutive events, which is what makes a stall
+visible. It reads `GET /api/analytics/sessions/{sessionId}/events` with the admin session cookie,
+and is never requested from the applicant page.
+
+Two empty states are worth recognising when reading it:
+
+- **Server events only.** Client events are self-reported by the applicant's browser and can be
+  absent entirely — an ad blocker or a tab closed before the batch flushed stops them reaching the
+  API. The panel says so. It is not evidence of a fault.
+- **No events at all.** Either none were raised, or they aged past `Analytics__RetentionDays` and
+  were deleted. The two are indistinguishable after the sweep, so the panel names both rather than
+  implying data was lost. Expect this for any session older than the retention window.
+
+Aggregate drop-off in the flow analytics view is still derived from session status and submissions,
+not from this event stream, so per-step timing is currently visible per session but not across a
+flow.
 
 ### SAML Single Sign-On (Admin UI)
 
@@ -423,10 +461,87 @@ A non-Development environment running the in-memory emitter logs a startup warni
 limitation. Events are transient and not persisted: they are only useful to a stream that is open
 at the time, so an instance that was down missed the stream too.
 
+**Connection recovery.** The transport sets `AutomaticRecoveryEnabled` and `TopologyRecoveryEnabled`
+explicitly rather than relying on the RabbitMQ client defaults. On a dropped connection the client
+reconnects, re-declares the exclusive queue and its binding, and re-attaches the consumer, so
+delivery resumes without restarting the instance. This is covered by a test that drops the
+connection from the broker side and asserts events flow again. Each connection reports a name of
+`open-onboarding-session-events:<hostname>`, so the management UI identifies which replica holds
+which queue.
+
+**Testing the transport.** The broker-backed tests skip themselves when nothing is listening, so
+`dotnet test` stays dependency-free. To run them:
+
+```bash
+docker compose up -d rabbitmq
+dotnet test src/backend/OpenOnboarding.Application.Tests
+```
+
+Point them elsewhere with `SESSIONEVENTS__RABBITMQ__URI`. One of them — the recovery test — also
+needs the management API on port 15672, and skips separately if the broker image does not include
+it. CI declares a `rabbitmq:3-management` service container and sets `REQUIRE_BROKER_TESTS=1`, which
+turns a missing broker into a failure rather than a skip: a silently skipped test is a green build
+that proved nothing.
+
 All other state is in PostgreSQL — safe for horizontal scaling.
 
 **Connection pool**: Configure `Maximum Pool Size` in the connection string (default: 100). For multi-instance, ensure total connections < PostgreSQL `max_connections` (default: 100).
 
 ### Rate Limits
 
-Default rate limit: **100 requests per minute per IP** (configurable). Adjust in `Program.cs` `AddRateLimiter()`.
+Every policy is **partitioned per caller**, so one client exhausting its budget does not affect any
+other. Configure the limits under `RateLimiting` in `appsettings.json` or as
+`RateLimiting__<Key>` environment variables.
+
+| Policy | Endpoint | Partitioned by | Setting | Default (per minute) |
+| --- | --- | --- | --- | --- |
+| `session-start` | `POST /api/workflow/sessions/start` | Client IP — the endpoint is anonymous by design | `RateLimiting:SessionStartPerMinute` | 100 |
+| `analytics-ingest` | `POST /api/analytics/events` | Applicant session id from the token; operators fall back to their principal | `RateLimiting:AnalyticsIngestPerMinute` | 120 |
+| `webhook-registration` | `POST /api/flows/{flowId}/webhooks` | Authenticated principal, falling back to client IP | `RateLimiting:WebhookRegistrationPerMinute` | 20 |
+| `general` | every other controller endpoint | Authenticated principal, falling back to client IP | `RateLimiting:GeneralPerMinute` | 300 |
+| global ceiling | every request | nothing — one bucket for the whole instance | `RateLimiting:GlobalCeilingPerMinute` | 3000 |
+
+The global ceiling runs **in addition to** the endpoint policy, so a flood spread across thousands
+of partitions still has a bound. A request rejected by either returns `429` with `Retry-After: 60`.
+
+`general` is the fallback: it is attached to every controller endpoint that does not declare a
+policy of its own, so no part of the API is unlimited. An endpoint naming a specific policy is
+**not** additionally bound by it — the two do not stack, and `session-start` runs under its own
+budget alone. Health check endpoints are outside it entirely, since throttling the endpoint a load
+balancer polls turns a traffic spike into an instance being pulled out of service.
+
+One consequence worth sizing for: callers sharing a credential share a partition. Every integration
+using the same API key spends one `general` budget between them, because the partition key is the
+principal. Give separate integrations separate credentials, or raise the limit to cover them all.
+
+#### Behind a proxy
+
+The partition key is the connection address, which behind a load balancer is the balancer's own
+address — every caller would land in one partition again. `X-Forwarded-For` corrects this, but only
+from a proxy this API trusts; a header from anywhere else is an anonymous caller choosing their own
+partition key, and is ignored.
+
+**Nothing is trusted by default.** The ASP.NET defaults (loopback) are cleared at startup, so
+`X-Forwarded-For` has no effect until you name your proxy:
+
+```jsonc
+"ForwardedHeaders": {
+  "KnownProxies": ["10.1.2.3"],        // individual proxy addresses
+  "KnownNetworks": ["10.0.0.0/8"],     // or CIDR ranges
+  "ForwardLimit": 1                     // hops to walk back; raise only if you have chained proxies
+}
+```
+
+If you deploy behind an ingress and leave this unset, every request partitions by the ingress
+address and the limits behave as global ones. Set it.
+
+#### Multi-replica behaviour
+
+**Limits are per-instance, not cluster-wide.** The limiters hold their counters in process memory,
+so with *N* replicas a caller's effective budget is up to *N* × the configured value, depending on
+which instance each request lands on. This is accepted deliberately, for the same reason as the SSE
+fan-out design: the alternative is a shared counter store on the path of every request.
+
+Size the limits accordingly — divide the budget you actually want by your replica count — and treat
+these as a coarse abuse bound, not a precise quota. A cluster-wide limit belongs at the ingress or
+in a shared store; if you need one, that is where to put it.

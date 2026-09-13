@@ -17,13 +17,17 @@ export interface SessionStepResponse {
   sessionId: string
   isCompleted: boolean
   currentNode: FlowNode | null
-}
-
-/** Session start also returns the credential used for the rest of the journey. */
-export interface SessionStartResponse extends SessionStepResponse {
+  /**
+   * A replacement credential, returned on step submission so a journey still being worked on never
+   * outlives its own token. Absent when an operator submits: their credential already covers the
+   * session.
+   */
   applicantToken?: string | null
   applicantTokenExpiresAt?: string | null
 }
+
+/** Session start also returns the credential used for the rest of the journey. */
+export type SessionStartResponse = SessionStepResponse
 
 export interface StartSessionRequest {
   flowId: string

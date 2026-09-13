@@ -15,6 +15,22 @@ services:
       timeout: 5s
       retries: 10
 
+  # Only needed for multi-replica session event fan-out (SessionEvents:Transport=rabbitmq) and
+  # for the broker-backed tests, which skip themselves when nothing is listening here.
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
   api:
     build: .
     ports:

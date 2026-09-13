@@ -75,10 +75,23 @@ public sealed class WorkflowController(
     public async Task<ActionResult<SessionStepResponse>> SubmitStep([FromRoute] Guid sessionId, [FromRoute] Guid nodeId, [FromBody] SubmitStepRequest request, CancellationToken cancellationToken)
     {
         var session = await sessionAnalyticsService.GetSessionAsync(sessionId, cancellationToken);
-        var authResult = await authorizationService.AuthorizeAsync(User, session, new SessionOwnershipRequirement());
+        var authResult = await authorizationService.AuthorizeAsync(User, session, SessionOwnershipRequirement.Write);
         if (!authResult.Succeeded) return Forbid();
 
         var result = await workflowService.SubmitStepAsync(sessionId, nodeId, request, cancellationToken);
+
+        // Renew on activity. The token is issued once at session start and nothing else extends it,
+        // so a long journey would otherwise reach a live session holding a credential the API no
+        // longer accepts. Renewing here needs no separate refresh endpoint: submitting a step is
+        // the activity that proves the journey is still being worked on.
+        if (!User.IsInRole(AppRoles.Operator)
+            && User.HasClaim(c => c.Type == ApplicantSessionAuthenticationDefaults.SessionIdClaim))
+        {
+            var (token, expiresAt) = applicantTokenService.Issue(sessionId, session?.CustomerProfileId);
+            result.ApplicantToken = token;
+            result.ApplicantTokenExpiresAt = expiresAt;
+        }
+
         return Ok(result);
     }
 
@@ -95,7 +108,7 @@ public sealed class WorkflowController(
     public async Task<ActionResult<SessionStepResponse>> GetNextStep([FromRoute] Guid sessionId, CancellationToken cancellationToken)
     {
         var session = await sessionAnalyticsService.GetSessionAsync(sessionId, cancellationToken);
-        var authResult = await authorizationService.AuthorizeAsync(User, session, new SessionOwnershipRequirement());
+        var authResult = await authorizationService.AuthorizeAsync(User, session, SessionOwnershipRequirement.Read);
         if (!authResult.Succeeded) return Forbid();
 
         var result = await workflowService.GetNextStepAsync(sessionId, cancellationToken);
@@ -117,7 +130,9 @@ public sealed class WorkflowController(
     public async Task<ActionResult<SessionStepResponse>> AbandonSession([FromRoute] Guid sessionId, CancellationToken cancellationToken)
     {
         var session = await sessionAnalyticsService.GetSessionAsync(sessionId, cancellationToken);
-        var authResult = await authorizationService.AuthorizeAsync(User, session, new SessionOwnershipRequirement());
+        // Read, not Write: abandoning an already-terminal session is a documented no-op,
+        // so refusing the token here would break that idempotency without closing anything.
+        var authResult = await authorizationService.AuthorizeAsync(User, session, SessionOwnershipRequirement.Read);
         if (!authResult.Succeeded) return Forbid();
 
         var result = await workflowService.AbandonSessionAsync(sessionId, cancellationToken);
@@ -153,7 +168,7 @@ public sealed class WorkflowController(
     public async Task<ActionResult<SessionDetailDto>> GetSession([FromRoute] Guid sessionId, CancellationToken cancellationToken)
     {
         var session = await sessionAnalyticsService.GetSessionAsync(sessionId, cancellationToken);
-        var authResult = await authorizationService.AuthorizeAsync(User, session, new SessionOwnershipRequirement());
+        var authResult = await authorizationService.AuthorizeAsync(User, session, SessionOwnershipRequirement.Read);
         if (!authResult.Succeeded) return Forbid();
 
         return Ok(session);
@@ -291,7 +306,7 @@ public sealed class WorkflowController(
         // Same ownership rule as every other session endpoint: a credential for one session must
         // not open another session's event stream.
         var session = await sessionAnalyticsService.GetSessionAsync(sessionId, cancellationToken);
-        var authResult = await authorizationService.AuthorizeAsync(User, session, new SessionOwnershipRequirement());
+        var authResult = await authorizationService.AuthorizeAsync(User, session, SessionOwnershipRequirement.Read);
         if (!authResult.Succeeded)
         {
             Response.StatusCode = StatusCodes.Status403Forbidden;

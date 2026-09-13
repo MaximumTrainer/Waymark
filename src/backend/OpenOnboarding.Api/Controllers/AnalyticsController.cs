@@ -6,6 +6,7 @@ using OpenOnboarding.Api.Authorization;
 using OpenOnboarding.Application.Contracts;
 using OpenOnboarding.Application.Interfaces;
 using OpenOnboarding.Domain.Entities;
+using OpenOnboarding.Domain.Enums;
 
 namespace OpenOnboarding.Api.Controllers;
 
@@ -77,6 +78,16 @@ public sealed class AnalyticsController(
             {
                 return Forbid();
             }
+        }
+
+        // A token for a finished journey stops being accepted here. It survives until expiry - up
+        // to a day - and on a shared machine that outlives the visit that created it. Operators are
+        // unaffected: they post for sessions they did not start, finished ones included.
+        if (!isOperator && Guid.TryParse(callerSessionId, out var callerSession))
+        {
+            var session = await sessionAnalyticsService.GetSessionAsync(callerSession, cancellationToken);
+            if (session is not null && session.Status is SessionStatus.Completed or SessionStatus.Abandoned)
+                return Forbid();
         }
 
         foreach (var incoming in request.Events)

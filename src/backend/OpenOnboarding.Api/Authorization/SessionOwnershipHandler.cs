@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using OpenOnboarding.Api.Authentication;
 using OpenOnboarding.Application.Contracts;
+using OpenOnboarding.Domain.Enums;
 
 namespace OpenOnboarding.Api.Authorization;
 
@@ -13,6 +14,14 @@ namespace OpenOnboarding.Api.Authorization;
 public sealed class SessionOwnershipHandler
     : AuthorizationHandler<SessionOwnershipRequirement, SessionDetailDto>
 {
+    /// <summary>
+    /// Statuses after which a journey is over. An applicant token is refused for writes against a
+    /// session in one of these, so the credential stops being useful when the visit ends rather
+    /// than when it expires up to a day later.
+    /// </summary>
+    private static bool IsTerminal(SessionStatus status)
+        => status is SessionStatus.Completed or SessionStatus.Abandoned;
+
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         SessionOwnershipRequirement requirement,
@@ -23,6 +32,9 @@ public sealed class SessionOwnershipHandler
             context.Succeed(requirement);
             return Task.CompletedTask;
         }
+
+        if (requirement.RequiresActiveSession && IsTerminal(resource.Status))
+            return Task.CompletedTask;
 
         // A per-session applicant token names the one session it may act on. This is the path the
         // public onboarding app takes; it does not depend on a customer profile existing.

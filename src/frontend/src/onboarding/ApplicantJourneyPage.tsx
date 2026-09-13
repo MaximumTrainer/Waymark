@@ -16,7 +16,7 @@ import { defaultFlowId } from '../journeys'
  * The journey comes from the link the applicant was sent (`/?flowId=...`), not from a picker.
  */
 export function ApplicantJourneyPage({ search }: { search: string }) {
-  const { step, startSession, submitStep, isLoading, error } = useOnboarding()
+  const { step, startSession, submitStep, isLoading, error, isExpired } = useOnboarding()
   const [visitedNodeIds, setVisitedNodeIds] = useState<Set<string>>(new Set())
 
   const flowId = new URLSearchParams(search).get('flowId') ?? defaultFlowId
@@ -63,7 +63,24 @@ export function ApplicantJourneyPage({ search }: { search: string }) {
         </header>
 
         <section className="space-y-3">
-          {error ? (
+          {isExpired ? (
+            // Shown instead of the error banner, not alongside it: an expired credential is not a
+            // fault to retry past, and the applicant needs the one instruction that works.
+            <div role="alert" className="space-y-2 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-semibold">Your session has expired.</p>
+              <p>
+                For your security, applications left open too long are closed. Please start again.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800"
+              >
+                Start again
+              </button>
+            </div>
+          ) : null}
+          {error && !isExpired ? (
             <p role="alert" className="rounded bg-rose-50 p-3 text-sm text-rose-600">
               {error}
             </p>

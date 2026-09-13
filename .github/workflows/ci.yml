@@ -46,8 +46,29 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      # Carries session events between API replicas. The broker-backed transport tests skip
+      # themselves when nothing is listening, so this is what makes them actually run. The
+      # management plugin is needed by one of them, which drops a connection broker-side to prove
+      # the consumer recovers.
+      rabbitmq:
+        image: rabbitmq:3-management
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_running"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+
     env:
       ConnectionStrings__OnboardingDb: "Host=localhost;Port=5432;Database=onboarding_test;Username=postgres;Password=postgres"
+      SESSIONEVENTS__RABBITMQ__URI: "amqp://guest:guest@localhost:5672/"
+      # A broker exists here, so a missing one must fail the build rather than skip the tests.
+      REQUIRE_BROKER_TESTS: "1"
       PERSONA_REPORT_DIR: ${{ github.workspace }}/persona-report
 
     steps:
@@ -171,6 +192,14 @@ jobs:
 
     env:
       ConnectionStrings__OnboardingDb: "Host=localhost;Port=5432;Database=onboarding_test;Username=postgres;Password=postgres"
+      # These suites drive the API hard from a single address, which is one rate limit partition
+      # now that the "general" policy covers every controller endpoint. Rate limiting has its own
+      # dedicated tests; throttling here would only add flake, so the budgets are lifted to keep
+      # these jobs behaving as they did before the policy was attached.
+      RateLimiting__GeneralPerMinute: "100000"
+      RateLimiting__GlobalCeilingPerMinute: "100000"
+      RateLimiting__SessionStartPerMinute: "100000"
+      RateLimiting__AnalyticsIngestPerMinute: "100000"
 
     steps:
       - uses: actions/checkout@v4
@@ -263,6 +292,14 @@ jobs:
 
     env:
       ConnectionStrings__OnboardingDb: "Host=localhost;Port=5432;Database=onboarding_test;Username=postgres;Password=postgres"
+      # This suite drives the API from a single address, which is one rate limit partition now
+      # that the "general" policy covers every controller endpoint. Rate limiting has its own
+      # dedicated tests; throttling here would only add flake, so the budgets are lifted to keep
+      # this job behaving as it did before the policy was attached.
+      RateLimiting__GeneralPerMinute: "100000"
+      RateLimiting__GlobalCeilingPerMinute: "100000"
+      RateLimiting__SessionStartPerMinute: "100000"
+      RateLimiting__AnalyticsIngestPerMinute: "100000"
 
     steps:
       - uses: actions/checkout@v4
@@ -321,6 +358,14 @@ jobs:
       ASPNETCORE_URLS: http://localhost:5072
       Authentication__ApiKey: playwright-api-key
       Authentication__JwtAuthority: ""
+      # These suites drive the API hard from a single address, which is one rate limit partition
+      # now that the "general" policy covers every controller endpoint. Rate limiting has its own
+      # dedicated tests; throttling here would only add flake, so the budgets are lifted to keep
+      # these jobs behaving as they did before the policy was attached.
+      RateLimiting__GeneralPerMinute: "100000"
+      RateLimiting__GlobalCeilingPerMinute: "100000"
+      RateLimiting__SessionStartPerMinute: "100000"
+      RateLimiting__AnalyticsIngestPerMinute: "100000"
 
     steps:
       - uses: actions/checkout@v4
